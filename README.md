@@ -6,8 +6,8 @@
 3. 중괄호는 개행하기
 4. Struct, Enum는 각 폴더에서 생성
    1. 하나의 헤더에 하나의 Struct, Enum
-   2. Struct는 생성할 때 접두사로 F 붙이기
-   3. Enum은 생성할 때 접두사로 E 붙이기
+   2. Struct는 생성할 때 접미사로 Struct 붙이기
+   3. Enum은 생성할 때 접미사로 Type 붙이기
 5. 생성하는 모든 클래스는 FT 접두사 붙이기 예) FTPlayerController
 
 ## 파일 디렉토리
