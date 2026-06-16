@@ -189,6 +189,7 @@ Build/Android/res/*/*
 Plugins/**/Binaries/*
 Plugins/**/Intermediate/*
 Plugins/**/McpAutomationBridge/*
+Plugins/**/UnrealAgent/*
 
 # Ignore MCP Setting files
 Docs/*
