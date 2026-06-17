@@ -221,4 +221,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+Source/**/*FTTemp*.cpp
+Source/**/*FTTemp*.h
+
 # End of https://www.toptal.com/developers/gitignore/api/unrealengine,rider,c++,windows
