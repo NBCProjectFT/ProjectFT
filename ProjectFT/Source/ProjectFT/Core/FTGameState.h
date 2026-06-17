@@ -5,12 +5,16 @@
 #include "../Enum/FTFlowStateType.h"
 #include "FTGameState.generated.h"
 
+class UFTReportGaugeComponent;
+
 UCLASS()
 class PROJECTFT_API AFTGameState : public AGameStateBase
 {
 	GENERATED_BODY()
 
 public:
+	AFTGameState();
+
 	UPROPERTY(BlueprintReadOnly, Category = "FT|Flow")
 	EFTFlowStateType CurrentFlowState = EFTFlowStateType::Base;
 
@@ -19,6 +23,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "FT|Objective")
 	FName CurrentObjectiveId = NAME_None;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	TObjectPtr<UFTReportGaugeComponent> ReportGaugeComponent;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Security")
 	void SetReportGauge(float NewReportGauge);
