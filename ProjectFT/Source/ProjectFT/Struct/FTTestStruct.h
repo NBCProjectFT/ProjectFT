@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "FTTestStruct.generated.h""
+#include "FTTestStruct.generated.h"
 
 USTRUCT()
 struct FTTestStruct

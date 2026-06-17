@@ -13,4 +13,16 @@ UCLASS()
 class PROJECTFT_API AFTGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
+
+public:
+	virtual void StartPlay() override;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void HandleRaidStart();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void HandleRaidFail();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void HandleRaidEscape();
 };
