@@ -21,7 +21,7 @@ void AFTItemActor::BeginPlay()
 	UpdateAppearance();
 }
 
-bool AFTItemActor::Interact_Implementation(AActor* InInstigator)
+bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 {
 	if (!ItemData ) return false;
 	
