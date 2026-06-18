@@ -22,6 +22,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void Tick(float DeltaTime) override;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UAIPerceptionComponent> SecurityPerceptionComponent;
@@ -42,4 +43,5 @@ public:
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void DrawSightDebug() const;
 };

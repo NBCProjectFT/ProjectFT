@@ -1,16 +1,51 @@
 ﻿
 #include "FTSecurityAIController.h"
+
+#include "DrawDebugHelpers.h"
+#include "Engine/World.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "HAL/IConsoleManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AIPerceptionTypes.h"
 
+// 그저 테스트용
+// TODO: 테스트 완료 후 제거. NPC가 Call 하는 로직으로 변경 예정.
+static FAutoConsoleCommandWithWorld GFTSecurityTestCallCommand(
+	TEXT("ft.Security.TestCall"),
+	TEXT("Broadcasts Event.Security.Called with the first player pawn as TargetActor."),
+	FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
+	{
+		if (!World)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Security AI TestCall: World is null"));
+			return;
+		}
+
+		APawn* PlayerPawn = World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr;
+		if (!PlayerPawn)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Security AI TestCall: PlayerPawn is null"));
+			return;
+		}
+
+		FFTNPCReportPayloadStruct Payload;
+		Payload.TargetActor = PlayerPawn;
+		Payload.ReportLocation = PlayerPawn->GetActorLocation();
+		Payload.ReportAmount = 100.0f;
+		Payload.ReportProgress = 1.0f;
+
+		UGameplayMessageSubsystem::Get(World).BroadcastMessage(TAG_FT_Event_SecurityCalled, Payload);
+		UE_LOG(LogTemp, Log, TEXT("Security AI TestCall: Broadcast Event.Security.Called for %s"), *PlayerPawn->GetName());
+	})
+);
+
 
 AFTSecurityAIController::AFTSecurityAIController()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	
 	SecurityPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("SecurityPerceptionComponent"));
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
@@ -29,14 +64,29 @@ AFTSecurityAIController::AFTSecurityAIController()
 	SetPerceptionComponent(*SecurityPerceptionComponent);
 }
 
+void AFTSecurityAIController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	DrawSightDebug();
+}
+
 void AFTSecurityAIController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Event.Security.Called 메시지가 발행될 때마다 OnSecurityCalled()가 호출됨.
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	SecurityCalledListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_SecurityCalled, 
+		this, 
+		&ThisClass::OnSecurityCalled
+	);
+
 	APawn* ControllPawn = GetPawn();
 	if (!ControllPawn)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Security AI: ControlledPawn is null"));
-		return;
 	}
 	
 	/*
@@ -62,9 +112,6 @@ void AFTSecurityAIController::BeginPlay()
 		SecurityPerceptionComponent->OnTargetPerceptionUpdated.AddDynamic(this, &AFTSecurityAIController::OnTargetPerceptionUpdated);
 	}
 	
-	// Event.Security.Called 메시지가 발행될 때마다 OnSecurityCalled()가 호출됨.
-	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	SecurityCalledListenerHandle = MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityCalled, this, &ThisClass::OnSecurityCalled);
 }
 
 void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
@@ -73,31 +120,34 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 	{
 		return;
 	}
-	
+
 	if (Stimulus.WasSuccessfullySensed())
 	{
-		MoveToActor(TargetActor);
+		MoveToActor(TargetActor, 150.0f);
 		UE_LOG(LogTemp, Log, TEXT("Security AI: Target sensed, chasing"));
+
+		const APawn* ControlledPawn = GetPawn();
+		if (!ControlledPawn)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Security AI: ControlledPawn is null"));
+			return;
+		}
+
+		const float Distance = FVector::Dist(
+			ControlledPawn->GetActorLocation(),
+			TargetActor->GetActorLocation()
+		);
+
+		if (Distance <= 150.0f)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Security AI: Attack range reached"));
+		}
 	}
 	else
 	{
 		const FVector DetectedLocation = Stimulus.StimulusLocation;
 		MoveToLocation(DetectedLocation);
 		UE_LOG(LogTemp, Log, TEXT("Security AI: Target lost, moving to last known location"));
-	}
-	
-	// 공격 로직을 짜기 전, 확인용 임시 코드. 실제 HP 감소는 나중에 연결
-	APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Security AI: ControlledPawn is null"));
-		return;
-	}
-
-	const float Distance = FVector::Dist(ControlledPawn->GetActorLocation(), TargetActor->GetActorLocation());
-	if (Distance <= 150.0f)
-	{
-		UE_LOG(LogTemp, Log, TEXT("Security AI: Attack range reached"));
 	}
 }
 
@@ -114,20 +164,40 @@ void AFTSecurityAIController::StartChase()
 		return;
 	}
 
-	MoveToActor(TargetActor);
+	const EPathFollowingRequestResult::Type MoveResult = MoveToActor(TargetActor, 150.0f);
+	UE_LOG(LogTemp, Log, TEXT("Security AI: MoveToActor result %d"), static_cast<int32>(MoveResult));
 }
 
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
 {
 	if (!Payload.TargetActor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Security AI: Security called but TargetActor is null"));
+		UE_LOG(LogTemp, Warning, TEXT("Security AI: TargetActor is null"));
 		return;
 	}
+
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !SightConfig)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Security AI: ControlledPawn or SightConfig is null"));
+		return;
+	}
+
 	SetTargetActor(Payload.TargetActor);
-	StartChase();
-	
-	UE_LOG(LogTemp, Log, TEXT("Security AI: Security called, chasing %s"), *Payload.TargetActor->GetName());
+
+	const float DistanceToTarget = FVector::Dist(ControlledPawn->GetActorLocation(), Payload.TargetActor->GetActorLocation());
+
+	if (DistanceToTarget <= SightConfig->LoseSightRadius)
+	{
+		StartChase();
+		UE_LOG(LogTemp, Log, TEXT("Security AI: Target in range, chasing %s"), *Payload.TargetActor->GetName());
+		return;
+	}
+
+	const FVector InvestigateLocation = Payload.ReportLocation.IsNearlyZero() ? Payload.TargetActor->GetActorLocation() : Payload.ReportLocation;
+
+	const EPathFollowingRequestResult::Type MoveResult = MoveToLocation(InvestigateLocation, 150.0f);
+	UE_LOG(LogTemp, Log, TEXT("Security AI: Investigating location %s, result %d"), *InvestigateLocation.ToString(), static_cast<int32>(MoveResult));
 }
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -138,4 +208,57 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	Super::EndPlay(EndPlayReason);
+}
+
+// 눈으로 보는 확인용.
+void AFTSecurityAIController::DrawSightDebug() const
+{
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !SightConfig)
+	{
+		return;
+	}
+
+	const FVector EyeLocation = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 80.0f);
+	const FVector Forward = ControlledPawn->GetActorForwardVector();
+	const float ConeHalfAngleRadians = FMath::DegreesToRadians(SightConfig->PeripheralVisionAngleDegrees);
+
+	DrawDebugSphere(
+		GetWorld(),
+		ControlledPawn->GetActorLocation(),
+		SightConfig->SightRadius,
+		32,
+		FColor::Green,
+		false,
+		0.05f,
+		0,
+		1.5f
+	);
+
+	DrawDebugSphere(
+		GetWorld(),
+		ControlledPawn->GetActorLocation(),
+		SightConfig->LoseSightRadius,
+		32,
+		FColor::Yellow,
+		false,
+		0.05f,
+		0,
+		1.5f
+	);
+
+	DrawDebugCone(
+		GetWorld(),
+		EyeLocation,
+		Forward,
+		SightConfig->SightRadius,
+		ConeHalfAngleRadians,
+		ConeHalfAngleRadians,
+		24,
+		FColor::Cyan,
+		false,
+		0.05f,
+		0,
+		2.0f
+	);
 }
