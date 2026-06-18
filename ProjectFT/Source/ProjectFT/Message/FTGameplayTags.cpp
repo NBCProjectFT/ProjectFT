@@ -7,3 +7,9 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemPickedUp, "Event.Item.PickedUp");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ReportGaugeChanged, "Event.ReportGauge.Changed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityCalled, "Event.Security.Called");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ObjectiveCompleted, "Event.Objective.Completed");
+
+
+// WeaponType Tag
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Attack_Melee, "Weapon.Attack.Melee");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Attack_HitScan, "Weapon.Attack.HitScan");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Attack_Projectile, "Weapon.Attack.Projectile");
