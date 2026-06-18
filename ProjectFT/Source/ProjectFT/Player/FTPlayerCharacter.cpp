@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Components/FTPlayerStatComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 
 // Sets default values
@@ -27,7 +28,8 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->bOrientRotationToMovement = false;
-		Movement->MaxWalkSpeed = NormalSpeed;
+		// 초기값(CDO/프리뷰용). 런타임엔 BeginPlay의 ApplyMovementSpeed가 StatComponent의 MoveSpeed로 덮어쓴다.
+		Movement->MaxWalkSpeed = 600.0f;
 
 		// 크라우치(앉기)를 허용하고 앉은 상태의 이동 속도를 설정한다.
 		Movement->GetNavAgentPropertiesRef().bCanCrouch = true;
@@ -48,6 +50,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	// 상호작용 컴포넌트: 시야 라인트레이스로 대상 감지, 키 입력 시 상호작용 명령 전송.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
+
+	// 플레이어 스탯(체력/스태미나/이동속도/손재주) 컴포넌트.
+	StatComponent = CreateDefaultSubobject<UFTPlayerStatComponent>(TEXT("StatComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -60,6 +65,13 @@ void AFTPlayerCharacter::BeginPlay()
 	{
 		Movement->MaxWalkSpeedCrouched = CrouchSpeed;
 	}
+
+	// MoveSpeed 스탯이 바뀌면 MaxWalkSpeed에 반영되도록 바인딩(같은 액터라 언바인드 불필요).
+	if (StatComponent)
+	{
+		StatComponent->OnMoveSpeedChanged.AddDynamic(this, &AFTPlayerCharacter::HandleMoveSpeedChanged);
+	}
+
 	ApplyMovementSpeed();
 
 	// 서 있을 때의 카메라 상대 위치를 앉기 보간의 기준점으로 캐시한다(BP/인스턴스 오버라이드 반영).
@@ -80,6 +92,9 @@ void AFTPlayerCharacter::Tick(float DeltaSeconds)
 		CrouchCameraOffsetZ = FMath::FInterpTo(CrouchCameraOffsetZ, 0.0f, DeltaSeconds, CrouchCameraInterpSpeed);
 		UpdateCrouchCameraOffset();
 	}
+
+	// 스프린트 효과적 상태 갱신 + 스태미나 소모.
+	UpdateSprintState(DeltaSeconds);
 }
 
 void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
@@ -130,16 +145,13 @@ void AFTPlayerCharacter::HandleJumpReleased()
 
 void AFTPlayerCharacter::HandleSprintPressed()
 {
-	// 꾹 누르는 동안 스프린트. 실제 속도 적용은 ApplyMovementSpeed가 담당한다.
+	// 키 상태만 기록한다. 스태미나/크라우치 조건 확인과 실제 속도 적용은 Tick의 UpdateSprintState가 처리.
 	bSprintHeld = true;
-	ApplyMovementSpeed();
 }
 
 void AFTPlayerCharacter::HandleSprintReleased()
 {
-	// 손을 떼면 기본 속도로 복귀한다.
 	bSprintHeld = false;
-	ApplyMovementSpeed();
 }
 
 void AFTPlayerCharacter::HandleCrouchPressed()
@@ -183,11 +195,56 @@ void AFTPlayerCharacter::HandleSkillCheckPressed()
 
 void AFTPlayerCharacter::ApplyMovementSpeed()
 {
-	// 크라우치 상태에서는 CMC가 MaxWalkSpeedCrouched를 사용하므로, 여기서 설정한 값은 선 채로 이동할 때 적용된다.
+	// 기본 이동속도는 StatComponent의 MoveSpeed를 권위값으로 쓰고, 스프린트 중이면 배수를 곱한다.
+	// 크라우치 상태에서는 CMC가 MaxWalkSpeedCrouched를 쓰므로 이 값은 선 채로 이동할 때 적용된다.
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
-		Movement->MaxWalkSpeed = bSprintHeld ? SprintSpeed : NormalSpeed;
+		const float BaseSpeed = StatComponent ? StatComponent->GetMoveSpeed() : 600.0f;
+		Movement->MaxWalkSpeed = bIsSprinting ? BaseSpeed * SprintSpeedMultiplier : BaseSpeed;
 	}
+}
+
+void AFTPlayerCharacter::UpdateSprintState(float DeltaSeconds)
+{
+	if (!StatComponent)
+	{
+		return;
+	}
+
+	// 탈진 해제: 스태미나가 최대치의 SprintResumeStaminaFraction 이상으로 회복되면 다시 스프린트 가능.
+	if (bSprintExhausted && StatComponent->GetStamina() >= StatComponent->GetMaxStamina() * SprintResumeStaminaFraction)
+	{
+		bSprintExhausted = false;
+	}
+
+	// 효과적 스프린트 조건: 키 유지 + 비크라우치 + 비탈진 + 스태미나 잔량.
+	bool bSprinting = bSprintHeld && !bIsCrouched && !bSprintExhausted && StatComponent->GetStamina() > 0.0f;
+
+	// 지상에서 실제로 이동 중일 때만 스태미나를 소모하고, 0이 되면 탈진 처리.
+	const UCharacterMovementComponent* Movement = GetCharacterMovement();
+	const bool bMovingOnGround = Movement && Movement->IsMovingOnGround() && GetVelocity().SizeSquared() > FMath::Square(10.0f);
+	if (bSprinting && bMovingOnGround)
+	{
+		StatComponent->DrainStamina(SprintStaminaCostPerSecond * DeltaSeconds);
+		if (StatComponent->GetStamina() <= 0.0f)
+		{
+			bSprintExhausted = true;
+			bSprinting = false;
+		}
+	}
+
+	// 효과적 스프린트 상태가 바뀌면 속도를 갱신한다.
+	if (bSprinting != bIsSprinting)
+	{
+		bIsSprinting = bSprinting;
+		ApplyMovementSpeed();
+	}
+}
+
+void AFTPlayerCharacter::HandleMoveSpeedChanged(float NewMoveSpeed)
+{
+	// MoveSpeed 스탯 변경(버프/디버프 등)을 즉시 MaxWalkSpeed에 반영한다.
+	ApplyMovementSpeed();
 }
 
 void AFTPlayerCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
@@ -232,7 +289,5 @@ void AFTPlayerCharacter::UpdateCrouchCameraOffset()
 
 bool AFTPlayerCharacter::TryStartTraversal()
 {
-	// TODO: UFTTraversalComponent 연동 시 vault/hurdle/mantle 판정 후 실행 결과를 반환한다.
-	// (Docs/FPS_Traversal_Guide.md 참고)
 	return false;
 }
