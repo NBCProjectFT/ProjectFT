@@ -11,12 +11,13 @@ class PROJECTFT_API AFTSecurityCharacter : public ACharacter
 
 public:
 	AFTSecurityCharacter();
+	
+	UFUNCTION(BlueprintCallable)
+	void SetMoveSpeed(float NewSpeed);
 
 protected:
 	virtual void BeginPlay() override;
 
 public:
-	virtual void Tick(float DeltaTime) override;
-	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 };
