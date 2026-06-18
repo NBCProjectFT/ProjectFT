@@ -26,7 +26,7 @@ public:
 	/** 상호작용 실행. Interactor는 상호작용을 시도한 액터(보통 플레이어 캐릭터). */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "FT|Interaction")
 	bool Interact(AActor* Interactor);
-	virtual void Interact_Implementation(AActor* Interactor) {}
+	virtual bool Interact_Implementation(AActor* Interactor) { return true;}
 
 	/** UI 프롬프트에 표시할 텍스트(예: "열기", "줍기"). 포커스될 때 사용한다. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "FT|Interaction")
