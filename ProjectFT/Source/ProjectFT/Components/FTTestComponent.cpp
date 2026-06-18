@@ -3,7 +3,7 @@
 #include "NativeGameplayTags.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 
-UE_DEFINE_GAMEPLAY_TAG_STATIC(TestTag, "Tests.GenericTag");
+//UE_DEFINE_GAMEPLAY_TAG_STATIC(TestTag, "Tests.GenericTag");
 
 UFTTestComponent::UFTTestComponent()
 {
@@ -19,5 +19,5 @@ void UFTTestComponent::OnComponentDataChanged()
 	// Broadcast 하는 코드
 	FTTestStruct TestStructure;
 	TestStructure.data = data;
-	UGameplayMessageSubsystem::Get(this).BroadcastMessage(TestTag, TestStructure);	
+	//UGameplayMessageSubsystem::Get(this).BroadcastMessage(TestTag, TestStructure);	
 }
