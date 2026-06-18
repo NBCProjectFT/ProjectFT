@@ -33,7 +33,8 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	// 플레이어가 상호작용 키를 누르기 시작 → 채널링 시작(이미 진행 중이면 무시).
-	void StartChannel(AActor* InInteractor);
+	// InWorkSpeedMultiplier: 진행 속도 배수(예: 플레이어 손재주). 1.0 = 기본. 채널 시작 시점에 캡처된다.
+	void StartChannel(AActor* InInteractor, float InWorkSpeedMultiplier = 1.0f);
 
 	// 키를 떼거나 범위를 벗어남 → 채널링 중단(진행도는 유지된다).
 	void StopChannel();
@@ -111,6 +112,9 @@ private:
 	// 현재 채널링 중인 액터(보통 플레이어).
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> Interactor;
+
+	// 진행 속도 배수(채널 시작 시 인터랙터의 손재주 등으로 설정). Progress 증가량에 곱한다.
+	float WorkSpeedMultiplier = 1.0f;
 
 	// 작업 진행도(0..1). 채널링을 멈춰도 유지된다.
 	float Progress = 0.0f;

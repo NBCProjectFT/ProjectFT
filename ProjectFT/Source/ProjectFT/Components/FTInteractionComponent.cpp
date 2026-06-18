@@ -10,6 +10,7 @@
 #include "GameFramework/Pawn.h"
 
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
+#include "ProjectFT/Components/FTPlayerStatComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Interface/FTInteractable.h"
 
@@ -71,7 +72,15 @@ void UFTInteractionComponent::TryInteract()
 	if (UFTChanneledInteractionComponent* Channel = Target->FindComponentByClass<UFTChanneledInteractionComponent>())
 	{
 		SetActiveChannel(Channel);
-		Channel->StartChannel(GetOwner());
+
+		// 플레이어 손재주(StatComponent의 Dexterity)를 작업 속도 배수로 넘긴다(없으면 1.0 기본).
+		float WorkSpeed = 1.0f;
+		if (const UFTPlayerStatComponent* StatComp = GetOwner() ? GetOwner()->FindComponentByClass<UFTPlayerStatComponent>() : nullptr)
+		{
+			WorkSpeed = StatComp->GetDexterity();
+		}
+
+		Channel->StartChannel(GetOwner(), WorkSpeed);
 		return;
 	}
 

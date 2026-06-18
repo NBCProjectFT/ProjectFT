@@ -21,7 +21,8 @@ void UFTChanneledInteractionComponent::TickComponent(float DeltaTime, ELevelTick
 	}
 }
 
-void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor)
+//플레이어가 진열대 털기 시작하는 시점. (채널링 시작.)
+void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor, float InWorkSpeedMultiplier)
 {
 	if (bIsChanneling)
 	{
@@ -29,6 +30,7 @@ void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor)
 	}
 
 	Interactor = InInteractor;
+	WorkSpeedMultiplier = FMath::Max(0.0f, InWorkSpeedMultiplier);
 	bIsChanneling = true;
 	SetComponentTickEnabled(true);
 	ScheduleNextSkillCheck();
@@ -36,6 +38,7 @@ void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor)
 	OnChannelStateChanged.Broadcast(true);
 }
 
+//플레이어가 상호작용 키에서 손을 떼는 경우. (채널링 멈춤.)
 void UFTChanneledInteractionComponent::StopChannel()
 {
 	if (!bIsChanneling)
@@ -45,7 +48,7 @@ void UFTChanneledInteractionComponent::StopChannel()
 
 	bIsChanneling = false;
 
-	// 진행 중이던 스킬체크는 결과 없이 닫는다(중단 패널티는 두지 않음).
+	// 진행 중이던 스킬체크는 결과 없이 닫는다(중단 패널티는 구현 안했음. 미스로 처리하려면 여기에 넣으시면 됩니다.)
 	if (bSkillCheckActive)
 	{
 		bSkillCheckActive = false;
@@ -69,6 +72,7 @@ void UFTChanneledInteractionComponent::NotifySkillCheckInput()
 	EndSkillCheck(EvaluateSkillCheckAtCursor());
 }
 
+//진행도 증가, 스킬체크 돌리기, 스킬체크 간격 계산 등 틱으로 처리해야 하는 로직들.
 void UFTChanneledInteractionComponent::TickChannel(float DeltaTime)
 {
 	// 1) 스킬체크가 떠 있으면 커서를 진행시키고, 입력 없이 끝까지 가면 Miss로 확정.
@@ -91,16 +95,17 @@ void UFTChanneledInteractionComponent::TickChannel(float DeltaTime)
 		}
 	}
 
-	// 3) 진행도는 스킬체크 중에도 계속 증가한다(DBD와 동일).
-	SetProgress(Progress + DeltaTime / RequiredSeconds);
+	// 3) 진행도는 스킬체크 중에도 계속 증가한다(DBD와 동일). 손재주 등 작업 속도 배수를 곱한다.
+	SetProgress(Progress + (DeltaTime / RequiredSeconds) * WorkSpeedMultiplier);
 
-	// 4) 완료 판정.
+	// 4) 100% 되면 완료 판정.
 	if (Progress >= 1.0f)
 	{
 		CompleteChannel();
 	}
 }
 
+//스킬체크 시작. (UI상에 시각적으로 나타나는 지점이 여기)
 void UFTChanneledInteractionComponent::StartSkillCheck()
 {
 	// 성공존이 0..1 안에 완전히 들어오도록 타깃 범위를 클램프한다(경계 잘림 방지 + 반응 시간 확보).
@@ -114,6 +119,7 @@ void UFTChanneledInteractionComponent::StartSkillCheck()
 	OnSkillCheckStarted.Broadcast();
 }
 
+//스킬체크 타겟 위치로부터 오차범위 계산해서 성공실패 등 따지는 함수(스킬체크 시 성공 영역의 너비를 계산한다고 보시면 됩니다.)
 EFTSkillCheckResultType UFTChanneledInteractionComponent::EvaluateSkillCheckAtCursor() const
 {
 	const float Distance = FMath::Abs(SkillCheckCursor - SkillCheckTarget);
@@ -129,16 +135,19 @@ EFTSkillCheckResultType UFTChanneledInteractionComponent::EvaluateSkillCheckAtCu
 	return EFTSkillCheckResultType::Miss;
 }
 
+//성공이든 실패든 스킬체크 끝나는 지점.
 void UFTChanneledInteractionComponent::EndSkillCheck(EFTSkillCheckResultType Result)
 {
 	bSkillCheckActive = false;
 
 	switch (Result)
 	{
+		//스킬체크 Great일 때 실행하고 싶은 로직은 여기 작성
 	case EFTSkillCheckResultType::Great:
 		SetProgress(Progress + GreatProgressBonus);
 		break;
 
+		//스킬체크 Miss일 때 실행하고 싶은 로직은 여기 작성
 	case EFTSkillCheckResultType::Miss:
 		SetProgress(Progress - MissProgressPenalty);
 		if (bMissStopsChannel)
@@ -150,7 +159,7 @@ void UFTChanneledInteractionComponent::EndSkillCheck(EFTSkillCheckResultType Res
 		break;
 
 	default:
-		// Good / None: 진행도 변화 없음.
+		// Good / None: 진행도 변화 없음. 필요하면 위에 Great, Miss처럼 만드시면 됩니다.
 		break;
 	}
 
@@ -161,6 +170,7 @@ void UFTChanneledInteractionComponent::EndSkillCheck(EFTSkillCheckResultType Res
 	ScheduleNextSkillCheck();
 }
 
+//다음 스킬체크 위치 어디에 뜨게 할지 랜덤 돌리는 함수.
 void UFTChanneledInteractionComponent::ScheduleNextSkillCheck()
 {
 	TimeUntilNextSkillCheck = FMath::FRandRange(SkillCheckIntervalMin, SkillCheckIntervalMax);
@@ -169,9 +179,12 @@ void UFTChanneledInteractionComponent::ScheduleNextSkillCheck()
 void UFTChanneledInteractionComponent::SetProgress(float NewProgress)
 {
 	// 연속값이라 UI는 GetProgress()를 매 프레임 폴링(UMG 바인딩)하는 것을 권장한다.
+	// Progress(진행도 비율)가 0~1 벗어나지 않게끔.
 	Progress = FMath::Clamp(NewProgress, 0.0f, 1.0f);
 }
 
+
+//진열대 털기 게이지 다 채웠을 때 완수 로직. 
 void UFTChanneledInteractionComponent::CompleteChannel()
 {
 	Progress = 1.0f;
@@ -189,5 +202,7 @@ void UFTChanneledInteractionComponent::CompleteChannel()
 	UE_LOG(LogFTPlayer, Verbose, TEXT("Channeled interaction completed on '%s'."), *GetNameSafe(GetOwner()));
 
 	OnChannelStateChanged.Broadcast(false);
+	
+	//여기가 실직적으로 완수 로직 발동시키는 곳. 실제 어떤 일이 벌어지는지는 FTLootTable액터에 구현 돼있습니다.
 	OnCompleted.Broadcast();
 }
