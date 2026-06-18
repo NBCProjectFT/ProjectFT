@@ -2,3 +2,13 @@
 
 
 #include "FTPlayerController.h"
+
+void AFTPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	bShowMouseCursor = false;
+
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
+}
