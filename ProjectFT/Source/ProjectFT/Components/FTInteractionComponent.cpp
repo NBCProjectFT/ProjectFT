@@ -9,8 +9,11 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
+
+#include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
-#include "ProjectFT/Components/FTPlayerStatComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Interface/FTInteractable.h"
 
@@ -73,11 +76,14 @@ void UFTInteractionComponent::TryInteract()
 	{
 		SetActiveChannel(Channel);
 
-		// 플레이어 손재주(StatComponent의 Dexterity)를 작업 속도 배수로 넘긴다(없으면 1.0 기본).
+		// 플레이어 손재주(Dexterity 속성)를 작업 속도 배수로 넘긴다(없으면 1.0 기본).
 		float WorkSpeed = 1.0f;
-		if (const UFTPlayerStatComponent* StatComp = GetOwner() ? GetOwner()->FindComponentByClass<UFTPlayerStatComponent>() : nullptr)
+		if (const IAbilitySystemInterface* AbilityOwner = Cast<IAbilitySystemInterface>(GetOwner()))
 		{
-			WorkSpeed = StatComp->GetDexterity();
+			if (UAbilitySystemComponent* ASC = AbilityOwner->GetAbilitySystemComponent())
+			{
+				WorkSpeed = ASC->GetNumericAttribute(UFTAttributeSet::GetDexterityAttribute());
+			}
 		}
 
 		Channel->StartChannel(GetOwner(), WorkSpeed);
