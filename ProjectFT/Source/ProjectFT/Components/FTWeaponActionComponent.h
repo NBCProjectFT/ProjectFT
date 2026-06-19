@@ -21,6 +21,9 @@ public:
 	bool InitializeActions(const UFTWeaponDataAsset* WeaponDataAsset);
 
 	bool StartAction(FGameplayTag ActionTag);
+	void NotifyActionWindowBegin(FGameplayTag ActionTag);
+	void NotifyActionWindowTick(FGameplayTag ActionTag);
+	void NotifyActionWindowEnd(FGameplayTag ActionTag);
 
 private:
 	bool AddAction(const FFTWeaponActionDefinition& Definition);

@@ -34,6 +34,30 @@ bool UFTWeaponActionComponent::StartAction(FGameplayTag ActionTag)
 	return false;
 }
 
+void UFTWeaponActionComponent::NotifyActionWindowBegin(FGameplayTag ActionTag)
+{
+	if (const TObjectPtr<UFTWeaponAction>* Action = Actions.Find(ActionTag))
+	{
+		(*Action)->NotifyWindowBegin();
+	}
+}
+
+void UFTWeaponActionComponent::NotifyActionWindowTick(FGameplayTag ActionTag)
+{
+	if (const TObjectPtr<UFTWeaponAction>* Action = Actions.Find(ActionTag))
+	{
+		(*Action)->NotifyWindowTick();
+	}
+}
+
+void UFTWeaponActionComponent::NotifyActionWindowEnd(FGameplayTag ActionTag)
+{
+	if (const TObjectPtr<UFTWeaponAction>* Action = Actions.Find(ActionTag))
+	{
+		(*Action)->NotifyWindowEnd();
+	}
+}
+
 bool UFTWeaponActionComponent::AddAction(const FFTWeaponActionDefinition& Definition)
 {
 	if (!Definition.ActionTag.IsValid() || !Definition.ActionClass || Actions.Contains(Definition.ActionTag))
