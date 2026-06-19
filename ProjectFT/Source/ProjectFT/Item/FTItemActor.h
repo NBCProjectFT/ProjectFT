@@ -25,7 +25,7 @@ protected:
 	virtual void BeginPlay() override;
 	
 	// IFTInteractable 인터페이스 구현
-	virtual bool Interact_Implementation(AActor* InInstigator) override;
+	virtual bool Interact_Implementation(AActor* Interactor) override;
 
 	/*
 	 * @brief : 아이템 제거 메서드입니다.
