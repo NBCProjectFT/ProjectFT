@@ -2,6 +2,7 @@
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/HorizontalBox.h"
 #include "Components/Image.h"
 #include "Components/ListView.h"
 #include "Components/PanelWidget.h"
@@ -10,6 +11,7 @@
 #include "FTItemSlotListView.h"
 #include "FTUIManagerSubsystem.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 
 void UFTMainHUDWidget::NativeConstruct()
 {
@@ -33,6 +35,8 @@ void UFTMainHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	// TODO Player의 체력이 생기면 Add Listener로 변경
 	UpdateHPBars(InDeltaTime);
 	UpdateStaminaBar(InDeltaTime);
+	
+	// UFTAssetManager::GetAsset();
 }
 
 void UFTMainHUDWidget::UpdateHP(float NewHP)
@@ -81,6 +85,41 @@ void UFTMainHUDWidget::UpdateObjective(const FText& NewObjectiveText)
 	{
 		HUDViewModel->SetObjectiveText(NewObjectiveText);
 	}
+}
+
+int32 UFTMainHUDWidget::GetQuickSlotCount() const
+{
+	return HB_QuickSlot ? HB_QuickSlot->GetChildrenCount() : 0;
+}
+
+UWidget* UFTMainHUDWidget::GetQuickSlotWidget(int32 SlotIndex) const
+{
+	if (!HB_QuickSlot || SlotIndex < 0 || SlotIndex >= HB_QuickSlot->GetChildrenCount())
+	{
+		return nullptr;
+	}
+
+	return HB_QuickSlot->GetChildAt(SlotIndex);
+}
+
+TArray<UWidget*> UFTMainHUDWidget::GetQuickSlotWidgets() const
+{
+	TArray<UWidget*> QuickSlotWidgets;
+
+	if (!HB_QuickSlot)
+	{
+		return QuickSlotWidgets;
+	}
+
+	const int32 SlotCount = HB_QuickSlot->GetChildrenCount();
+	QuickSlotWidgets.Reserve(SlotCount);
+
+	for (int32 SlotIndex = 0; SlotIndex < SlotCount; ++SlotIndex)
+	{
+		QuickSlotWidgets.Add(HB_QuickSlot->GetChildAt(SlotIndex));
+	}
+
+	return QuickSlotWidgets;
 }
 
 void UFTMainHUDWidget::UpdateHPBars(float DeltaTime)

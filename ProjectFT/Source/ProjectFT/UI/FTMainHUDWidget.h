@@ -6,10 +6,12 @@
 #include "FTMainHUDWidget.generated.h"
 
 class UListView;
+class UHorizontalBox;
 class UImage;
 class UMaterialInstanceDynamic;
 class UProgressBar;
 class UTexture2D;
+class UWidget;
 class UUserWidget;
 
 UCLASS()
@@ -40,12 +42,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|HUD")
 	void UpdateObjective(const FText& NewObjectiveText);
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "FT|HUD|QuickSlot")
+	int32 GetQuickSlotCount() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "FT|HUD|QuickSlot")
+	UWidget* GetQuickSlotWidget(int32 SlotIndex) const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "FT|HUD|QuickSlot")
+	TArray<UWidget*> GetQuickSlotWidgets() const;
+
 private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidget))
 	TObjectPtr<UImage> IMG_HPBar = nullptr;
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidget))
 	TObjectPtr<UImage> IMG_StaminaBar = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<UHorizontalBox> HB_QuickSlot = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|HUD|ItemSlot", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
 	int32 DefaultSlotCount = 5;
