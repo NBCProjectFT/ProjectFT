@@ -8,6 +8,7 @@
 #include "FTSecurityAIController.generated.h"
 
 class UAIPerceptionComponent;
+class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class AActor;
 struct FFTNPCReportPayloadStruct;
@@ -25,13 +26,13 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	TObjectPtr<UStateTreeAIComponent> SecurityStateTreeAIComponent;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UAIPerceptionComponent> SecurityPerceptionComponent;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UAISenseConfig_Sight> SightConfig;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
-	TObjectPtr<AActor> TargetActor;
 	
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
@@ -39,6 +40,24 @@ protected:
 public:
 	void SetTargetActor(AActor* NewTargetActor);
 	void StartChase();
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FT|Security")
+	TObjectPtr<AActor> TargetActor;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	FVector InvestigateLocation = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	bool bSecurityCalled = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	bool bHasSeenTarget = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	float AttackRange = 150.0f;
+	
+	UFUNCTION(BlueprintPure, Category = "FT|Security")
+	AActor* GetTargetActor() const;
 	
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;

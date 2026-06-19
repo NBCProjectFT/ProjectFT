@@ -9,6 +9,7 @@ public class ProjectFT : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayTags", "GameplayMessageRuntime", "UMG", "AIModule"});
+		PrivateDependencyModuleNames.AddRange(new string[] { "GameplayStateTreeModule" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
