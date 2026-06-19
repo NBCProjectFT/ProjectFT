@@ -17,10 +17,14 @@ public:
 	void Initialize(UFTWeaponActionComponent* InActionComponent,
 		const FFTWeaponActionDefinition& InDefinition);
 	bool StartAction();
+	virtual void NotifyWindowBegin() {}
+	virtual void NotifyWindowTick() {}
+	virtual void NotifyWindowEnd() {}
 
 	virtual UWorld* GetWorld() const override;
 
 protected:
+	bool PlayAttackMontage() const;
 	virtual bool ExecuteAction() PURE_VIRTUAL(UFTWeaponAction::ExecuteAction, return false;);
 
 	UPROPERTY(Transient)

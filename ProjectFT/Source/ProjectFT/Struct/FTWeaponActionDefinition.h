@@ -5,6 +5,7 @@
 #include "FTWeaponActionDefinition.generated.h"
 
 class UFTWeaponAction;
+class UAnimMontage;
 
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FFTWeaponActionDefinition
@@ -25,4 +26,10 @@ struct PROJECTFT_API FFTWeaponActionDefinition
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Weapon", meta = (ClampMin = "0.0"))
 	float Cooldown = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Weapon")
+	TSoftObjectPtr<UAnimMontage> AttackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Weapon", meta = (ClampMin = "0.01"))
+	float HitWindowDuration = 0.35f;
 };
