@@ -1,14 +1,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
+#include "ProjectFT/Core/GameplayMessageProcessor.h"
 #include "FTEquipmentComponent.generated.h"
 
 class AFTWeaponActor;
 class USceneComponent;
+struct FFTMessagePayloadStruct;
 
 UCLASS(ClassGroup = (FT), meta = (BlueprintSpawnableComponent))
-class PROJECTFT_API UFTEquipmentComponent : public UActorComponent
+class PROJECTFT_API UFTEquipmentComponent : public UGameplayMessageProcessor
 {
 	GENERATED_BODY()
 
@@ -33,6 +34,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void StartListening() override;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Equipment")
 	TSubclassOf<AFTWeaponActor> StartingWeaponClass;
@@ -44,6 +46,9 @@ protected:
 	FTransform WeaponRelativeTransform;
 
 private:
+	void OnPrimaryAttackRequested(
+		FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+
 	USceneComponent* ResolveAttachTarget() const;
 	FName ResolveWeaponSocketName(USceneComponent* AttachTarget) const;
 
