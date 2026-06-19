@@ -50,6 +50,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> SkillCheckAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> UseItemAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> QuickSlot1Action;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> QuickSlot2Action;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> QuickSlot3Action;
+
 private:
 	// Enhanced Input 콜백. 받은 값을 가공 없이 입력 수신자로 넘긴다.
 	void OnMoveTriggered(const FInputActionValue& Value);
@@ -63,10 +75,14 @@ private:
 	void OnInteractStarted(const FInputActionValue& Value);
 	void OnInteractCompleted(const FInputActionValue& Value);
 	void OnSkillCheckStarted(const FInputActionValue& Value);
-	
-	
-	
-	
+	void OnUseItemStarted(const FInputActionValue& Value);
+	void OnQuickSlot1Started(const FInputActionValue& Value);
+	void OnQuickSlot2Started(const FInputActionValue& Value);
+	void OnQuickSlot3Started(const FInputActionValue& Value);
+
+
+
+
 	// 현재 빙의 중인 Pawn(GC 추적용).
 	UPROPERTY(Transient)
 	TObjectPtr<APawn> CachedInputPawn;
