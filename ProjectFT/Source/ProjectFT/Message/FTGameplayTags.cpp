@@ -9,7 +9,15 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityCalled, "Event.Security.Called");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ObjectiveCompleted, "Event.Objective.Completed");
 
 
-// WeaponType Tag
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Attack_Melee, "Weapon.Attack.Melee");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Attack_HitScan, "Weapon.Attack.HitScan");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Attack_Projectile, "Weapon.Attack.Projectile");
+// Action Tag
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Action_Primary, "Weapon.Action.Primary");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Action_Secondary, "Weapon.Action.Secondary");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Action_Reload, "Weapon.Action.Reload");
+
+// Weapon Type Tag
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_Melee, "Weapon.Type.Melee");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_HitScan, "Weapon.Type.HitScan");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_Projectile, "Weapon.Type.Projectile");
+
+
+
