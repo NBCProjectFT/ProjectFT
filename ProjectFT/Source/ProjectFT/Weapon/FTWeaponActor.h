@@ -1,40 +1,34 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "../Item/FTItemActor.h"
+#include "ProjectFT/Interface/FTWeaponSource.h"
 #include "FTWeaponActor.generated.h"
 
-class UFTWeaponManagerComponent;
-class USceneComponent;
-class UStaticMeshComponent;
+class UFTWeaponActionComponent;
+class UFTWeaponDataAsset;
 
 UCLASS(Blueprintable)
-class PROJECTFT_API AFTWeaponActor : public AActor
+class PROJECTFT_API AFTWeaponActor : public AFTItemActor, public IFTWeaponSource
 {
 	GENERATED_BODY()
 
 public:
 	AFTWeaponActor();
 
-	UFUNCTION(BlueprintCallable, Category = "FT|Weapon")
 	void Attack();
 
-	UFUNCTION(BlueprintCallable, Category = "FT|Weapon")
-	bool Equip(FName ItemName);
-
-	UFUNCTION(BlueprintCallable, Category = "FT|Weapon")
-	void UnEquip();
+	virtual FTransform GetWeaponMuzzleTransform() const override;
 
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Weapon")
-	TObjectPtr<USceneComponent> SceneRoot;
+	virtual void BeginPlay() override;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Weapon")
+	TObjectPtr<UFTWeaponDataAsset> WeaponDataAsset;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Weapon")
-	TObjectPtr<UStaticMeshComponent> WeaponMesh;
+	TObjectPtr<UFTWeaponActionComponent> ActionComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Weapon")
-	TObjectPtr<UFTWeaponManagerComponent> AttackComponentManager;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "FT|Weapon")
-	FName EquippedItemName = NAME_None;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Weapon")
+	FName MuzzleSocketName = TEXT("Muzzle");
 };

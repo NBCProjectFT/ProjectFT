@@ -1,40 +1,36 @@
 #include "FTWeaponActor.h"
 
-#include "Components/SceneComponent.h"
-#include "Components/StaticMeshComponent.h"
-#include "ProjectFT/Components/FTWeaponManagerComponent.h"
+#include "ProjectFT/Components/FTWeaponActionComponent.h"
+#include "ProjectFT/Data/FTWeaponDataAsset.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
 
 AFTWeaponActor::AFTWeaponActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
-	SetRootComponent(SceneRoot);
+	ActionComponent = CreateDefaultSubobject<UFTWeaponActionComponent>(TEXT("ActionComponent"));
+}
 
-	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
-	WeaponMesh->SetupAttachment(SceneRoot);
-
-	AttackComponentManager = CreateDefaultSubobject<UFTWeaponManagerComponent>(TEXT("AttackComponentManager"));
+void AFTWeaponActor::BeginPlay()
+{
+	Super::BeginPlay();
+	if (!WeaponDataAsset || !ActionComponent->InitializeActions(WeaponDataAsset))
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s has no valid WeaponDataAsset."), *GetName());
+	}
 }
 
 void AFTWeaponActor::Attack()
 {
-	AttackComponentManager->Attack();
+	ActionComponent->StartAction(TAG_FT_Weapon_Action_Primary);
 }
 
-bool AFTWeaponActor::Equip(FName ItemName)
+FTransform AFTWeaponActor::GetWeaponMuzzleTransform() const
 {
-	if (!AttackComponentManager->SetWeaponData(ItemName))
+	if (MeshComponent && MeshComponent->DoesSocketExist(MuzzleSocketName))
 	{
-		return false;
+		return MeshComponent->GetSocketTransform(MuzzleSocketName, RTS_World);
 	}
 
-	EquippedItemName = ItemName;
-	return true;
-}
-
-void AFTWeaponActor::UnEquip()
-{
-	AttackComponentManager->ClearWeaponData();
-	EquippedItemName = NAME_None;
+	return GetActorTransform();
 }
