@@ -2,6 +2,7 @@
 #include "FTSecurityAIController.h"
 
 #include "DrawDebugHelpers.h"
+#include "Components/StateTreeAIComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "HAL/IConsoleManager.h"
@@ -12,7 +13,7 @@
 #include "Perception/AIPerceptionTypes.h"
 
 // 그저 테스트용
-// TODO: 테스트 완료 후 제거. NPC가 Call 하는 로직으로 변경 예정.
+// TODO: 테스트 완료 후 제거. NPC가 FTReportGaugeComponent애서 Call 하는 로직으로 변경 예정.
 static FAutoConsoleCommandWithWorld GFTSecurityTestCallCommand(
 	TEXT("ft.Security.TestCall"),
 	TEXT("Broadcasts Event.Security.Called with the first player pawn as TargetActor."),
@@ -46,6 +47,8 @@ static FAutoConsoleCommandWithWorld GFTSecurityTestCallCommand(
 AFTSecurityAIController::AFTSecurityAIController()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	
+	SecurityStateTreeAIComponent = CreateDefaultSubobject<UStateTreeAIComponent>(TEXT("SecurityStateTreeAIComponent"));
 	
 	SecurityPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("SecurityPerceptionComponent"));
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
@@ -123,8 +126,9 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 
 	if (Stimulus.WasSuccessfullySensed())
 	{
-		MoveToActor(TargetActor, 150.0f);
-		UE_LOG(LogTemp, Log, TEXT("Security AI: Target sensed, chasing"));
+		bHasSeenTarget = true;
+		// MoveToActor(TargetActor, 150.0f);
+		// UE_LOG(LogTemp, Log, TEXT("Security AI: Target sensed, chasing"));
 
 		const APawn* ControlledPawn = GetPawn();
 		if (!ControlledPawn)
@@ -145,9 +149,10 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 	}
 	else
 	{
-		const FVector DetectedLocation = Stimulus.StimulusLocation;
-		MoveToLocation(DetectedLocation);
-		UE_LOG(LogTemp, Log, TEXT("Security AI: Target lost, moving to last known location"));
+		bHasSeenTarget = false;
+		// const FVector DetectedLocation = Stimulus.StimulusLocation;
+		// MoveToLocation(DetectedLocation);
+		// UE_LOG(LogTemp, Log, TEXT("Security AI: Target lost, moving to last known location"));
 	}
 }
 
@@ -183,21 +188,26 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 		return;
 	}
 
+	bSecurityCalled = true;
 	SetTargetActor(Payload.TargetActor);
+	InvestigateLocation = Payload.ReportLocation.IsNearlyZero() ? Payload.TargetActor->GetActorLocation() : Payload.ReportLocation;
 
 	const float DistanceToTarget = FVector::Dist(ControlledPawn->GetActorLocation(), Payload.TargetActor->GetActorLocation());
 
 	if (DistanceToTarget <= SightConfig->LoseSightRadius)
 	{
-		StartChase();
-		UE_LOG(LogTemp, Log, TEXT("Security AI: Target in range, chasing %s"), *Payload.TargetActor->GetName());
-		return;
+		// StartChase();
+		// UE_LOG(LogTemp, Log, TEXT("Security AI: Target in range, chasing %s"), *Payload.TargetActor->GetName());
+		// return;
 	}
 
-	const FVector InvestigateLocation = Payload.ReportLocation.IsNearlyZero() ? Payload.TargetActor->GetActorLocation() : Payload.ReportLocation;
+	// const EPathFollowingRequestResult::Type MoveResult = MoveToLocation(InvestigateLocation, 150.0f);
+	// UE_LOG(LogTemp, Log, TEXT("Security AI: Investigating location %s, result %d"), *InvestigateLocation.ToString(), static_cast<int32>(MoveResult));
+}
 
-	const EPathFollowingRequestResult::Type MoveResult = MoveToLocation(InvestigateLocation, 150.0f);
-	UE_LOG(LogTemp, Log, TEXT("Security AI: Investigating location %s, result %d"), *InvestigateLocation.ToString(), static_cast<int32>(MoveResult));
+AActor* AFTSecurityAIController::GetTargetActor() const
+{
+	return TargetActor;
 }
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -209,6 +219,8 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 	Super::EndPlay(EndPlayReason);
 }
+
+
 
 // 눈으로 보는 확인용.
 void AFTSecurityAIController::DrawSightDebug() const
@@ -245,6 +257,18 @@ void AFTSecurityAIController::DrawSightDebug() const
 		0.05f,
 		0,
 		1.5f
+	);
+
+	DrawDebugSphere(
+		GetWorld(),
+		ControlledPawn->GetActorLocation(),
+		AttackRange,
+		24,
+		FColor::Red,
+		false,
+		0.05f,
+		0,
+		2.5f
 	);
 
 	DrawDebugCone(
