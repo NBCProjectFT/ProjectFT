@@ -1,55 +1,59 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "ProjectFT/Interface/FTInteractable.h"
 #include "ProjectFT/Struct/FTCraftRecipeStruct.h"
 #include "FTHubWorkbench.generated.h"
 
 class AFTHubStorage;
 class UFTHubCraftTestWidget;
+class UDataTable;
 
 UCLASS()
-class PROJECTFT_API AFTHubWorkbench : public AActor
+class PROJECTFT_API AFTHubWorkbench : public AActor, public IFTInteractable
 {
 	GENERATED_BODY()
 
 public:
 	AFTHubWorkbench();
-	
-	UFUNCTION(BlueprintCallable, Category = "Interaction")
-	void Interact();
+
+	virtual bool Interact_Implementation(AActor* Interactor) override;
+	virtual FText GetInteractionPrompt_Implementation() const override;
 
 	bool CanCraftRecipe(const FTCraftRecipeStruct& Recipe) const;
-
 	UFUNCTION(BlueprintCallable, Category = "Craft")
 	bool TryCraftRecipe(FName RecipeID);
+	
+	UFUNCTION(BlueprintCallable, Category = "Craft|UI")
+	void CloseCraftWidget();
 
 	void GetCraftRecipes(TArray<FTCraftRecipeStruct>& OutRecipes) const;
 
 	AFTHubStorage* GetHubStorage() const;
 
 protected:
-
 	virtual void BeginPlay() override;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Craft")
 	UDataTable* CraftRecipeDataTable;
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Craft")
 	AFTHubStorage* HubStorage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Craft|Test")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Craft|UI")
 	TSubclassOf<UFTHubCraftTestWidget> HubCraftTestWidgetClass;
-
-	virtual void NotifyActorOnClicked(FKey ButtonPressed) override;
+	
+	
 
 private:
+	void OpenCraftWidget(AActor* Interactor);
 	void PrintAllRecipes() const;
 
 	const FTCraftRecipeStruct* FindRecipeByID(FName RecipeID) const;
 
 	UPROPERTY(Transient)
 	UFTHubCraftTestWidget* HubCraftTestWidget;
+	
+	
 };

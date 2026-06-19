@@ -1,10 +1,12 @@
 #include "FTHubWorkbench.h"
 
+#include "Blueprint/UserWidget.h"
 #include "Engine/DataTable.h"
 #include "FTHubStorage.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
-#include "ProjectFT/UI/FTHubCraftTestWidget.h"
+#include "ProjectFT/UI/HubUI/FTHubCraftTestWidget.h"
 
 AFTHubWorkbench::AFTHubWorkbench()
 	: CraftRecipeDataTable(nullptr)
@@ -14,48 +16,76 @@ AFTHubWorkbench::AFTHubWorkbench()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
-void AFTHubWorkbench::Interact()
-{
-	UE_LOG(LogTemp, Warning, TEXT("Hub Workbench Interacted"));
-	PrintAllRecipes();
-}
-
 void AFTHubWorkbench::BeginPlay()
 {
 	Super::BeginPlay();
+}
 
+bool AFTHubWorkbench::Interact_Implementation(AActor* Interactor)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Hub Workbench Interacted"));
+
+	PrintAllRecipes();
+	OpenCraftWidget(Interactor);
+
+	return true;
+}
+
+FText AFTHubWorkbench::GetInteractionPrompt_Implementation() const
+{
+	return FText::FromString(TEXT("작업대 사용"));
+}
+
+void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
+{
 	if (!HubCraftTestWidgetClass)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HubCraftTestWidgetClass is not assigned."));
 		return;
 	}
 
-	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	APlayerController* PlayerController = nullptr;
+
+	if (APawn* InteractorPawn = Cast<APawn>(Interactor))
+	{
+		PlayerController = Cast<APlayerController>(InteractorPawn->GetController());
+	}
+
+	if (!PlayerController)
+	{
+		PlayerController = GetWorld()->GetFirstPlayerController();
+	}
+
 	if (!PlayerController)
 	{
 		return;
 	}
-
-	HubCraftTestWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, HubCraftTestWidgetClass);
-	if (!HubCraftTestWidget)
+	if (HubCraftTestWidget && HubCraftTestWidget->IsInViewport())
 	{
+		CloseCraftWidget();
 		return;
 	}
+	if (!HubCraftTestWidget)
+	{
+		HubCraftTestWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, HubCraftTestWidgetClass);
+		if (!HubCraftTestWidget)
+		{
+			return;
+		}
 
-	HubCraftTestWidget->InitializeCraftTest(this);
-	HubCraftTestWidget->AddToViewport();
-	UE_LOG(LogTemp, Warning, TEXT("Hub Craft Test UI Opened"));
+		HubCraftTestWidget->InitializeCraftTest(this);
+	}
 
-	PlayerController->bShowMouseCursor = true;
-	FInputModeGameAndUI InputMode;
-	InputMode.SetWidgetToFocus(HubCraftTestWidget->TakeWidget());
-	PlayerController->SetInputMode(InputMode);
-}
+	if (!HubCraftTestWidget->IsInViewport())
+	{
+		HubCraftTestWidget->AddToViewport();
 
-void AFTHubWorkbench::NotifyActorOnClicked(FKey ButtonPressed)
-{
-	Super::NotifyActorOnClicked(ButtonPressed);
-	UE_LOG(LogTemp, Warning, TEXT("Hub Workbench Clicked"));
-	Interact();
+		PlayerController->bShowMouseCursor = true;
+
+		FInputModeGameAndUI InputMode;
+		InputMode.SetWidgetToFocus(HubCraftTestWidget->TakeWidget());
+		PlayerController->SetInputMode(InputMode);
+	}
 }
 
 void AFTHubWorkbench::PrintAllRecipes() const
@@ -74,7 +104,9 @@ void AFTHubWorkbench::PrintAllRecipes() const
 				: 0;
 
 			UE_LOG(LogTemp, Warning, TEXT("Required: %s x%d / Owned: %d"),
-				*Ingredient.ItemID.ToString(), Ingredient.Count, OwnedCount);
+				*Ingredient.ItemID.ToString(),
+				Ingredient.Count,
+				OwnedCount);
 		}
 
 		UE_LOG(LogTemp, Warning, TEXT("CanCraft: %s"),
@@ -127,8 +159,28 @@ bool AFTHubWorkbench::TryCraftRecipe(FName RecipeID)
 	}
 
 	HubStorage->AddStorageItem(Recipe->ResultItemID, Recipe->ResultCount);
+
 	UE_LOG(LogTemp, Warning, TEXT("Craft Success: %s"), *RecipeID.ToString());
 	return true;
+}
+
+void AFTHubWorkbench::CloseCraftWidget()
+{
+	if (HubCraftTestWidget && HubCraftTestWidget->IsInViewport())
+	{
+		HubCraftTestWidget->RemoveFromParent();
+	}
+
+	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	PlayerController->bShowMouseCursor = false;
+
+	FInputModeGameOnly InputMode;
+	PlayerController->SetInputMode(InputMode);
 }
 
 void AFTHubWorkbench::GetCraftRecipes(TArray<FTCraftRecipeStruct>& OutRecipes) const
