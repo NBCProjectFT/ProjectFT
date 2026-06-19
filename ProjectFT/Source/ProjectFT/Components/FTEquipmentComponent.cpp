@@ -3,7 +3,10 @@
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Weapon/FTWeaponActor.h"
 
 UFTEquipmentComponent::UFTEquipmentComponent()
@@ -33,6 +36,28 @@ void UFTEquipmentComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UnequipWeapon();
 	Super::EndPlay(EndPlayReason);
+}
+
+void UFTEquipmentComponent::StartListening()
+{
+	Super::StartListening();
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	AddListenerHandle(MessageSubsystem.RegisterListener(
+		TAG_FT_Weapon_Action_Primary,
+		this,
+		&ThisClass::OnPrimaryAttackRequested));
+}
+
+void UFTEquipmentComponent::OnPrimaryAttackRequested(
+	FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	if (Payload.InstigatorActor != GetOwner())
+	{
+		return;
+	}
+
+	AttackPrimary();
 }
 
 bool UFTEquipmentComponent::SpawnAndEquipWeapon(TSubclassOf<AFTWeaponActor> WeaponClass)

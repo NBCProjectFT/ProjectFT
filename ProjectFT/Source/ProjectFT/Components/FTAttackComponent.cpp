@@ -3,8 +3,10 @@
 #include "Components/InputComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "InputCoreTypes.h"
-#include "ProjectFT/Components/FTEquipmentComponent.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "TimerManager.h"
 
 UFTAttackComponent::UFTAttackComponent()
@@ -54,9 +56,15 @@ void UFTAttackComponent::TryBindInput()
 
 void UFTAttackComponent::HandleAttackPressed()
 {
-	if (UFTEquipmentComponent* Equipment = GetOwner()->FindComponentByClass<UFTEquipmentComponent>())
+	AActor* Requester = GetOwner();
+	if (!Requester)
 	{
-		UE_LOG(LogTemp, Log, TEXT("%s received primary attack input."), *GetNameSafe(GetOwner()));
-		Equipment->AttackPrimary();
+		return;
 	}
+
+	FFTMessagePayloadStruct Payload;
+	Payload.InstigatorActor = Requester;
+
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(
+		TAG_FT_Weapon_Action_Primary, Payload);
 }
