@@ -30,7 +30,7 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 	RecipeNameText->SetText(FText::FromName(Recipe.RecipeID));
 	RequiredItemsText->SetText(FText::FromString(RequiredItems));
 	ResultItemText->SetText(FText::FromString(
-		FString::Printf(TEXT("%s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount)));
+		FString::Printf(TEXT("Result: %s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount)));
 
 	const FSlateColor TextColor = RecipeObject->CanCraft()
 		? FSlateColor(FLinearColor::White)

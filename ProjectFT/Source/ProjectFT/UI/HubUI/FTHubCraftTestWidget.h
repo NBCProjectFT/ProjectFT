@@ -39,6 +39,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	UButton* BTN_Craft;
+	
+	UPROPERTY(meta = (BindWidget))
+	UButton* BTN_Close;
 
 private:
 	void RefreshAll();
@@ -55,4 +58,7 @@ private:
 
 	UPROPERTY(Transient)
 	UFTCraftRecipeListObject* SelectedRecipe;
+	
+	UFUNCTION()
+	void HandleCloseClicked();
 };

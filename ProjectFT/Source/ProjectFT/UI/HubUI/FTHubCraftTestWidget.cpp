@@ -24,6 +24,10 @@ void UFTHubCraftTestWidget::NativeConstruct()
 	BTN_Craft->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftClicked);
 	BTN_Craft->SetIsEnabled(false);
 	UpdateSelectedRecipeDetails();
+	if (BTN_Close)
+	{
+		BTN_Close->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
+	}
 }
 
 void UFTHubCraftTestWidget::RefreshAll()
@@ -120,7 +124,7 @@ void UFTHubCraftTestWidget::UpdateSelectedRecipeDetails()
 	TXT_SelectedRecipeName->SetText(FText::FromName(Recipe.RecipeID));
 	TXT_RequiredItems->SetText(FText::FromString(RequiredItems));
 	TXT_ResultItem->SetText(FText::FromString(
-		FString::Printf(TEXT("%s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount)));
+		FString::Printf(TEXT("Result: %s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount)));
 	BTN_Craft->SetIsEnabled(SelectedRecipe->CanCraft());
 }
 
@@ -140,5 +144,13 @@ void UFTHubCraftTestWidget::HandleCraftClicked()
 	if (HubWorkbench->TryCraftRecipe(SelectedRecipe->GetRecipe().RecipeID))
 	{
 		RefreshAll();
+	}
+}
+
+void UFTHubCraftTestWidget::HandleCloseClicked()
+{
+	if (HubWorkbench)
+	{
+		HubWorkbench->CloseCraftWidget();
 	}
 }
