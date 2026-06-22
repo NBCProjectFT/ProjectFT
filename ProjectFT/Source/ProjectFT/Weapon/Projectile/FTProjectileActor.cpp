@@ -36,11 +36,11 @@ AFTProjectileActor::AFTProjectileActor()
 
 void AFTProjectileActor::InitializeProjectile(float InDamage,
 	UAbilitySystemComponent* InSourceAbilitySystem,
-	TSubclassOf<UGameplayEffect> InDamageEffectClass)
+	TSubclassOf<UGameplayEffect> InEffectClass)
 {
 	Damage = FMath::Max(0.0f, InDamage);
 	SourceAbilitySystem = InSourceAbilitySystem;
-	DamageEffectClass = InDamageEffectClass;
+	EffectClass = InEffectClass;
 }
 
 void AFTProjectileActor::BeginPlay()
@@ -65,15 +65,15 @@ void AFTProjectileActor::HandleProjectileHit(UPrimitiveComponent* HitComponent,
 	UAbilitySystemComponent* TargetASC = OtherActor->FindComponentByClass<UAbilitySystemComponent>();
 	if (SourceAbilitySystem && TargetASC)
 	{
-		TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass;
-		if (!EffectClass)
+		TSubclassOf<UGameplayEffect> AppliedEffectClass = EffectClass;
+		if (!AppliedEffectClass)
 		{
-			EffectClass = UFTGE_Damage::StaticClass();
+			AppliedEffectClass = UFTGE_Damage::StaticClass();
 		}
 		FGameplayEffectContextHandle Context = SourceAbilitySystem->MakeEffectContext();
 		Context.AddSourceObject(this);
 		FGameplayEffectSpecHandle Spec = SourceAbilitySystem->MakeOutgoingSpec(
-			EffectClass, 1.0f, Context);
+			AppliedEffectClass, 1.0f, Context);
 		if (Spec.IsValid())
 		{
 			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -Damage);

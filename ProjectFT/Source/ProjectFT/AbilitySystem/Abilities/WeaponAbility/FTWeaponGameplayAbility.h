@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_UseItem.h"
-#include "ProjectFT/Struct/FTWeaponActionDefinition.h"
+#include "ProjectFT/Struct/FTItemActionDefinition.h"
 #include "FTWeaponGameplayAbility.generated.h"
 
 class AFTItemActor;
@@ -40,15 +40,12 @@ protected:
 	virtual bool ShouldEndImmediately() const override { return true; }
 
 	AFTItemActor* GetItemActor() const;
-	const FFTWeaponActionDefinition* GetActionDefinition() const;
+	const FFTItemActionDefinition* GetActionDefinition() const;
 	bool ApplyWeaponDamage(AActor* TargetActor, float Damage) const;
 	void FinishAbility(bool bWasCancelled = false) { FinishItemUse(bWasCancelled); }
 
 	UPROPERTY(Transient)
 	TObjectPtr<AFTItemActor> ActiveItem;
 
-	const FFTWeaponActionDefinition* ActiveDefinition = nullptr;
-
-private:
-	mutable double LastExecutionTime = -DBL_MAX;
+	const FFTItemActionDefinition* ActiveDefinition = nullptr;
 };

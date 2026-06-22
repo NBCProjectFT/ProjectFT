@@ -4,7 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
-#include "ProjectFT/Data/FTWeaponDataAsset.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 
@@ -31,26 +31,20 @@ bool UFTWeaponGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHand
 		return false;
 	}
 
-	const UFTWeaponDataAsset* WeaponData = Item->GetWeaponDataAsset();
-	if (!WeaponData || !Spec)
+	if (!Item->ItemData || !Spec)
 	{
 		return false;
 	}
 
-	const FFTWeaponActionDefinition* Definition = WeaponData->Actions.FindByPredicate(
-		[Spec](const FFTWeaponActionDefinition& Candidate)
+	const FFTItemActionDefinition* Definition = Item->ItemData->Actions.FindByPredicate(
+		[Spec](const FFTItemActionDefinition& Candidate)
 		{
-			return Spec->GetDynamicSpecSourceTags().HasTagExact(Candidate.ActionTag);
+			const FGameplayTag ActionTag = Candidate.ActionTag.IsValid()
+				? Candidate.ActionTag
+				: TAG_FT_Weapon_Action_Primary;
+			return Spec->GetDynamicSpecSourceTags().HasTagExact(ActionTag);
 		});
-	if (!Definition)
-	{
-		return false;
-	}
-
-	const UWorld* World = ActorInfo->AvatarActor.IsValid()
-		? ActorInfo->AvatarActor->GetWorld()
-		: nullptr;
-	return World && World->GetTimeSeconds() >= LastExecutionTime + Definition->Cooldown;
+	return Definition != nullptr;
 }
 
 bool UFTWeaponGameplayAbility::PrepareItemUse()
@@ -66,7 +60,6 @@ bool UFTWeaponGameplayAbility::ExecuteItemUse()
 	{
 		return false;
 	}
-	LastExecutionTime = GetWorld() ? GetWorld()->GetTimeSeconds() : LastExecutionTime;
 	return true;
 }
 
@@ -90,23 +83,25 @@ AFTItemActor* UFTWeaponGameplayAbility::GetItemActor() const
 	return Spec ? Cast<AFTItemActor>(Spec->SourceObject.Get()) : nullptr;
 }
 
-const FFTWeaponActionDefinition* UFTWeaponGameplayAbility::GetActionDefinition() const
+const FFTItemActionDefinition* UFTWeaponGameplayAbility::GetActionDefinition() const
 {
 	const AFTItemActor* Item = ActiveItem ? ActiveItem.Get() : GetItemActor();
 	const UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
 	const FGameplayAbilitySpec* Spec = ASC
 		? ASC->FindAbilitySpecFromHandle(GetCurrentAbilitySpecHandle())
 		: nullptr;
-	const UFTWeaponDataAsset* WeaponData = Item ? Item->GetWeaponDataAsset() : nullptr;
-	if (!WeaponData || !Spec)
+	if (!Item || !Item->ItemData || !Spec)
 	{
 		return nullptr;
 	}
 
-	return WeaponData->Actions.FindByPredicate(
-		[Spec](const FFTWeaponActionDefinition& Definition)
+	return Item->ItemData->Actions.FindByPredicate(
+		[Spec](const FFTItemActionDefinition& Definition)
 		{
-			return Spec->GetDynamicSpecSourceTags().HasTagExact(Definition.ActionTag);
+			const FGameplayTag ActionTag = Definition.ActionTag.IsValid()
+				? Definition.ActionTag
+				: TAG_FT_Weapon_Action_Primary;
+			return Spec->GetDynamicSpecSourceTags().HasTagExact(ActionTag);
 		});
 }
 
@@ -126,7 +121,7 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor, float Dama
 	UAbilitySystemComponent* TargetASC = TargetActor->FindComponentByClass<UAbilitySystemComponent>();
 	if (SourceASC && TargetASC && ActiveDefinition)
 	{
-		TSubclassOf<UGameplayEffect> EffectClass = ActiveDefinition->DamageEffectClass;
+		TSubclassOf<UGameplayEffect> EffectClass = ActiveDefinition->EffectClass;
 		if (!EffectClass)
 		{
 			EffectClass = UFTGE_Damage::StaticClass();

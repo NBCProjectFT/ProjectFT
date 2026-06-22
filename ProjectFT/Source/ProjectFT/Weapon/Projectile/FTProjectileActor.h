@@ -19,7 +19,7 @@ public:
 	AFTProjectileActor();
 	void InitializeProjectile(float InDamage,
 		UAbilitySystemComponent* InSourceAbilitySystem = nullptr,
-		TSubclassOf<UGameplayEffect> InDamageEffectClass = nullptr);
+		TSubclassOf<UGameplayEffect> InEffectClass = nullptr);
 
 protected:
 	virtual void BeginPlay() override;
@@ -44,5 +44,5 @@ protected:
 	TObjectPtr<UAbilitySystemComponent> SourceAbilitySystem;
 
 	UPROPERTY(Transient)
-	TSubclassOf<UGameplayEffect> DamageEffectClass;
+	TSubclassOf<UGameplayEffect> EffectClass;
 };

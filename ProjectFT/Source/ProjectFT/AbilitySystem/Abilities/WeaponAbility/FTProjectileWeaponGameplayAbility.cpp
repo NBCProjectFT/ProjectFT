@@ -65,7 +65,7 @@ bool UFTProjectileWeaponGameplayAbility::ExecuteWeaponAction()
 	}
 
 	Projectile->InitializeProjectile(ActiveDefinition->Damage,
-		GetAbilitySystemComponentFromActorInfo(), ActiveDefinition->DamageEffectClass);
+		GetAbilitySystemComponentFromActorInfo(), ActiveDefinition->EffectClass);
 	UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
 	return true;
 }

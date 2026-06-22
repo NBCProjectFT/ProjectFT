@@ -9,13 +9,29 @@
 #include "Net/UnrealNetwork.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
-#include "ProjectFT/Data/FTWeaponDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
-#include "ProjectFT/AbilitySystem/Abilities/FTHitScanWeaponGameplayAbility.h"
-#include "ProjectFT/AbilitySystem/Abilities/FTMeleeWeaponGameplayAbility.h"
-#include "ProjectFT/AbilitySystem/Abilities/FTProjectileWeaponGameplayAbility.h"
-#include "ProjectFT/AbilitySystem/Abilities/FTWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTHitScanWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTMeleeWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTProjectileWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTWeaponGameplayAbility.h"
+
+namespace
+{
+FGameplayTag ResolveInputTag(const FFTItemActionDefinition& Action)
+{
+	return Action.InputTag.IsValid() ? Action.InputTag : TAG_FT_Input_Item_Primary;
+}
+
+FGameplayTag ResolveActionTag(const FFTItemActionDefinition& Action)
+{
+	if (Action.ActionTag.IsValid())
+	{
+		return Action.ActionTag;
+	}
+	return TAG_FT_Weapon_Action_Primary;
+}
+}
 
 UFTQuickSlotComponent::UFTQuickSlotComponent()
 {
@@ -141,9 +157,16 @@ bool UFTQuickSlotComponent::UseSelectedItem()
 		return false;
 	}
 
-	const FGameplayTag ActionTag = ItemData->WeaponDataAsset
-		? TAG_FT_Weapon_Action_Primary
-		: ItemData->PrimaryUseTag;
+	const FFTItemActionDefinition* Action = ItemData->Actions.FindByPredicate(
+		[](const FFTItemActionDefinition& Candidate)
+		{
+			return ResolveInputTag(Candidate).MatchesTagExact(TAG_FT_Input_Item_Primary);
+		});
+	if (!Action)
+	{
+		return false;
+	}
+	const FGameplayTag ActionTag = ResolveActionTag(*Action);
 	const FGameplayAbilitySpecHandle Handle = FindSelectedAbilityHandle(ActionTag);
 	return Handle.IsValid() && AbilitySystemComponent->TryActivateAbility(Handle);
 }
@@ -314,58 +337,38 @@ bool UFTQuickSlotComponent::GrantSelectedItemAbilities()
 	{
 		return true;
 	}
-	return ItemData->WeaponDataAsset
-		? GrantWeaponAbilities(ItemData->WeaponDataAsset)
-		: GrantGenericItemAbility(ItemData);
+	return GrantItemActions(ItemData);
 }
 
-bool UFTQuickSlotComponent::GrantGenericItemAbility(UFTItemDataAsset* ItemData)
-{
-	const TSubclassOf<UGameplayAbility> AbilityClass = ResolveAbilityClass(ItemData);
-	if (!ItemData || !AbilityClass || !ItemData->PrimaryUseTag.IsValid())
-	{
-		return false;
-	}
-
-	FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, EquippedItemActor);
-	Spec.GetDynamicSpecSourceTags().AddTag(TAG_FT_Input_Item_Primary);
-	Spec.GetDynamicSpecSourceTags().AddTag(ItemData->PrimaryUseTag);
-	const FGameplayAbilitySpecHandle Handle = AbilitySystemComponent->GiveAbility(Spec);
-	if (Handle.IsValid())
-	{
-		GrantedAbilityHandles.Add(ItemData->PrimaryUseTag, Handle);
-	}
-	return Handle.IsValid();
-}
-
-bool UFTQuickSlotComponent::GrantWeaponAbilities(const UFTWeaponDataAsset* WeaponData)
+bool UFTQuickSlotComponent::GrantItemActions(UFTItemDataAsset* ItemData)
 {
 	AFTItemActor* ItemActor = EquippedItemActor;
-	if (!WeaponData || !ItemActor)
+	if (!ItemData || !ItemActor)
 	{
 		return false;
 	}
 
-	for (const FFTWeaponActionDefinition& Definition : WeaponData->Actions)
+	for (const FFTItemActionDefinition& Action : ItemData->Actions)
 	{
-		TSubclassOf<UFTWeaponGameplayAbility> AbilityClass = Definition.AbilityClass;
+		const FGameplayTag InputTag = ResolveInputTag(Action);
+		const FGameplayTag ActionTag = ResolveActionTag(Action);
+		TSubclassOf<UGameplayAbility> AbilityClass = Action.AbilityClass;
 		if (!AbilityClass)
 		{
 			AbilityClass = ResolveDefaultWeaponAbilityClass(GetActiveItemData());
 		}
-		if (!Definition.ActionTag.IsValid() || !AbilityClass ||
-			GrantedAbilityHandles.Contains(Definition.ActionTag))
+		if (!AbilityClass || GrantedAbilityHandles.Contains(ActionTag))
 		{
 			continue;
 		}
 
 		FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, ItemActor);
-		Spec.GetDynamicSpecSourceTags().AddTag(TAG_FT_Input_Item_Primary);
-		Spec.GetDynamicSpecSourceTags().AddTag(Definition.ActionTag);
+		Spec.GetDynamicSpecSourceTags().AddTag(InputTag);
+		Spec.GetDynamicSpecSourceTags().AddTag(ActionTag);
 		const FGameplayAbilitySpecHandle Handle = AbilitySystemComponent->GiveAbility(Spec);
 		if (Handle.IsValid())
 		{
-			GrantedAbilityHandles.Add(Definition.ActionTag, Handle);
+			GrantedAbilityHandles.Add(ActionTag, Handle);
 		}
 	}
 	return !GrantedAbilityHandles.IsEmpty();
@@ -382,18 +385,6 @@ void UFTQuickSlotComponent::RemoveSelectedItemAbilities()
 		}
 	}
 	GrantedAbilityHandles.Empty();
-}
-
-TSubclassOf<UGameplayAbility> UFTQuickSlotComponent::ResolveAbilityClass(
-	const UFTItemDataAsset* ItemData) const
-{
-	if (!ItemData || !ItemData->PrimaryUseTag.IsValid() ||
-		!ItemData->ItemTags.HasTagExact(ItemData->PrimaryUseTag))
-	{
-		return nullptr;
-	}
-
-	return ItemData->UseAbilityClass;
 }
 
 TSubclassOf<UFTWeaponGameplayAbility> UFTQuickSlotComponent::ResolveDefaultWeaponAbilityClass(
