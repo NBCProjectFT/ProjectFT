@@ -1,0 +1,14 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "ProjectFT/Weapon/Ability/FTWeaponGameplayAbility.h"
+#include "FTProjectileWeaponGameplayAbility.generated.h"
+
+UCLASS()
+class PROJECTFT_API UFTProjectileWeaponGameplayAbility : public UFTWeaponGameplayAbility
+{
+	GENERATED_BODY()
+
+protected:
+	virtual bool ExecuteWeaponAction() override;
+};

@@ -1,12 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "../Item/FTItemActor.h"
 #include "FTWeaponActor.generated.h"
 
-class UFTWeaponActionComponent;
 class UFTWeaponDataAsset;
 class UCapsuleComponent;
+struct FFTWeaponActionDefinition;
 
 UCLASS(Blueprintable)
 class PROJECTFT_API AFTWeaponActor : public AFTItemActor
@@ -16,8 +17,8 @@ class PROJECTFT_API AFTWeaponActor : public AFTItemActor
 public:
 	AFTWeaponActor();
 
-	void Attack();
-	UFTWeaponActionComponent* GetActionComponent() const { return ActionComponent; }
+	const UFTWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; }
+	const FFTWeaponActionDefinition* FindActionDefinition(FGameplayTag ActionTag) const;
 
 	FTransform GetWeaponMuzzleTransform() const;
 	UCapsuleComponent* GetMeleeHitComponent() const { return MeleeHitCapsule; }
@@ -29,9 +30,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Weapon")
 	TObjectPtr<UFTWeaponDataAsset> WeaponDataAsset;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Weapon")
-	TObjectPtr<UFTWeaponActionComponent> ActionComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Weapon")
 	TObjectPtr<UCapsuleComponent> MeleeHitCapsule;

@@ -2,6 +2,7 @@
 
 #include "FTPlayerCharacter.h"
 
+#include "AbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -53,12 +54,22 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	// 플레이어 스탯(체력/스태미나/이동속도/손재주) 컴포넌트.
 	StatComponent = CreateDefaultSubobject<UFTPlayerStatComponent>(TEXT("StatComponent"));
+
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(
+		TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true);
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 }
 
 // Called when the game starts or when spawned
 void AFTPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
 
 	// 디자이너가 BP/인스턴스에서 조정한 이동 속도 값을 런타임에 반영한다.
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())

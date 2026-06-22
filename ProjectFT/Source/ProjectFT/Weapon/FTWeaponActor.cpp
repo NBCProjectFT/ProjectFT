@@ -2,15 +2,13 @@
 
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "ProjectFT/Components/FTWeaponActionComponent.h"
 #include "ProjectFT/Data/FTWeaponDataAsset.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 
 AFTWeaponActor::AFTWeaponActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
-
-	ActionComponent = CreateDefaultSubobject<UFTWeaponActionComponent>(TEXT("ActionComponent"));
+	bReplicates = true;
+	SetReplicateMovement(false);
 
 	MeleeHitCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("MeleeHitCapsule"));
 	MeleeHitCapsule->SetupAttachment(MeshComponent);
@@ -23,15 +21,10 @@ void AFTWeaponActor::BeginPlay()
 	Super::BeginPlay();
 	ConfigureMeleeHitCapsule();
 
-	if (!WeaponDataAsset || !ActionComponent->InitializeActions(WeaponDataAsset))
+	if (!WeaponDataAsset || WeaponDataAsset->Actions.IsEmpty())
 	{
 		UE_LOG(LogTemp, Error, TEXT("%s has no valid WeaponDataAsset."), *GetName());
 	}
-}
-
-void AFTWeaponActor::Attack()
-{
-	ActionComponent->StartAction(TAG_FT_Weapon_Action_Primary);
 }
 
 void AFTWeaponActor::ConfigureMeleeHitCapsule()
@@ -93,4 +86,18 @@ FTransform AFTWeaponActor::GetWeaponMuzzleTransform() const
 	}
 
 	return GetActorTransform();
+}
+
+const FFTWeaponActionDefinition* AFTWeaponActor::FindActionDefinition(FGameplayTag ActionTag) const
+{
+	if (!WeaponDataAsset || !ActionTag.IsValid())
+	{
+		return nullptr;
+	}
+
+	return WeaponDataAsset->Actions.FindByPredicate(
+		[ActionTag](const FFTWeaponActionDefinition& Definition)
+		{
+			return Definition.ActionTag.MatchesTagExact(ActionTag);
+		});
 }

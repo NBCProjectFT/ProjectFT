@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystemInterface.h"
 #include "GameFramework/Character.h"
 #include "ProjectFT/Interface/FTDamageable.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
@@ -11,9 +12,11 @@
 class UCameraComponent;
 class UFTInteractionComponent;
 class UFTPlayerStatComponent;
+class UAbilitySystemComponent;
 
 UCLASS()
-class PROJECTFT_API AFTPlayerCharacter : public ACharacter, public IFTDamageable, public IFTInputInterface
+class PROJECTFT_API AFTPlayerCharacter : public ACharacter, public IAbilitySystemInterface,
+	public IFTDamageable, public IFTInputInterface
 {
 	GENERATED_BODY()
 
@@ -22,6 +25,10 @@ public:
 	AFTPlayerCharacter();
 	
 	virtual void Tick(float DeltaSeconds) override;
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override
+	{
+		return AbilitySystemComponent;
+	}
 
 	//~ Begin IFTInputInterface
 	// 컨트롤러가 정규화해 넘긴 입력으로 실제 이동/시점/점프 로직을 실행한다. (인풋 일괄 관리를 위해 컨트롤러에 구현)
@@ -65,6 +72,9 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Stat", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTPlayerStatComponent> StatComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|GAS", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
 
 	
 	

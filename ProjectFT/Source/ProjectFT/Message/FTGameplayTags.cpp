@@ -19,5 +19,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_Melee, "Weapon.Type.Melee");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_HitScan, "Weapon.Type.HitScan");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_Projectile, "Weapon.Type.Projectile");
 
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Damage, "Data.Damage");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Weapon_Attacking, "State.Weapon.Attacking");
+
 
 
