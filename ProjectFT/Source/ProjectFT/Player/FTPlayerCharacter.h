@@ -13,7 +13,7 @@ class UCameraComponent;
 class UFTInteractionComponent;
 class UAbilitySystemComponent;
 class UFTAttributeSet;
-class UGameplayEffect;
+class UFTGA_UseItem;
 struct FOnAttributeChangeData;
 
 UCLASS()
@@ -75,10 +75,10 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UFTAttributeSet> AttributeSet;
 
-	// [Mock] 퀵슬롯 — 각 슬롯에 적용할 GameplayEffect 클래스(예: 0=SpeedBuff, 1=Heal, 2=Poison).
-	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 자신에게 GE를 적용하는 임시 슬롯이다.
+	// [Mock] 퀵슬롯 — 각 슬롯의 아이템 사용 어빌리티 클래스(UFTGA_UseItem 파생, 효과/시전시간/쿨다운을 어빌리티가 보유).
+	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 해당 어빌리티를 활성화하는 임시 슬롯이다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
-	TArray<TSubclassOf<UGameplayEffect>> MockQuickSlots;
+	TArray<TSubclassOf<UFTGA_UseItem>> MockQuickSlots;
 
 	// [Mock] 현재 선택된 퀵슬롯 인덱스. 추후 '손에 든 아이템'으로 대체된다.
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
