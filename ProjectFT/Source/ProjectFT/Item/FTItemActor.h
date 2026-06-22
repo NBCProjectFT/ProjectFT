@@ -9,8 +9,7 @@
 class UFTItemDataAsset;
 class UStaticMeshComponent;
 class UCapsuleComponent;
-class UFTWeaponDataAsset;
-struct FFTWeaponActionDefinition;
+struct FFTItemActionDefinition;
 
 UCLASS()
 class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
@@ -20,8 +19,7 @@ class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
 public:
 	AFTItemActor();
 	void InitializeFromItemData(UFTItemDataAsset* InItemData);
-	const UFTWeaponDataAsset* GetWeaponDataAsset() const;
-	const FFTWeaponActionDefinition* FindActionDefinition(FGameplayTag ActionTag) const;
+	const FFTItemActionDefinition* FindActionDefinition(FGameplayTag ActionTag) const;
 	FTransform GetMuzzleTransform() const;
 	UCapsuleComponent* GetMeleeHitComponent() const { return MeleeHitCapsule; }
 

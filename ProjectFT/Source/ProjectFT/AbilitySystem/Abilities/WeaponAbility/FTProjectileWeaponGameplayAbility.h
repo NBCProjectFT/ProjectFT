@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ProjectFT/AbilitySystem/Abilities/FTWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTWeaponGameplayAbility.h"
 #include "FTProjectileWeaponGameplayAbility.generated.h"
 
 UCLASS()

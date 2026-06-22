@@ -11,7 +11,6 @@ class UAbilitySystemComponent;
 class UFTItemDataAsset;
 class UGameplayAbility;
 class UFTWeaponGameplayAbility;
-class UFTWeaponDataAsset;
 
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FFTQuickSlotEntry
@@ -32,7 +31,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FActiveQuickSlotChangedSignature);
 
 /**
  * Owns four item shortcuts. It selects/equips an item and grants the GAS ability
- * mapped from the item's PrimaryUseTag. Inventory ownership can replace the
+ * mapped from the item's action definitions. Inventory ownership can replace the
  * temporary ItemData/Quantity entries later without changing input flow.
  */
 UCLASS(ClassGroup = (FT), meta = (BlueprintSpawnableComponent))
@@ -127,10 +126,8 @@ private:
 	bool EquipSelectedItem();
 	void UnequipCurrentItem();
 	bool GrantSelectedItemAbilities();
-	bool GrantGenericItemAbility(UFTItemDataAsset* ItemData);
-	bool GrantWeaponAbilities(const UFTWeaponDataAsset* WeaponData);
+	bool GrantItemActions(UFTItemDataAsset* ItemData);
 	void RemoveSelectedItemAbilities();
-	TSubclassOf<UGameplayAbility> ResolveAbilityClass(const UFTItemDataAsset* ItemData) const;
 	TSubclassOf<UFTWeaponGameplayAbility> ResolveDefaultWeaponAbilityClass(
 		const UFTItemDataAsset* ItemData) const;
 	FGameplayAbilitySpecHandle FindSelectedAbilityHandle(FGameplayTag ActionTag) const;

@@ -10,6 +10,7 @@
 #include "ProjectFT/Components/FTQuickSlotComponent.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
 
 UFTGA_UseItem::UFTGA_UseItem()
 {
@@ -123,8 +124,8 @@ void UFTGA_UseItem::ApplyCooldown(const FGameplayAbilitySpecHandle Handle,
 
 void UFTGA_UseItem::OnItemConsumed()
 {
-	const UFTItemDataAsset* ItemData = GetItemData();
-	if (ItemData && !ItemData->bConsumeOnUse)
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	if (!Action || !Action->bConsumeOnUse)
 	{
 		return;
 	}
@@ -137,6 +138,28 @@ void UFTGA_UseItem::OnItemConsumed()
 			QuickSlot->ConsumeSelectedItem(1);
 		}
 	}
+}
+
+const FFTItemActionDefinition* UFTGA_UseItem::GetItemActionDefinition() const
+{
+	const UFTItemDataAsset* ItemData = GetItemData();
+	const UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	const FGameplayAbilitySpec* Spec = ASC
+		? ASC->FindAbilitySpecFromHandle(GetCurrentAbilitySpecHandle())
+		: nullptr;
+	if (!ItemData || !Spec)
+	{
+		return nullptr;
+	}
+
+	return ItemData->Actions.FindByPredicate(
+		[Spec](const FFTItemActionDefinition& Action)
+		{
+			const FGameplayTag ActionTag = Action.ActionTag.IsValid()
+				? Action.ActionTag
+				: TAG_FT_Weapon_Action_Primary;
+			return Spec->GetDynamicSpecSourceTags().HasTagExact(ActionTag);
+		});
 }
 
 const UFTItemDataAsset* UFTGA_UseItem::GetItemData() const
@@ -155,34 +178,34 @@ const UFTItemDataAsset* UFTGA_UseItem::GetItemData() const
 
 float UFTGA_UseItem::GetUseCastTime() const
 {
-	const UFTItemDataAsset* ItemData = GetItemData();
-	return ItemData ? ItemData->UseCastTime : CastTimeSeconds;
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	return Action ? Action->CastTime : CastTimeSeconds;
 }
 
 float UFTGA_UseItem::GetUseCooldown() const
 {
-	const UFTItemDataAsset* ItemData = GetItemData();
-	return ItemData ? ItemData->UseCooldown : CooldownSeconds;
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	return Action ? Action->Cooldown : CooldownSeconds;
 }
 
 TSubclassOf<UGameplayEffect> UFTGA_UseItem::GetUseEffectClass() const
 {
-	const UFTItemDataAsset* ItemData = GetItemData();
-	return ItemData && ItemData->UseEffectClass
-		? ItemData->UseEffectClass
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	return Action && Action->EffectClass
+		? Action->EffectClass
 		: ItemEffect;
 }
 
 bool UFTGA_UseItem::PlayItemMontage()
 {
 	PlayedMontageDuration = 0.0f;
-	const UFTItemDataAsset* ItemData = GetItemData();
-	if (!ItemData || ItemData->UseMontage.IsNull())
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	if (!Action || Action->Montage.IsNull())
 	{
 		return true;
 	}
 
-	UAnimMontage* Montage = ItemData->UseMontage.LoadSynchronous();
+	UAnimMontage* Montage = Action->Montage.LoadSynchronous();
 	UAnimInstance* AnimInstance = GetCurrentActorInfo()
 		? GetCurrentActorInfo()->GetAnimInstance()
 		: nullptr;

@@ -4,7 +4,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
-#include "ProjectFT/Data/FTWeaponDataAsset.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
 
 AFTItemActor::AFTItemActor()
 {
@@ -65,23 +65,20 @@ void AFTItemActor::UpdateAppearance()
 	}
 }
 
-const UFTWeaponDataAsset* AFTItemActor::GetWeaponDataAsset() const
+const FFTItemActionDefinition* AFTItemActor::FindActionDefinition(FGameplayTag ActionTag) const
 {
-	return ItemData ? ItemData->WeaponDataAsset : nullptr;
-}
-
-const FFTWeaponActionDefinition* AFTItemActor::FindActionDefinition(FGameplayTag ActionTag) const
-{
-	const UFTWeaponDataAsset* WeaponData = GetWeaponDataAsset();
-	if (!WeaponData || !ActionTag.IsValid())
+	if (!ItemData || !ActionTag.IsValid())
 	{
 		return nullptr;
 	}
 
-	return WeaponData->Actions.FindByPredicate(
-		[ActionTag](const FFTWeaponActionDefinition& Definition)
+	return ItemData->Actions.FindByPredicate(
+		[ActionTag](const FFTItemActionDefinition& Definition)
 		{
-			return Definition.ActionTag.MatchesTagExact(ActionTag);
+			const FGameplayTag DefinitionTag = Definition.ActionTag.IsValid()
+				? Definition.ActionTag
+				: TAG_FT_Weapon_Action_Primary;
+			return DefinitionTag.MatchesTagExact(ActionTag);
 		});
 }
 

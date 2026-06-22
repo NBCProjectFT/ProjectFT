@@ -6,6 +6,7 @@
 
 class UGameplayEffect;
 class UFTItemDataAsset;
+struct FFTItemActionDefinition;
 
 /** Common activation pipeline for every usable item, including weapons. */
 UCLASS()
@@ -40,6 +41,7 @@ protected:
 	virtual void OnItemConsumed();
 
 	const UFTItemDataAsset* GetItemData() const;
+	const FFTItemActionDefinition* GetItemActionDefinition() const;
 	float GetUseCastTime() const;
 	float GetUseCooldown() const;
 	TSubclassOf<UGameplayEffect> GetUseEffectClass() const;
