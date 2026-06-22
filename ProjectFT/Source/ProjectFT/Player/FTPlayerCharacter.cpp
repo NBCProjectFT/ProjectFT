@@ -7,8 +7,9 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameplayEffect.h"
 
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_UseItem.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
@@ -72,6 +73,15 @@ void AFTPlayerCharacter::BeginPlay()
 		// MoveSpeed 속성이 바뀌면(버프/디버프) MaxWalkSpeed에 즉시 반영.
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMoveSpeedAttribute())
 			.AddUObject(this, &AFTPlayerCharacter::OnMoveSpeedAttributeChanged);
+
+		// [Mock] 퀵슬롯의 아이템 사용 어빌리티들을 부여한다(인덱스=슬롯). 실제 인벤토리/장비가 붙으면 교체.
+		for (const TSubclassOf<UFTGA_UseItem>& AbilityClass : MockQuickSlots)
+		{
+			if (AbilityClass)
+			{
+				AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AbilityClass));
+			}
+		}
 	}
 
 	if (AttributeSet)
@@ -110,6 +120,15 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 	if (!Controller)
 	{
 		return;
+	}
+
+	// 아이템 시전 중 이동하면 시전을 취소한다(채널링 중단). 취소 시 효과/쿨다운은 적용되지 않는다.
+	if (AbilitySystemComponent && !MoveValue.IsNearlyZero()
+		&& AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_UsingItem))
+	{
+		FGameplayTagContainer CancelTags;
+		CancelTags.AddTag(TAG_FT_State_UsingItem);
+		AbilitySystemComponent->CancelAbilities(&CancelTags);
 	}
 
 	// UE 표준 컨벤션: MoveValue.Y = 전방, MoveValue.X = 우측. 축 구성은 IMC에서 맞춘다.
@@ -195,25 +214,20 @@ void AFTPlayerCharacter::HandleSkillCheckPressed()
 
 void AFTPlayerCharacter::HandleUseItemPressed()
 {
-	// [Mock] 현재 선택된 퀵슬롯의 GameplayEffect를 자신에게 적용한다. 추후 인벤토리/장비의 '손에 든 아이템'으로 교체.
+	// [Mock] 현재 선택된 퀵슬롯의 아이템 사용 어빌리티를 활성화한다. 추후 인벤토리/장비의 '손에 든 아이템'으로 교체.
 	if (!AbilitySystemComponent || !MockQuickSlots.IsValidIndex(SelectedQuickSlot))
 	{
 		return;
 	}
 
-	const TSubclassOf<UGameplayEffect> EffectClass = MockQuickSlots[SelectedQuickSlot];
-	if (!EffectClass)
+	const TSubclassOf<UFTGA_UseItem> AbilityClass = MockQuickSlots[SelectedQuickSlot];
+	if (!AbilityClass)
 	{
 		return;
 	}
 
-	FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
-	Context.AddSourceObject(this);
-	const FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(EffectClass, 1.0f, Context);
-	if (Spec.IsValid())
-	{
-		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
-	}
+	// 쿨다운/시전시간/효과 적용은 어빌리티가 담당한다(쿨다운 중이면 활성화가 거부된다).
+	AbilitySystemComponent->TryActivateAbilityByClass(AbilityClass);
 }
 
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
