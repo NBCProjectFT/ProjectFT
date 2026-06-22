@@ -71,6 +71,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	UpdateTargetState();
 	DrawSightDebug();
 }
 
@@ -126,7 +127,7 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 
 	if (Stimulus.WasSuccessfullySensed())
 	{
-		bHasSeenTarget = true;
+		UpdateTargetState();
 		// MoveToActor(TargetActor, 150.0f);
 		// UE_LOG(LogTemp, Log, TEXT("Security AI: Target sensed, chasing"));
 
@@ -149,10 +150,16 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 	}
 	else
 	{
-		bHasSeenTarget = false;
+		UpdateTargetState();
+		
+		// 플레이어를 마지막으로 감지했던 위치를 조사 위치로 저장
+		if (!Stimulus.StimulusLocation.IsNearlyZero())
+		{
+			InvestigateLocation = Stimulus.StimulusLocation;
+		}
 		// const FVector DetectedLocation = Stimulus.StimulusLocation;
 		// MoveToLocation(DetectedLocation);
-		// UE_LOG(LogTemp, Log, TEXT("Security AI: Target lost, moving to last known location"));
+		UE_LOG(LogTemp, Log, TEXT("Security AI: Target lost, moving to last known location"));
 	}
 }
 
@@ -191,6 +198,7 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 	bSecurityCalled = true;
 	SetTargetActor(Payload.TargetActor);
 	InvestigateLocation = Payload.ReportLocation.IsNearlyZero() ? Payload.TargetActor->GetActorLocation() : Payload.ReportLocation;
+	UpdateTargetState();
 
 	const float DistanceToTarget = FVector::Dist(ControlledPawn->GetActorLocation(), Payload.TargetActor->GetActorLocation());
 
@@ -208,6 +216,54 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 AActor* AFTSecurityAIController::GetTargetActor() const
 {
 	return TargetActor;
+}
+
+void AFTSecurityAIController::UpdateTargetState()
+{
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !TargetActor)
+	{
+		TargetDistance = 0.0f;
+		bHasSeenTarget = false;
+		bIsTargetInAttackRange = false;
+		return;
+	}
+
+	TargetDistance = FVector::Dist(ControlledPawn->GetActorLocation(), TargetActor->GetActorLocation());
+	bHasSeenTarget = IsTargetCurrentlyVisible();
+	bIsTargetInAttackRange = bHasSeenTarget && TargetDistance <= AttackRange;
+	
+	// 현재 보이는 상태라면 마지막 목격 위치 갱신
+	if (bHasSeenTarget)
+	{
+		InvestigateLocation = TargetActor->GetActorLocation();
+	}
+}
+
+bool AFTSecurityAIController::IsTargetCurrentlyVisible() const
+{
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !TargetActor || !SightConfig)
+	{
+		return false;
+	}
+
+	const FVector ToTarget = TargetActor->GetActorLocation() - ControlledPawn->GetActorLocation();
+	if (ToTarget.SizeSquared() > FMath::Square(SightConfig->LoseSightRadius))
+	{
+		return false;
+	}
+
+	const FVector Forward = ControlledPawn->GetActorForwardVector();
+	const FVector DirectionToTarget = ToTarget.GetSafeNormal();
+	const float Dot = FVector::DotProduct(Forward, DirectionToTarget);
+	const float AngleDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.0f, 1.0f)));
+	if (AngleDegrees > SightConfig->PeripheralVisionAngleDegrees)
+	{
+		return false;
+	}
+
+	return LineOfSightTo(TargetActor);
 }
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)

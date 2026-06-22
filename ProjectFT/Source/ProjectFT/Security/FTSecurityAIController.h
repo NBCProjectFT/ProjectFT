@@ -53,6 +53,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	bool bHasSeenTarget = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	bool bIsTargetInAttackRange = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	float TargetDistance = 0.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	float AttackRange = 150.0f;
 	
@@ -62,5 +68,7 @@ public:
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void UpdateTargetState();
+	bool IsTargetCurrentlyVisible() const;
 	void DrawSightDebug() const;
 };
