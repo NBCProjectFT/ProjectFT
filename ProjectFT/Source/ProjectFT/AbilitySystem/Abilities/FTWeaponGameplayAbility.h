@@ -1,15 +1,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Abilities/GameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_UseItem.h"
 #include "ProjectFT/Struct/FTWeaponActionDefinition.h"
 #include "FTWeaponGameplayAbility.generated.h"
 
-class AFTWeaponActor;
+class AFTItemActor;
 
-/** Base GAS action granted by FTQuickSlotComponent while a weapon item is equipped. */
+/** GAS weapon action using the same item activation pipeline as every other item. */
 UCLASS(Abstract)
-class PROJECTFT_API UFTWeaponGameplayAbility : public UGameplayAbility
+class PROJECTFT_API UFTWeaponGameplayAbility : public UFTGA_UseItem
 {
 	GENERATED_BODY()
 
@@ -27,10 +27,8 @@ public:
 		FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 
 protected:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo,
-		const FGameplayEventData* TriggerEventData) override;
+	virtual bool PrepareItemUse() override;
+	virtual bool ExecuteItemUse() override;
 
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,
 		const FGameplayAbilityActorInfo* ActorInfo,
@@ -39,19 +37,17 @@ protected:
 
 	virtual bool ExecuteWeaponAction() PURE_VIRTUAL(
 		UFTWeaponGameplayAbility::ExecuteWeaponAction, return false;);
-	virtual bool ShouldEndImmediately() const { return true; }
+	virtual bool ShouldEndImmediately() const override { return true; }
 
-	AFTWeaponActor* GetWeaponActor() const;
+	AFTItemActor* GetItemActor() const;
 	const FFTWeaponActionDefinition* GetActionDefinition() const;
-	bool PlayAttackMontage();
 	bool ApplyWeaponDamage(AActor* TargetActor, float Damage) const;
-	void FinishAbility(bool bWasCancelled = false);
+	void FinishAbility(bool bWasCancelled = false) { FinishItemUse(bWasCancelled); }
 
 	UPROPERTY(Transient)
-	TObjectPtr<AFTWeaponActor> ActiveWeapon;
+	TObjectPtr<AFTItemActor> ActiveItem;
 
 	const FFTWeaponActionDefinition* ActiveDefinition = nullptr;
-	float PlayedMontageDuration = 0.0f;
 
 private:
 	mutable double LastExecutionTime = -DBL_MAX;

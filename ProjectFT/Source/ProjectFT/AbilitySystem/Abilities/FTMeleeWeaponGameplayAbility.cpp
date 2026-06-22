@@ -1,12 +1,12 @@
 #include "FTMeleeWeaponGameplayAbility.h"
 
 #include "Components/CapsuleComponent.h"
-#include "ProjectFT/Weapon/FTWeaponActor.h"
+#include "ProjectFT/Item/FTItemActor.h"
 #include "TimerManager.h"
 
 bool UFTMeleeWeaponGameplayAbility::ExecuteWeaponAction()
 {
-	if (!ActiveWeapon || !ActiveWeapon->GetMeleeHitComponent() || PlayedMontageDuration <= 0.0f)
+	if (!ActiveItem || !ActiveItem->GetMeleeHitComponent() || PlayedMontageDuration <= 0.0f)
 	{
 		return false;
 	}
@@ -19,12 +19,12 @@ bool UFTMeleeWeaponGameplayAbility::ExecuteWeaponAction()
 
 void UFTMeleeWeaponGameplayAbility::NotifyWindowBegin()
 {
-	if (!IsActive() || !ActiveWeapon)
+	if (!IsActive() || !ActiveItem)
 	{
 		return;
 	}
 
-	ActiveHitComponent = ActiveWeapon->GetMeleeHitComponent();
+	ActiveHitComponent = ActiveItem->GetMeleeHitComponent();
 	if (!ActiveHitComponent)
 	{
 		return;

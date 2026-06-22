@@ -3,16 +3,16 @@
 #include "DrawDebugHelpers.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "ProjectFT/Weapon/FTWeaponActor.h"
+#include "ProjectFT/Item/FTItemActor.h"
 
 bool UFTHitScanWeaponGameplayAbility::ExecuteWeaponAction()
 {
-	if (!ActiveWeapon || !ActiveDefinition || !GetWorld())
+	if (!ActiveItem || !ActiveDefinition || !GetWorld())
 	{
 		return false;
 	}
 
-	const FTransform MuzzleTransform = ActiveWeapon->GetWeaponMuzzleTransform();
+	const FTransform MuzzleTransform = ActiveItem->GetMuzzleTransform();
 	AActor* Shooter = GetAvatarActorFromActorInfo();
 	if (!Shooter)
 	{
@@ -33,7 +33,7 @@ bool UFTHitScanWeaponGameplayAbility::ExecuteWeaponAction()
 	}
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(FT_GAS_HitScan), true);
-	Params.AddIgnoredActor(ActiveWeapon);
+	Params.AddIgnoredActor(ActiveItem);
 	Params.AddIgnoredActor(Shooter);
 	FCollisionObjectQueryParams Objects;
 	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
