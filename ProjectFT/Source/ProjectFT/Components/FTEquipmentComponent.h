@@ -1,11 +1,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayAbilitySpec.h"
 #include "ProjectFT/Core/GameplayMessageProcessor.h"
 #include "FTEquipmentComponent.generated.h"
 
 class AFTWeaponActor;
 class USceneComponent;
+class UAbilitySystemComponent;
+class UFTWeaponGameplayAbility;
+class UFTWeaponDataAsset;
 struct FFTMessagePayloadStruct;
 
 UCLASS(ClassGroup = (FT), meta = (BlueprintSpawnableComponent))
@@ -28,6 +32,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Equipment")
 	void AttackPrimary();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Equipment|GAS")
+	bool TryActivateWeaponAbility(FGameplayTag ActionTag);
+
+	void NotifyWeaponActionWindowBegin(FGameplayTag ActionTag);
+	void NotifyWeaponActionWindowTick(FGameplayTag ActionTag);
+	void NotifyWeaponActionWindowEnd(FGameplayTag ActionTag);
+
 	UFUNCTION(BlueprintPure, Category = "FT|Equipment")
 	AFTWeaponActor* GetEquippedWeapon() const { return EquippedWeapon; }
 
@@ -35,6 +46,8 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void StartListening() override;
+	virtual void GetLifetimeReplicatedProps(
+		TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Equipment")
 	TSubclassOf<AFTWeaponActor> StartingWeaponClass;
@@ -51,7 +64,19 @@ private:
 
 	USceneComponent* ResolveAttachTarget() const;
 	FName ResolveWeaponSocketName(USceneComponent* AttachTarget) const;
+	bool EnsureAbilitySystem();
+	bool GrantWeaponAbilities(AFTWeaponActor* Weapon);
+	void RemoveWeaponAbilities();
+	TSubclassOf<UFTWeaponGameplayAbility> ResolveDefaultAbilityClass(
+		const UFTWeaponDataAsset* WeaponData) const;
+	FGameplayAbilitySpecHandle FindWeaponAbilityHandle(FGameplayTag ActionTag) const;
+	UFTWeaponGameplayAbility* GetActiveWeaponAbility(FGameplayTag ActionTag) const;
+
+	UPROPERTY(Replicated, Transient)
+	TObjectPtr<AFTWeaponActor> EquippedWeapon;
 
 	UPROPERTY(Transient)
-	TObjectPtr<AFTWeaponActor> EquippedWeapon;
+	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+
+	TMap<FGameplayTag, FGameplayAbilitySpecHandle> GrantedWeaponAbilities;
 };
