@@ -25,7 +25,7 @@ bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 {
 	if (!ItemData ) return false;
 	
-	// 해야할 일: 플레이어의 인벤토리 컴포넌트를 찾아서 아이템 추가 시도
+	// 해야할 일: 메시지 발송
 	
 	UE_LOG(LogFTItem, Log, TEXT("Picked up item: %s"), *ItemData->ItemData.ItemName.ToString());
 	
