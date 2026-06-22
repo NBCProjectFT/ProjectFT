@@ -18,6 +18,7 @@ public:
 	AFTWeaponActor();
 
 	const UFTWeaponDataAsset* GetWeaponDataAsset() const { return WeaponDataAsset; }
+	void SetWeaponDataAsset(UFTWeaponDataAsset* InWeaponDataAsset) { WeaponDataAsset = InWeaponDataAsset; }
 	const FFTWeaponActionDefinition* FindActionDefinition(FGameplayTag ActionTag) const;
 
 	FTransform GetWeaponMuzzleTransform() const;

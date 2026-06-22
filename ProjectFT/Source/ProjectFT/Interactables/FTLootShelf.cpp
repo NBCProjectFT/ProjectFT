@@ -2,11 +2,14 @@
 
 #include "FTLootShelf.h"
 
+#include "AbilitySystemComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
+#include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
+#include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 
 #include "ProjectFT/Item/FTItemActor.h"
@@ -18,6 +21,7 @@
 AFTLootShelf::AFTLootShelf()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 
 	// 진열대 메시를 루트로. 테스트가 바로 되도록 엔진 기본 큐브를 할당한다(에디터에서 교체 가능).
 	ShelfMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ShelfMesh"));
@@ -32,11 +36,27 @@ AFTLootShelf::AFTLootShelf()
 
 	// 꾹 눌러 훔치는 채널형 상호작용 컴포넌트.
 	ChanneledInteraction = CreateDefaultSubobject<UFTChanneledInteractionComponent>(TEXT("ChanneledInteraction"));
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true);
+	AttributeSet = CreateDefaultSubobject<UFTAttributeSet>(TEXT("AttributeSet"));
+}
+
+UAbilitySystemComponent* AFTLootShelf::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 
 void AFTLootShelf::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (AbilitySystemComponent && AttributeSet)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		AttributeSet->SetMaxHealth(InitialHealth);
+		AttributeSet->SetHealth(InitialHealth);
+		AttributeSet->OnOutOfHealth.AddUObject(this, &ThisClass::HandleOutOfHealth);
+	}
 
 	// 게이지 완료 시 훔치기 성공 처리.
 	if (ChanneledInteraction)
@@ -56,17 +76,33 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 
 	if (bHasBeenLooted) return ActualDamage;
 
-	Health -= DamageAmount;
-	if (Health <= 0.0f)
+	if (ActualDamage > 0.0f && AbilitySystemComponent)
 	{
-		bHasBeenLooted = true;
-		UE_LOG(LogFTItem, Log, TEXT("LootShelf '%s' destroyed! Dropping items..."), *GetName());
-		
-		DropItemsOnFloor();
-		Destroy();
+		FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
+		Context.AddSourceObject(DamageCauser);
+		FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(
+			UFTGE_Damage::StaticClass(), 1.0f, Context);
+		if (Spec.IsValid())
+		{
+			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -ActualDamage);
+			AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+		}
 	}
 
 	return ActualDamage;
+}
+
+void AFTLootShelf::HandleOutOfHealth()
+{
+	if (bHasBeenLooted)
+	{
+		return;
+	}
+
+	bHasBeenLooted = true;
+	UE_LOG(LogFTItem, Log, TEXT("LootShelf '%s' destroyed! Dropping items..."), *GetName());
+	DropItemsOnFloor();
+	Destroy();
 }
 
 void AFTLootShelf::HandleStealCompleted()

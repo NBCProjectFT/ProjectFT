@@ -7,6 +7,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
 
 AFTProjectileActor::AFTProjectileActor()
 {
@@ -62,15 +63,20 @@ void AFTProjectileActor::HandleProjectileHit(UPrimitiveComponent* HitComponent,
 	}
 
 	UAbilitySystemComponent* TargetASC = OtherActor->FindComponentByClass<UAbilitySystemComponent>();
-	if (SourceAbilitySystem && TargetASC && DamageEffectClass)
+	if (SourceAbilitySystem && TargetASC)
 	{
+		TSubclassOf<UGameplayEffect> EffectClass = DamageEffectClass;
+		if (!EffectClass)
+		{
+			EffectClass = UFTGE_Damage::StaticClass();
+		}
 		FGameplayEffectContextHandle Context = SourceAbilitySystem->MakeEffectContext();
 		Context.AddSourceObject(this);
 		FGameplayEffectSpecHandle Spec = SourceAbilitySystem->MakeOutgoingSpec(
-			DamageEffectClass, 1.0f, Context);
+			EffectClass, 1.0f, Context);
 		if (Spec.IsValid())
 		{
-			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, Damage);
+			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -Damage);
 			SourceAbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 		}
 	}

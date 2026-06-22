@@ -7,7 +7,7 @@
 
 class AFTWeaponActor;
 
-/** Base GAS action granted by FTEquipmentComponent while a weapon is equipped. */
+/** Base GAS action granted by FTQuickSlotComponent while a weapon item is equipped. */
 UCLASS(Abstract)
 class PROJECTFT_API UFTWeaponGameplayAbility : public UGameplayAbility
 {

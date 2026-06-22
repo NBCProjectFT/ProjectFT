@@ -7,6 +7,7 @@
 #include "FTGA_UseItem.generated.h"
 
 class UGameplayEffect;
+class UFTItemDataAsset;
 
 /**
  * 아이템 사용 어빌리티 베이스. 활성화하면 (선택)시전시간을 대기한 뒤 ItemEffect를 자신에게 적용하고 쿨다운을 건다.
@@ -43,6 +44,12 @@ protected:
 	float CooldownSeconds = 0.0f;
 
 private:
+	const UFTItemDataAsset* GetItemData() const;
+	float GetUseCastTime() const;
+	float GetUseCooldown() const;
+	TSubclassOf<UGameplayEffect> GetUseEffectClass() const;
+	bool PlayItemMontage() const;
+
 	// 시전 완료(또는 시전시간 0) 시 효과 적용 + 쿨다운 적용 + 종료.
 	void FinishUse();
 

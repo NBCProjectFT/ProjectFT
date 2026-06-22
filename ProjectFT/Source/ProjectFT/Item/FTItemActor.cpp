@@ -7,6 +7,7 @@
 AFTItemActor::AFTItemActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 	
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	SetRootComponent(MeshComponent);
