@@ -10,7 +10,7 @@ public class ProjectFT : ModuleRules
 		bUseUnity = false;
 	
 
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayTags", "GameplayMessageRuntime", "UMG", "Slate", "SlateCore"});
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayTags", "GameplayTasks", "GameplayAbilities", "GameplayMessageRuntime", "UMG", "Slate", "SlateCore"});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 

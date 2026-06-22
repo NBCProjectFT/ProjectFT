@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ProjectFT/Interface/FTInteractable.h"
+#include "ProjectFT/Interface/FTDamageable.h"
 #include "FTLootShelf.generated.h"
 
 class UStaticMeshComponent;
@@ -16,7 +17,7 @@ class UFTChanneledInteractionComponent;
  * 채널 로직은 UFTChanneledInteractionComponent가, 포커스/프롬프트는 IFTInteractable이 담당한다.
  */
 UCLASS()
-class PROJECTFT_API AFTLootShelf : public AActor, public IFTInteractable
+class PROJECTFT_API AFTLootShelf : public AActor, public IFTInteractable, public IFTDamageable
 {
 	GENERATED_BODY()
 
@@ -28,12 +29,22 @@ public:
 	virtual FText GetInteractionPrompt_Implementation() const override;
 	//~ End IFTInteractable
 
+	//~ Begin IFTDamageable
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	//~ End IFTDamageable
+
 protected:
 	virtual void BeginPlay() override;
 
 	// 채널형 상호작용 완료(게이지 가득 참) 시 호출 — 훔치기 성공 처리.
 	UFUNCTION()
 	void HandleStealCompleted();
+
+	// [아이템 획득 방법 1] 인벤토리에 직접 아이템을 넣어주는 함수 (메시지 전송)
+	void GiveStealReward();
+
+	// [아이템 획득 방법 2] 파괴 시 바닥에 아이템을 뿌리는 함수 (액터 스폰)
+	void DropItemsOnFloor();
 
 protected:
 	// 진열대 메시(루트). 상호작용 트레이스(Visibility)에 잡히도록 콜리전이 있어야 한다.
@@ -51,4 +62,18 @@ protected:
 	// 완료 시 액터를 제거할지(테스트용: 훔치면 진열대가 사라짐).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf")
 	bool bDestroyOnComplete = true;
+
+	// 보상 아이템 정보
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Loot")
+	TObjectPtr<class UFTItemDataAsset> LootItemData;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Loot")
+	int32 LootQuantity = 3;
+
+	// 매대 내구도
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Status")
+	float Health = 30.0f;
+
+	// 중복 획득 방지
+	bool bHasBeenLooted = false;
 };

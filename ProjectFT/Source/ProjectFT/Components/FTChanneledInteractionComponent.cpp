@@ -187,7 +187,7 @@ void UFTChanneledInteractionComponent::SetProgress(float NewProgress)
 //진열대 털기 게이지 다 채웠을 때 완수 로직. 
 void UFTChanneledInteractionComponent::CompleteChannel()
 {
-	Progress = 1.0f;
+	Progress = 0.0f;
 	bIsChanneling = false;
 
 	if (bSkillCheckActive)
