@@ -82,6 +82,26 @@ void AFTPlayerController::SetupInputComponent()
 	{
 		EnhancedInput->BindAction(SkillCheckAction, ETriggerEvent::Started, this, &AFTPlayerController::OnSkillCheckStarted);
 	}
+
+	if (UseItemAction)
+	{
+		EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Started, this, &AFTPlayerController::OnUseItemStarted);
+	}
+
+	if (QuickSlot1Action)
+	{
+		EnhancedInput->BindAction(QuickSlot1Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot1Started);
+	}
+
+	if (QuickSlot2Action)
+	{
+		EnhancedInput->BindAction(QuickSlot2Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot2Started);
+	}
+
+	if (QuickSlot3Action)
+	{
+		EnhancedInput->BindAction(QuickSlot3Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot3Started);
+	}
 }
 
 void AFTPlayerController::OnPossess(APawn* InPawn)
@@ -192,5 +212,37 @@ void AFTPlayerController::OnSkillCheckStarted(const FInputActionValue& Value)
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleSkillCheckPressed();
+	}
+}
+
+void AFTPlayerController::OnUseItemStarted(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleUseItemPressed();
+	}
+}
+
+void AFTPlayerController::OnQuickSlot1Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(0);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot2Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(1);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot3Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(2);
 	}
 }
