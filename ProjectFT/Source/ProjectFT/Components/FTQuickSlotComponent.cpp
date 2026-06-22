@@ -12,11 +12,10 @@
 #include "ProjectFT/Data/FTWeaponDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
-#include "ProjectFT/Weapon/Ability/FTHitScanWeaponGameplayAbility.h"
-#include "ProjectFT/Weapon/Ability/FTMeleeWeaponGameplayAbility.h"
-#include "ProjectFT/Weapon/Ability/FTProjectileWeaponGameplayAbility.h"
-#include "ProjectFT/Weapon/Ability/FTWeaponGameplayAbility.h"
-#include "ProjectFT/Weapon/FTWeaponActor.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTHitScanWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTMeleeWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTProjectileWeaponGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTWeaponGameplayAbility.h"
 
 UFTQuickSlotComponent::UFTQuickSlotComponent()
 {
@@ -32,6 +31,10 @@ void UFTQuickSlotComponent::BeginPlay()
 	AbilitySystemComponent = GetOwner()
 		? GetOwner()->FindComponentByClass<UAbilitySystemComponent>()
 		: nullptr;
+	if (GetOwner() && GetOwner()->HasAuthority() && TestItemData && Slots[0].IsEmpty())
+	{
+		AssignItemToSlot(0, TestItemData, 1);
+	}
 }
 
 void UFTQuickSlotComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -107,6 +110,7 @@ bool UFTQuickSlotComponent::SelectSlot(int32 SlotIndex)
 		return true;
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("SelectSlot: %d, IsEmpty: %d"), SlotIndex, Slots[SlotIndex].IsEmpty());
 	UnequipCurrentItem();
 	ActiveSlotIndex = SlotIndex;
 	const bool bEquipped = Slots[SlotIndex].IsEmpty() || EquipSelectedItem();
@@ -247,7 +251,7 @@ bool UFTQuickSlotComponent::EquipSelectedItem()
 		EquippedItemActor = nullptr;
 	}
 
-	TSubclassOf<AFTItemActor> ActorClass = ItemData->EquippedActorClass;
+	TSubclassOf<AFTItemActor> ActorClass = ItemActorClass;
 	if (!ActorClass)
 	{
 		ActorClass = AFTItemActor::StaticClass();
@@ -261,10 +265,6 @@ bool UFTQuickSlotComponent::EquipSelectedItem()
 	}
 
 	ItemActor->ItemData = ItemData;
-	if (AFTWeaponActor* WeaponActor = Cast<AFTWeaponActor>(ItemActor))
-	{
-		WeaponActor->SetWeaponDataAsset(ItemData->WeaponDataAsset);
-	}
 	UGameplayStatics::FinishSpawningActor(ItemActor, GetOwner()->GetActorTransform());
 	TInlineComponentArray<UPrimitiveComponent*> Primitives(ItemActor);
 	for (UPrimitiveComponent* Primitive : Primitives)
@@ -281,6 +281,7 @@ bool UFTQuickSlotComponent::EquipSelectedItem()
 		ItemActor->Destroy();
 		return false;
 	}
+	ItemActor->SetActorRelativeTransform(ItemData->EquipRelativeTransform);
 
 	EquippedItemActor = ItemActor;
 	if (!GrantSelectedItemAbilities())
@@ -326,7 +327,7 @@ bool UFTQuickSlotComponent::GrantGenericItemAbility(UFTItemDataAsset* ItemData)
 		return false;
 	}
 
-	FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, ItemData);
+	FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, EquippedItemActor);
 	Spec.GetDynamicSpecSourceTags().AddTag(TAG_FT_Input_Item_Primary);
 	Spec.GetDynamicSpecSourceTags().AddTag(ItemData->PrimaryUseTag);
 	const FGameplayAbilitySpecHandle Handle = AbilitySystemComponent->GiveAbility(Spec);
@@ -339,8 +340,8 @@ bool UFTQuickSlotComponent::GrantGenericItemAbility(UFTItemDataAsset* ItemData)
 
 bool UFTQuickSlotComponent::GrantWeaponAbilities(const UFTWeaponDataAsset* WeaponData)
 {
-	AFTWeaponActor* Weapon = Cast<AFTWeaponActor>(EquippedItemActor);
-	if (!WeaponData || !Weapon)
+	AFTItemActor* ItemActor = EquippedItemActor;
+	if (!WeaponData || !ItemActor)
 	{
 		return false;
 	}
@@ -358,7 +359,7 @@ bool UFTQuickSlotComponent::GrantWeaponAbilities(const UFTWeaponDataAsset* Weapo
 			continue;
 		}
 
-		FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, Weapon);
+		FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, ItemActor);
 		Spec.GetDynamicSpecSourceTags().AddTag(TAG_FT_Input_Item_Primary);
 		Spec.GetDynamicSpecSourceTags().AddTag(Definition.ActionTag);
 		const FGameplayAbilitySpecHandle Handle = AbilitySystemComponent->GiveAbility(Spec);
@@ -435,10 +436,7 @@ FGameplayAbilitySpecHandle UFTQuickSlotComponent::FindSelectedAbilityHandle(
 		return FGameplayAbilitySpecHandle();
 	}
 
-	const UFTItemDataAsset* ItemData = GetActiveItemData();
-	const UObject* ExpectedSource = ItemData && ItemData->WeaponDataAsset
-		? static_cast<const UObject*>(EquippedItemActor.Get())
-		: static_cast<const UObject*>(ItemData);
+	const UObject* ExpectedSource = EquippedItemActor.Get();
 	for (const FGameplayAbilitySpec& Spec : AbilitySystemComponent->GetActivatableAbilities())
 	{
 		if (Spec.GetDynamicSpecSourceTags().HasTagExact(ActionTag) &&

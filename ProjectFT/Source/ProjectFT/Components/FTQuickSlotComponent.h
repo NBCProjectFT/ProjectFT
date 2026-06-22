@@ -97,6 +97,14 @@ protected:
 		Category = "FT|QuickSlot", meta = (EditFixedSize))
 	TArray<FFTQuickSlotEntry> Slots;
 
+	/** One shared actor class used for every item and weapon. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|QuickSlot")
+	TSubclassOf<AFTItemActor> ItemActorClass;
+
+	/** Temporary editor test item assigned to slot 0 when the slot is empty. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|QuickSlot|Test")
+	TObjectPtr<UFTItemDataAsset> TestItemData;
+
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerAssignItemToSlot(int32 SlotIndex, UFTItemDataAsset* ItemData, int32 Quantity);

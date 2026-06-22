@@ -48,10 +48,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Weapon")
 	TObjectPtr<class UFTWeaponDataAsset> WeaponDataAsset;
 
-	/** Actor shown in the player's hand. Falls back to AFTItemActor. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Equip")
-	TSubclassOf<class AFTItemActor> EquippedActorClass;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Equip")
 	FName EquipSocketName = TEXT("hand_r");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Equip")
+	FTransform EquipRelativeTransform;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Weapon")
+	FName MuzzleSocketName = TEXT("Muzzle");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Weapon|Melee",
+		meta = (ClampMin = "0.1"))
+	float MeleeHitBoundsScale = 1.0f;
 };
