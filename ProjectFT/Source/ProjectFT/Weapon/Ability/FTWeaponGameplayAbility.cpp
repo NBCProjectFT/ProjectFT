@@ -5,6 +5,8 @@
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTWeaponDataAsset.h"
 #include "ProjectFT/Weapon/FTWeaponActor.h"
 
@@ -132,12 +134,13 @@ const FFTWeaponActionDefinition* UFTWeaponGameplayAbility::GetActionDefinition()
 bool UFTWeaponGameplayAbility::PlayAttackMontage()
 {
 	PlayedMontageDuration = 0.0f;
-	if (!ActiveDefinition || ActiveDefinition->AttackMontage.IsNull())
+	const UFTItemDataAsset* ItemData = ActiveWeapon ? ActiveWeapon->ItemData : nullptr;
+	if (!ItemData || ItemData->UseMontage.IsNull())
 	{
 		return false;
 	}
 
-	UAnimMontage* Montage = ActiveDefinition->AttackMontage.LoadSynchronous();
+	UAnimMontage* Montage = ItemData->UseMontage.LoadSynchronous();
 	UAnimInstance* AnimInstance = GetCurrentActorInfo() ? GetCurrentActorInfo()->GetAnimInstance() : nullptr;
 	if (!Montage || !AnimInstance)
 	{
@@ -162,15 +165,20 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor, float Dama
 
 	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
 	UAbilitySystemComponent* TargetASC = TargetActor->FindComponentByClass<UAbilitySystemComponent>();
-	if (SourceASC && TargetASC && ActiveDefinition && ActiveDefinition->DamageEffectClass)
+	if (SourceASC && TargetASC && ActiveDefinition)
 	{
+		TSubclassOf<UGameplayEffect> EffectClass = ActiveDefinition->DamageEffectClass;
+		if (!EffectClass)
+		{
+			EffectClass = UFTGE_Damage::StaticClass();
+		}
 		FGameplayEffectContextHandle Context = SourceASC->MakeEffectContext();
 		Context.AddSourceObject(ActiveWeapon);
 		FGameplayEffectSpecHandle Spec = SourceASC->MakeOutgoingSpec(
-			ActiveDefinition->DamageEffectClass, GetAbilityLevel(), Context);
+			EffectClass, GetAbilityLevel(), Context);
 		if (Spec.IsValid())
 		{
-			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, Damage);
+			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -Damage);
 			SourceASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 			return true;
 		}

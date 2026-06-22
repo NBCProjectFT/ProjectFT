@@ -1,16 +1,16 @@
 #include "FTMeleeHitNotifyState.h"
 
 #include "Components/SkeletalMeshComponent.h"
-#include "ProjectFT/Components/FTEquipmentComponent.h"
+#include "ProjectFT/Components/FTQuickSlotComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 
 namespace
 {
-	UFTEquipmentComponent* ResolveEquipmentComponent(USkeletalMeshComponent* MeshComp)
+	UFTQuickSlotComponent* ResolveQuickSlotComponent(USkeletalMeshComponent* MeshComp)
 	{
 		AActor* Character = MeshComp ? MeshComp->GetOwner() : nullptr;
 		return Character
-			? Character->FindComponentByClass<UFTEquipmentComponent>()
+			? Character->FindComponentByClass<UFTQuickSlotComponent>()
 			: nullptr;
 	}
 }
@@ -25,9 +25,9 @@ void UFTMeleeHitNotifyState::NotifyBegin(USkeletalMeshComponent* MeshComp,
 	const FAnimNotifyEventReference& EventReference)
 {
 	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
-	if (UFTEquipmentComponent* Equipment = ResolveEquipmentComponent(MeshComp))
+	if (UFTQuickSlotComponent* QuickSlot = ResolveQuickSlotComponent(MeshComp))
 	{
-		Equipment->NotifyWeaponActionWindowBegin(ActionTag);
+		QuickSlot->NotifyWeaponActionWindowBegin(ActionTag);
 	}
 }
 
@@ -36,9 +36,9 @@ void UFTMeleeHitNotifyState::NotifyTick(USkeletalMeshComponent* MeshComp,
 	const FAnimNotifyEventReference& EventReference)
 {
 	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
-	if (UFTEquipmentComponent* Equipment = ResolveEquipmentComponent(MeshComp))
+	if (UFTQuickSlotComponent* QuickSlot = ResolveQuickSlotComponent(MeshComp))
 	{
-		Equipment->NotifyWeaponActionWindowTick(ActionTag);
+		QuickSlot->NotifyWeaponActionWindowTick(ActionTag);
 	}
 }
 
@@ -46,8 +46,8 @@ void UFTMeleeHitNotifyState::NotifyEnd(USkeletalMeshComponent* MeshComp,
 	UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
 	Super::NotifyEnd(MeshComp, Animation, EventReference);
-	if (UFTEquipmentComponent* Equipment = ResolveEquipmentComponent(MeshComp))
+	if (UFTQuickSlotComponent* QuickSlot = ResolveQuickSlotComponent(MeshComp))
 	{
-		Equipment->NotifyWeaponActionWindowEnd(ActionTag);
+		QuickSlot->NotifyWeaponActionWindowEnd(ActionTag);
 	}
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ProjectFT/Enum/FTItemCategoryType.h"
 #include "FTItemDataStruct.generated.h"
 
 USTRUCT(BlueprintType)
@@ -18,9 +17,6 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	FText ItemDescription;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
-	EFTItemCategoryType ItemCategory = EFTItemCategoryType::Basic;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	float Weight = 0.0f;
