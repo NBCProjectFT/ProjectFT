@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
 #include "GameFramework/Character.h"
-#include "ProjectFT/Interface/FTDamageable.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 #include "FTPlayerCharacter.generated.h"
 
@@ -17,7 +16,7 @@ class UFTGA_UseItem;
 struct FOnAttributeChangeData;
 
 UCLASS()
-class PROJECTFT_API AFTPlayerCharacter : public ACharacter, public IFTDamageable, public IFTInputInterface, public IAbilitySystemInterface
+class PROJECTFT_API AFTPlayerCharacter : public ACharacter, public IFTInputInterface, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 

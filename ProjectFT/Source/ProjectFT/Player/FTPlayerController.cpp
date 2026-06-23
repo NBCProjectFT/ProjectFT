@@ -8,6 +8,8 @@
 #include "InputMappingContext.h"
 
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Components/FTQuickSlotComponent.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 
 void AFTPlayerController::BeginPlay()
@@ -101,6 +103,11 @@ void AFTPlayerController::SetupInputComponent()
 	if (QuickSlot3Action)
 	{
 		EnhancedInput->BindAction(QuickSlot3Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot3Started);
+	}
+
+	if (QuickSlot4Action)
+	{
+		EnhancedInput->BindAction(QuickSlot4Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot4Started);
 	}
 }
 
@@ -217,32 +224,48 @@ void AFTPlayerController::OnSkillCheckStarted(const FInputActionValue& Value)
 
 void AFTPlayerController::OnUseItemStarted(const FInputActionValue& Value)
 {
-	if (CachedLocomotionInput)
+	if (UFTQuickSlotComponent* QuickSlot = FindQuickSlotComponent())
 	{
-		CachedLocomotionInput->HandleUseItemPressed();
+		QuickSlot->HandleInputTag(TAG_FT_Input_Item_Primary);
 	}
 }
 
 void AFTPlayerController::OnQuickSlot1Started(const FInputActionValue& Value)
 {
-	if (CachedLocomotionInput)
+	if (UFTQuickSlotComponent* QuickSlot = FindQuickSlotComponent())
 	{
-		CachedLocomotionInput->HandleSelectQuickSlot(0);
+		QuickSlot->HandleInputTag(TAG_FT_Input_QuickSlot_1);
 	}
 }
 
 void AFTPlayerController::OnQuickSlot2Started(const FInputActionValue& Value)
 {
-	if (CachedLocomotionInput)
+	if (UFTQuickSlotComponent* QuickSlot = FindQuickSlotComponent())
 	{
-		CachedLocomotionInput->HandleSelectQuickSlot(1);
+		QuickSlot->HandleInputTag(TAG_FT_Input_QuickSlot_2);
 	}
 }
 
 void AFTPlayerController::OnQuickSlot3Started(const FInputActionValue& Value)
 {
-	if (CachedLocomotionInput)
+	if (UFTQuickSlotComponent* QuickSlot = FindQuickSlotComponent())
 	{
-		CachedLocomotionInput->HandleSelectQuickSlot(2);
+		QuickSlot->HandleInputTag(TAG_FT_Input_QuickSlot_3);
 	}
+}
+
+void AFTPlayerController::OnQuickSlot4Started(const FInputActionValue& Value)
+{
+	if (UFTQuickSlotComponent* QuickSlot = FindQuickSlotComponent())
+	{
+		QuickSlot->HandleInputTag(TAG_FT_Input_QuickSlot_4);
+	}
+}
+
+UFTQuickSlotComponent* AFTPlayerController::FindQuickSlotComponent() const
+{
+	const APawn* ControlledPawn = GetPawn();
+	return ControlledPawn
+		? ControlledPawn->FindComponentByClass<UFTQuickSlotComponent>()
+		: nullptr;
 }
