@@ -10,17 +10,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ObjectiveCompleted, "Event.Objective.Complet
 
 
 // Action Tag
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Action_Primary, "Weapon.Action.Primary");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Action_Secondary, "Weapon.Action.Secondary");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Action_Reload, "Weapon.Action.Reload");
 
 // Weapon Type Tag
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_Melee, "Weapon.Type.Melee");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_HitScan, "Weapon.Type.HitScan");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Weapon_Type_Projectile, "Weapon.Type.Projectile");
-
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Damage, "Data.Damage");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Weapon_Attacking, "State.Weapon.Attacking");
 
 
 

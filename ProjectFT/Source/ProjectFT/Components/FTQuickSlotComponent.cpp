@@ -8,9 +8,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_UseHealPotion.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_UseItem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTHitScanWeaponGameplayAbility.h"
 #include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTMeleeWeaponGameplayAbility.h"
 #include "ProjectFT/AbilitySystem/Abilities/WeaponAbility/FTProjectileWeaponGameplayAbility.h"
@@ -127,6 +128,14 @@ bool UFTQuickSlotComponent::SelectSlot(int32 SlotIndex)
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("SelectSlot: %d, IsEmpty: %d"), SlotIndex, Slots[SlotIndex].IsEmpty());
+	if (ActiveSlotIndex == SlotIndex)
+	{
+		UnequipCurrentItem();
+		ActiveSlotIndex = INDEX_NONE;
+		OnActiveQuickSlotChanged.Broadcast();
+		return true;
+	}
+
 	UnequipCurrentItem();
 	ActiveSlotIndex = SlotIndex;
 	const bool bEquipped = Slots[SlotIndex].IsEmpty() || EquipSelectedItem();
@@ -352,11 +361,8 @@ bool UFTQuickSlotComponent::GrantItemActions(UFTItemDataAsset* ItemData)
 	{
 		const FGameplayTag InputTag = ResolveInputTag(Action);
 		const FGameplayTag ActionTag = ResolveActionTag(Action);
-		TSubclassOf<UGameplayAbility> AbilityClass = Action.AbilityClass;
-		if (!AbilityClass)
-		{
-			AbilityClass = ResolveDefaultWeaponAbilityClass(GetActiveItemData());
-		}
+		TSubclassOf<UGameplayAbility> AbilityClass =
+			ResolveAbilityClassForAction(ItemData, ActionTag);
 		if (!AbilityClass || GrantedAbilityHandles.Contains(ActionTag))
 		{
 			continue;
@@ -365,6 +371,7 @@ bool UFTQuickSlotComponent::GrantItemActions(UFTItemDataAsset* ItemData)
 		FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, ItemActor);
 		Spec.GetDynamicSpecSourceTags().AddTag(InputTag);
 		Spec.GetDynamicSpecSourceTags().AddTag(ActionTag);
+		Spec.GetDynamicSpecSourceTags().AppendTags(ItemData->ItemTags);
 		const FGameplayAbilitySpecHandle Handle = AbilitySystemComponent->GiveAbility(Spec);
 		if (Handle.IsValid())
 		{
@@ -387,32 +394,53 @@ void UFTQuickSlotComponent::RemoveSelectedItemAbilities()
 	GrantedAbilityHandles.Empty();
 }
 
-TSubclassOf<UFTWeaponGameplayAbility> UFTQuickSlotComponent::ResolveDefaultWeaponAbilityClass(
-	const UFTItemDataAsset* ItemData) const
+TSubclassOf<UGameplayAbility> UFTQuickSlotComponent::ResolveAbilityClassForAction(
+	const UFTItemDataAsset* ItemData, FGameplayTag ActionTag) const
 {
-	if (!ItemData || !ItemData->ItemTags.HasTagExact(TAG_FT_Item_Type_Weapon))
+	if (!ItemData || !ActionTag.IsValid())
 	{
 		return nullptr;
 	}
 
-	const bool bMelee = ItemData->ItemTags.HasTagExact(TAG_FT_Weapon_Type_Melee);
-	const bool bHitScan = ItemData->ItemTags.HasTagExact(TAG_FT_Weapon_Type_HitScan);
-	const bool bProjectile = ItemData->ItemTags.HasTagExact(TAG_FT_Weapon_Type_Projectile);
-	if (static_cast<int32>(bMelee) + static_cast<int32>(bHitScan) +
-		static_cast<int32>(bProjectile) != 1)
+	if (ActionTag.MatchesTagExact(TAG_FT_Item_Action_Heal))
 	{
-		return nullptr;
+		return UFTGA_UseHealPotion::StaticClass();
 	}
 
-	if (bMelee)
+	if (ActionTag.MatchesTagExact(TAG_FT_Item_Action_Throw))
 	{
-		return UFTMeleeWeaponGameplayAbility::StaticClass();
+		return UFTProjectileWeaponGameplayAbility::StaticClass();
 	}
-	if (bHitScan)
+
+	if (ActionTag.MatchesTagExact(TAG_FT_Weapon_Action_Primary) ||
+		ActionTag.MatchesTagExact(TAG_FT_Weapon_Action_Secondary))
 	{
-		return UFTHitScanWeaponGameplayAbility::StaticClass();
+		if (!ItemData->ItemTags.HasTagExact(TAG_FT_Item_Type_Weapon))
+		{
+			return nullptr;
+		}
+
+		const bool bMelee = ItemData->ItemTags.HasTagExact(TAG_FT_Weapon_Type_Melee);
+		const bool bHitScan = ItemData->ItemTags.HasTagExact(TAG_FT_Weapon_Type_HitScan);
+		const bool bProjectile = ItemData->ItemTags.HasTagExact(TAG_FT_Weapon_Type_Projectile);
+		if (static_cast<int32>(bMelee) + static_cast<int32>(bHitScan) +
+			static_cast<int32>(bProjectile) != 1)
+		{
+			return nullptr;
+		}
+
+		if (bMelee)
+		{
+			return UFTMeleeWeaponGameplayAbility::StaticClass();
+		}
+		if (bHitScan)
+		{
+			return UFTHitScanWeaponGameplayAbility::StaticClass();
+		}
+		return UFTProjectileWeaponGameplayAbility::StaticClass();
 	}
-	return UFTProjectileWeaponGameplayAbility::StaticClass();
+
+	return nullptr;
 }
 
 FGameplayAbilitySpecHandle UFTQuickSlotComponent::FindSelectedAbilityHandle(

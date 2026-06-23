@@ -33,7 +33,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Action")
 	FName MuzzleSocketName = TEXT("Muzzle");
 
+	/** Socket pair used by melee abilities. Sweeping a sphere between them creates the attack capsule. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Action|Melee")
+	FName MeleeTraceStartSocketName = TEXT("Hit_Start");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Action|Melee")
+	FName MeleeTraceEndSocketName = TEXT("Hit_End");
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Action|Melee",
-		meta = (ClampMin = "0.1"))
-	float MeleeHitBoundsScale = 1.0f;
+		meta = (ClampMin = "1.0"))
+	float MeleeTraceRadius = 18.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Action|Melee")
+	bool bDrawMeleeTraceDebug = false;
 };

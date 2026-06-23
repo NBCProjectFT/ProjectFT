@@ -1,10 +1,9 @@
 #include "FTItemActor.h"
 
-#include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 
 AFTItemActor::AFTItemActor()
 {
@@ -15,11 +14,6 @@ AFTItemActor::AFTItemActor()
 	SetRootComponent(MeshComponent);
 	MeshComponent->SetSimulatePhysics(true);
 	MeshComponent->SetCollisionProfileName(TEXT("PhysicsBody"));
-
-	MeleeHitCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("MeleeHitCapsule"));
-	MeleeHitCapsule->SetupAttachment(MeshComponent);
-	MeleeHitCapsule->InitCapsuleSize(18.0f, 55.0f);
-	MeleeHitCapsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AFTItemActor::BeginPlay()
@@ -37,7 +31,6 @@ void AFTItemActor::InitializeFromItemData(UFTItemDataAsset* InItemData)
 void AFTItemActor::ConfigureFromItemData()
 {
 	UpdateAppearance();
-	ConfigureMeleeHitCapsule();
 }
 
 bool AFTItemActor::Interact_Implementation(AActor* Interactor)
@@ -89,54 +82,6 @@ FTransform AFTItemActor::GetMuzzleTransform() const
 		return MeshComponent->GetSocketTransform(ItemData->MuzzleSocketName, RTS_World);
 	}
 	return GetActorTransform();
-}
-
-void AFTItemActor::ConfigureMeleeHitCapsule()
-{
-	FitMeleeHitCapsuleToMesh();
-	MeleeHitCapsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	MeleeHitCapsule->SetCollisionResponseToAllChannels(ECR_Ignore);
-	MeleeHitCapsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	MeleeHitCapsule->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Overlap);
-	MeleeHitCapsule->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-	MeleeHitCapsule->SetGenerateOverlapEvents(true);
-}
-
-void AFTItemActor::FitMeleeHitCapsuleToMesh()
-{
-	if (!ItemData || !MeshComponent || !MeshComponent->GetStaticMesh() || !MeleeHitCapsule)
-	{
-		return;
-	}
-
-	FVector BoundsMin;
-	FVector BoundsMax;
-	MeshComponent->GetLocalBounds(BoundsMin, BoundsMax);
-	const FVector Center = (BoundsMin + BoundsMax) * 0.5f;
-	const FVector Extent = (BoundsMax - BoundsMin) * 0.5f * ItemData->MeleeHitBoundsScale;
-
-	FVector CapsuleAxis = FVector::UpVector;
-	float HalfHeight = Extent.Z;
-	float Radius = FMath::Max(Extent.X, Extent.Y);
-	if (Extent.X >= Extent.Y && Extent.X >= Extent.Z)
-	{
-		CapsuleAxis = FVector::ForwardVector;
-		HalfHeight = Extent.X;
-		Radius = FMath::Max(Extent.Y, Extent.Z);
-	}
-	else if (Extent.Y >= Extent.X && Extent.Y >= Extent.Z)
-	{
-		CapsuleAxis = FVector::RightVector;
-		HalfHeight = Extent.Y;
-		Radius = FMath::Max(Extent.X, Extent.Z);
-	}
-
-	Radius = FMath::Max(1.0f, Radius);
-	HalfHeight = FMath::Max(Radius, HalfHeight);
-	MeleeHitCapsule->SetRelativeLocation(Center);
-	MeleeHitCapsule->SetRelativeRotation(
-		FQuat::FindBetweenNormals(FVector::UpVector, CapsuleAxis));
-	MeleeHitCapsule->SetCapsuleSize(Radius, HalfHeight);
 }
 
 void AFTItemActor::DestroyItem()

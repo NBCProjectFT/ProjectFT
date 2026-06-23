@@ -8,7 +8,6 @@
 
 class UFTItemDataAsset;
 class UStaticMeshComponent;
-class UCapsuleComponent;
 struct FFTItemActionDefinition;
 
 UCLASS()
@@ -21,7 +20,7 @@ public:
 	void InitializeFromItemData(UFTItemDataAsset* InItemData);
 	const FFTItemActionDefinition* FindActionDefinition(FGameplayTag ActionTag) const;
 	FTransform GetMuzzleTransform() const;
-	UCapsuleComponent* GetMeleeHitComponent() const { return MeleeHitCapsule; }
+	UStaticMeshComponent* GetItemMeshComponent() const { return MeshComponent; }
 
 	/*
 	 * @brief : 아이템의 외형을 데이터 에셋에 맞춰 업데이트 하는 메서드입니다.
@@ -47,11 +46,4 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UCapsuleComponent> MeleeHitCapsule;
-
-private:
-	void ConfigureMeleeHitCapsule();
-	void FitMeleeHitCapsuleToMesh();
 };

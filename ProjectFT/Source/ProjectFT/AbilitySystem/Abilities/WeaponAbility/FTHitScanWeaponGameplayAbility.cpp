@@ -57,7 +57,14 @@ bool UFTHitScanWeaponGameplayAbility::ExecuteWeaponAction()
 		Hit, MuzzleLocation, TraceEnd, Objects, Params);
 	if (bHit)
 	{
-		ApplyWeaponDamage(Hit.GetActor(), ActiveDefinition->Damage);
+		UE_LOG(LogTemp, Warning, TEXT("HitScan hit actor: %s (%s)"),
+			*GetNameSafe(Hit.GetActor()),
+			Hit.GetActor() ? *Hit.GetActor()->GetClass()->GetName() : TEXT("None"));
+		ApplyWeaponDamage(Hit.GetActor());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HitScan missed."));
 	}
 
 #if ENABLE_DRAW_DEBUG

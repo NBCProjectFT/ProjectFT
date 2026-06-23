@@ -25,9 +25,7 @@ protected:
 private:
 	void CheckMeleeHits();
 	void HandleSafetyTimeout();
-
-	UPROPERTY(Transient)
-	TObjectPtr<UPrimitiveComponent> ActiveHitComponent;
+	bool ResolveMeleeTraceSegment(FVector& OutStart, FVector& OutEnd, float& OutRadius) const;
 
 	TSet<TWeakObjectPtr<AActor>> HitActors;
 	FTimerHandle SafetyEndTimer;

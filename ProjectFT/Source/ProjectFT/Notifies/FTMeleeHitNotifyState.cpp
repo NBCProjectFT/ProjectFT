@@ -1,8 +1,8 @@
 #include "FTMeleeHitNotifyState.h"
 
 #include "Components/SkeletalMeshComponent.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTQuickSlotComponent.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 
 namespace
 {

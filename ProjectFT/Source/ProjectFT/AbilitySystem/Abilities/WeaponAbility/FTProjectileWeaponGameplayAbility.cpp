@@ -56,16 +56,27 @@ bool UFTProjectileWeaponGameplayAbility::ExecuteWeaponAction()
 	}
 
 	const FTransform SpawnTransform(Direction.Rotation(), MuzzleLocation);
+	TSubclassOf<AFTProjectileActor> ProjectileClass = ActiveDefinition->ProjectileClass;
+	if (!ProjectileClass)
+	{
+		ProjectileClass = AFTProjectileActor::StaticClass();
+	}
+
 	AFTProjectileActor* Projectile = GetWorld()->SpawnActorDeferred<AFTProjectileActor>(
-		ActiveDefinition->ProjectileClass, SpawnTransform, ActiveItem, ShooterPawn,
+		ProjectileClass, SpawnTransform, ActiveItem, ShooterPawn,
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!Projectile)
 	{
 		return false;
 	}
 
-	Projectile->InitializeProjectile(ActiveDefinition->Damage,
-		GetAbilitySystemComponentFromActorInfo(), ActiveDefinition->EffectClass);
+	Projectile->InitializeProjectile(SetByCallerDamage,
+		GetAbilitySystemComponentFromActorInfo(),
+		ActiveDefinition->EffectClass,
+		ActiveDefinition->ProjectileSpeed,
+		ActiveDefinition->ProjectileLifeSpan,
+		ActiveDefinition->ProjectileGravityScale,
+		ActiveDefinition->ProjectileCollisionRadius);
 	UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
 	return true;
 }
