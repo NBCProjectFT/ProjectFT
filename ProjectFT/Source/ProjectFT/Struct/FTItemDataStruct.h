@@ -21,9 +21,6 @@ public:
 	FText ItemDescription;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
-	EFTItemCategoryType ItemCategory = EFTItemCategoryType::Basic;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	float Weight = 0.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
