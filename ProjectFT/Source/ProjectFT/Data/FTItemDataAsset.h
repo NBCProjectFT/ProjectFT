@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
@@ -15,6 +15,8 @@ class PROJECTFT_API UFTItemDataAsset : public UPrimaryDataAsset
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data")
 	FTItemDataStruct ItemData;
+
+	virtual FPrimaryAssetId GetPrimaryAssetId() const override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Data|Visual",
 		meta = (ClampMin = "0.01"))
