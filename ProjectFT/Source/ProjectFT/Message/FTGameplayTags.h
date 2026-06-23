@@ -13,17 +13,9 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ObjectiveCompleted);
 
 
 // 액션 태그
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Primary);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Secondary);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Reload);
 
 // 무기 태크
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_Melee);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_HitScan);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_Projectile);
 
 // GAS data and state tags
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Damage);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Weapon_Attacking);
 
 

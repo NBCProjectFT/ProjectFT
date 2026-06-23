@@ -9,6 +9,7 @@
 
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 

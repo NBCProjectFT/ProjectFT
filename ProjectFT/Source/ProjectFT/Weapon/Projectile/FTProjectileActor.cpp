@@ -1,12 +1,13 @@
 #include "FTProjectileActor.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
 
 AFTProjectileActor::AFTProjectileActor()
@@ -36,11 +37,28 @@ AFTProjectileActor::AFTProjectileActor()
 
 void AFTProjectileActor::InitializeProjectile(float InDamage,
 	UAbilitySystemComponent* InSourceAbilitySystem,
-	TSubclassOf<UGameplayEffect> InEffectClass)
+	TSubclassOf<UGameplayEffect> InEffectClass,
+	float InSpeed,
+	float InLifeSpan,
+	float InGravityScale,
+	float InCollisionRadius)
 {
 	Damage = FMath::Max(0.0f, InDamage);
 	SourceAbilitySystem = InSourceAbilitySystem;
 	EffectClass = InEffectClass;
+	InitialLifeSpan = FMath::Max(0.1f, InLifeSpan);
+
+	if (CollisionComponent)
+	{
+		CollisionComponent->SetSphereRadius(FMath::Max(1.0f, InCollisionRadius), true);
+	}
+	if (ProjectileMovement)
+	{
+		const float Speed = FMath::Max(1.0f, InSpeed);
+		ProjectileMovement->InitialSpeed = Speed;
+		ProjectileMovement->MaxSpeed = Speed;
+		ProjectileMovement->ProjectileGravityScale = FMath::Max(0.0f, InGravityScale);
+	}
 }
 
 void AFTProjectileActor::BeginPlay()
@@ -63,6 +81,14 @@ void AFTProjectileActor::HandleProjectileHit(UPrimitiveComponent* HitComponent,
 	}
 
 	UAbilitySystemComponent* TargetASC = OtherActor->FindComponentByClass<UAbilitySystemComponent>();
+	if (!TargetASC)
+	{
+		if (const IAbilitySystemInterface* AbilitySystemInterface =
+			Cast<IAbilitySystemInterface>(OtherActor))
+		{
+			TargetASC = AbilitySystemInterface->GetAbilitySystemComponent();
+		}
+	}
 	if (SourceAbilitySystem && TargetASC)
 	{
 		TSubclassOf<UGameplayEffect> AppliedEffectClass = EffectClass;

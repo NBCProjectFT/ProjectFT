@@ -41,8 +41,16 @@ protected:
 
 	AFTItemActor* GetItemActor() const;
 	const FFTItemActionDefinition* GetActionDefinition() const;
-	bool ApplyWeaponDamage(AActor* TargetActor, float Damage) const;
+	bool ApplyWeaponDamage(AActor* TargetActor) const;
 	void FinishAbility(bool bWasCancelled = false) { FinishItemUse(bWasCancelled); }
+
+	/**
+	 * Temporary SetByCaller magnitude for native FTGE_Damage fallback.
+	 * Specific weapon Blueprint abilities/effects can override this or use an EffectClass with fixed values.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Weapon|GAS",
+		meta = (ClampMin = "0.0"))
+	float SetByCallerDamage = 20.0f;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AFTItemActor> ActiveItem;

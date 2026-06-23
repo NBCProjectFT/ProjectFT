@@ -1,12 +1,13 @@
 #include "FTWeaponGameplayAbility.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 
 UFTWeaponGameplayAbility::UFTWeaponGameplayAbility()
 {
@@ -105,7 +106,7 @@ const FFTItemActionDefinition* UFTWeaponGameplayAbility::GetActionDefinition() c
 		});
 }
 
-bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor, float Damage) const
+bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor) const
 {
 	if (!TargetActor || !ActiveItem || TargetActor == ActiveItem ||
 		TargetActor == GetAvatarActorFromActorInfo())
@@ -119,6 +120,14 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor, float Dama
 
 	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
 	UAbilitySystemComponent* TargetASC = TargetActor->FindComponentByClass<UAbilitySystemComponent>();
+	if (!TargetASC)
+	{
+		if (const IAbilitySystemInterface* AbilitySystemInterface =
+			Cast<IAbilitySystemInterface>(TargetActor))
+		{
+			TargetASC = AbilitySystemInterface->GetAbilitySystemComponent();
+		}
+	}
 	if (SourceASC && TargetASC && ActiveDefinition)
 	{
 		TSubclassOf<UGameplayEffect> EffectClass = ActiveDefinition->EffectClass;
@@ -133,7 +142,10 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor, float Dama
 			EffectClass, GetAbilityLevel(), Context);
 		if (Spec.IsValid())
 		{
-			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -Damage);
+			if (SetByCallerDamage > 0.0f)
+			{
+				Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -SetByCallerDamage);
+			}
 			SourceASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 			return true;
 		}
@@ -145,6 +157,6 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor, float Dama
 		InstigatorController = Pawn->GetController();
 	}
 	UGameplayStatics::ApplyDamage(
-		TargetActor, Damage, InstigatorController, ActiveItem, nullptr);
+		TargetActor, SetByCallerDamage, InstigatorController, ActiveItem, nullptr);
 	return true;
 }

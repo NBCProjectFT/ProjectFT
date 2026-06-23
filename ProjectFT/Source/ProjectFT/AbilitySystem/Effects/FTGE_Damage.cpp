@@ -1,7 +1,7 @@
 #include "FTGE_Damage.h"
 
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 
 UFTGE_Damage::UFTGE_Damage()
 {

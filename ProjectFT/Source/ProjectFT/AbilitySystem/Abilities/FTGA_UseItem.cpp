@@ -10,7 +10,6 @@
 #include "ProjectFT/Components/FTQuickSlotComponent.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
 
 UFTGA_UseItem::UFTGA_UseItem()
 {
@@ -178,14 +177,12 @@ const UFTItemDataAsset* UFTGA_UseItem::GetItemData() const
 
 float UFTGA_UseItem::GetUseCastTime() const
 {
-	const FFTItemActionDefinition* Action = GetItemActionDefinition();
-	return Action ? Action->CastTime : CastTimeSeconds;
+	return CastTimeSeconds;
 }
 
 float UFTGA_UseItem::GetUseCooldown() const
 {
-	const FFTItemActionDefinition* Action = GetItemActionDefinition();
-	return Action ? Action->Cooldown : CooldownSeconds;
+	return CooldownSeconds;
 }
 
 TSubclassOf<UGameplayEffect> UFTGA_UseItem::GetUseEffectClass() const

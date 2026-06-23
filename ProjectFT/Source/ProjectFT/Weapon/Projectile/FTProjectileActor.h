@@ -19,7 +19,11 @@ public:
 	AFTProjectileActor();
 	void InitializeProjectile(float InDamage,
 		UAbilitySystemComponent* InSourceAbilitySystem = nullptr,
-		TSubclassOf<UGameplayEffect> InEffectClass = nullptr);
+		TSubclassOf<UGameplayEffect> InEffectClass = nullptr,
+		float InSpeed = 3000.0f,
+		float InLifeSpan = 5.0f,
+		float InGravityScale = 0.0f,
+		float InCollisionRadius = 8.0f);
 
 protected:
 	virtual void BeginPlay() override;

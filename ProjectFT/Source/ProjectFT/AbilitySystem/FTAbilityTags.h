@@ -12,6 +12,20 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Cooldown);
 // 아이템 사용 어빌리티가 시전(활성) 중인 동안 소유자에게 부여되는 상태 태그. 이동 입력 시 이 태그로 시전을 취소한다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_UsingItem);
 
+// Weapon action tags
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Primary);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Secondary);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Reload);
+
+// Weapon type tags
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_Melee);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_HitScan);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_Projectile);
+
+// GAS data and state tags
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Damage);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Weapon_Attacking);
+
 // Quick-slot input tags
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_QuickSlot_1);
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_QuickSlot_2);

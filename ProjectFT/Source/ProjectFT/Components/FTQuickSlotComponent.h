@@ -128,8 +128,8 @@ private:
 	bool GrantSelectedItemAbilities();
 	bool GrantItemActions(UFTItemDataAsset* ItemData);
 	void RemoveSelectedItemAbilities();
-	TSubclassOf<UFTWeaponGameplayAbility> ResolveDefaultWeaponAbilityClass(
-		const UFTItemDataAsset* ItemData) const;
+	TSubclassOf<UGameplayAbility> ResolveAbilityClassForAction(
+		const UFTItemDataAsset* ItemData, FGameplayTag ActionTag) const;
 	FGameplayAbilitySpecHandle FindSelectedAbilityHandle(FGameplayTag ActionTag) const;
 	UFTWeaponGameplayAbility* GetActiveWeaponAbility(FGameplayTag ActionTag) const;
 	int32 ResolveSlotIndex(FGameplayTag InputTag) const;
