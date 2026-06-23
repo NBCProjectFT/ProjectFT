@@ -9,6 +9,7 @@ class USphereComponent;
 class UStaticMeshComponent;
 class UAbilitySystemComponent;
 class UGameplayEffect;
+class UFTItemDataAsset;
 
 UCLASS(Blueprintable)
 class PROJECTFT_API AFTProjectileActor : public AActor
@@ -17,9 +18,12 @@ class PROJECTFT_API AFTProjectileActor : public AActor
 
 public:
 	AFTProjectileActor();
+
 	void InitializeProjectile(float InDamage,
 		UAbilitySystemComponent* InSourceAbilitySystem = nullptr,
 		TSubclassOf<UGameplayEffect> InEffectClass = nullptr,
+		UFTItemDataAsset* InItemData = nullptr,
+		FVector InLaunchDirection = FVector::ForwardVector,
 		float InSpeed = 3000.0f,
 		float InLifeSpan = 5.0f,
 		float InGravityScale = 0.0f,
@@ -27,6 +31,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	void InitializeFromItemData(UFTItemDataAsset* InItemData);
+	void UpdateAppearance();
+	void SpawnItemOnImpact(const FHitResult& Hit);
 
 	UFUNCTION()
 	void HandleProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
@@ -49,4 +57,13 @@ protected:
 
 	UPROPERTY(Transient)
 	TSubclassOf<UGameplayEffect> EffectClass;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "FT|Projectile")
+	TObjectPtr<UFTItemDataAsset> ItemData;
+
+	UPROPERTY(Transient)
+	FVector LaunchDirection = FVector::ForwardVector;
+
+	UPROPERTY(Transient)
+	bool bHasImpacted = false;
 };

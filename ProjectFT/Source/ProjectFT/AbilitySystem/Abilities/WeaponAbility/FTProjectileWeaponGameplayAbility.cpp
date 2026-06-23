@@ -3,13 +3,12 @@
 #include "AbilitySystemComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "Kismet/GameplayStatics.h"
+#include "ProjectFT/Components/FTProjectileComponent.h"
 #include "ProjectFT/Item/FTItemActor.h"
-#include "ProjectFT/Weapon/Projectile/FTProjectileActor.h"
 
 bool UFTProjectileWeaponGameplayAbility::ExecuteWeaponAction()
 {
-	if (!ActiveItem || !ActiveDefinition || !ActiveDefinition->ProjectileClass || !GetWorld())
+	if (!ActiveItem || !ActiveDefinition || !GetWorld())
 	{
 		return false;
 	}
@@ -24,7 +23,7 @@ bool UFTProjectileWeaponGameplayAbility::ExecuteWeaponAction()
 		return true;
 	}
 	APawn* ShooterPawn = Cast<APawn>(Shooter);
-	const FTransform MuzzleTransform = ActiveItem->GetMuzzleTransform();
+	const FTransform MuzzleTransform = GetMuzzleTransform();
 	const FVector MuzzleLocation = MuzzleTransform.GetLocation();
 	FVector AimOrigin = MuzzleLocation;
 	FVector AimDirection = MuzzleTransform.GetUnitAxis(EAxis::X);
@@ -52,31 +51,25 @@ bool UFTProjectileWeaponGameplayAbility::ExecuteWeaponAction()
 	FVector Direction = (AimPoint - MuzzleLocation).GetSafeNormal();
 	if (Direction.IsNearlyZero())
 	{
+		Direction = AimDirection.GetSafeNormal();
+	}
+	if (Direction.IsNearlyZero())
+	{
 		Direction = MuzzleTransform.GetUnitAxis(EAxis::X);
 	}
 
 	const FTransform SpawnTransform(Direction.Rotation(), MuzzleLocation);
-	TSubclassOf<AFTProjectileActor> ProjectileClass = ActiveDefinition->ProjectileClass;
-	if (!ProjectileClass)
-	{
-		ProjectileClass = AFTProjectileActor::StaticClass();
-	}
-
-	AFTProjectileActor* Projectile = GetWorld()->SpawnActorDeferred<AFTProjectileActor>(
-		ProjectileClass, SpawnTransform, ActiveItem, ShooterPawn,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (!Projectile)
+	UFTProjectileComponent* ProjectileComponent = ActiveItem->GetProjectileComponent();
+	if (!ProjectileComponent)
 	{
 		return false;
 	}
 
-	Projectile->InitializeProjectile(SetByCallerDamage,
+	return ProjectileComponent->SpawnProjectile(
+		*ActiveDefinition,
+		SpawnTransform,
 		GetAbilitySystemComponentFromActorInfo(),
-		ActiveDefinition->EffectClass,
-		ActiveDefinition->ProjectileSpeed,
-		ActiveDefinition->ProjectileLifeSpan,
-		ActiveDefinition->ProjectileGravityScale,
-		ActiveDefinition->ProjectileCollisionRadius);
-	UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
-	return true;
+		SetByCallerDamage,
+		Direction,
+		ShooterPawn) != nullptr;
 }

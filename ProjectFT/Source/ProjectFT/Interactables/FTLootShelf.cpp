@@ -8,8 +8,6 @@
 #include "UObject/ConstructorHelpers.h"
 
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
-#include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
-#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 
@@ -69,28 +67,6 @@ void AFTLootShelf::BeginPlay()
 FText AFTLootShelf::GetInteractionPrompt_Implementation() const
 {
 	return InteractionPrompt;
-}
-
-float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
-{
-	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-
-	if (bHasBeenLooted) return ActualDamage;
-
-	if (ActualDamage > 0.0f && AbilitySystemComponent)
-	{
-		FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
-		Context.AddSourceObject(DamageCauser);
-		FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(
-			UFTGE_Damage::StaticClass(), 1.0f, Context);
-		if (Spec.IsValid())
-		{
-			Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -ActualDamage);
-			AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
-		}
-	}
-
-	return ActualDamage;
 }
 
 void AFTLootShelf::HandleOutOfHealth()
@@ -155,8 +131,8 @@ void AFTLootShelf::DropItemsOnFloor()
 		AFTItemActor* NewItem = GetWorld()->SpawnActor<AFTItemActor>(AFTItemActor::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams);
 		if (NewItem)
 		{
-			NewItem->ItemData = LootItemData;
-			NewItem->UpdateAppearance();
+			NewItem->InitializeFromItemData(LootItemData);
+			NewItem->SetEquipped(false);
 		}
 	}
 }

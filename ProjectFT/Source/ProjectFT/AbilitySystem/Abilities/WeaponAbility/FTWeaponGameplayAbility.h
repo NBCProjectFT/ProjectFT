@@ -6,6 +6,7 @@
 #include "FTWeaponGameplayAbility.generated.h"
 
 class AFTItemActor;
+class UAbilitySystemComponent;
 
 /** GAS weapon action using the same item activation pipeline as every other item. */
 UCLASS(Abstract)
@@ -41,11 +42,14 @@ protected:
 
 	AFTItemActor* GetItemActor() const;
 	const FFTItemActionDefinition* GetActionDefinition() const;
-	bool ApplyWeaponDamage(AActor* TargetActor) const;
+	FTransform GetItemSocketTransform(FName SocketName) const;
+	FTransform GetMuzzleTransform() const;
+	bool ApplyWeaponGameplayEffect(AActor* TargetActor) const;
+	static UAbilitySystemComponent* ResolveAbilitySystemComponent(AActor* TargetActor);
 	void FinishAbility(bool bWasCancelled = false) { FinishItemUse(bWasCancelled); }
 
 	/**
-	 * Temporary SetByCaller magnitude for native FTGE_Damage fallback.
+	 * Temporary SetByCaller magnitude for native FTGE_Damage.
 	 * Specific weapon Blueprint abilities/effects can override this or use an EffectClass with fixed values.
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Weapon|GAS",

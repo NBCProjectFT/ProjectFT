@@ -2,8 +2,9 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Components/StaticMeshComponent.h"
+#include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
-#include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -106,7 +107,50 @@ const FFTItemActionDefinition* UFTWeaponGameplayAbility::GetActionDefinition() c
 		});
 }
 
-bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor) const
+FTransform UFTWeaponGameplayAbility::GetItemSocketTransform(FName SocketName) const
+{
+	const AFTItemActor* Item = ActiveItem ? ActiveItem.Get() : GetItemActor();
+	const UStaticMeshComponent* MeshComponent = Item ? Item->GetItemMeshComponent() : nullptr;
+	if (MeshComponent && MeshComponent->DoesSocketExist(SocketName))
+	{
+		return MeshComponent->GetSocketTransform(SocketName, RTS_World);
+	}
+	return Item ? Item->GetActorTransform() : FTransform::Identity;
+}
+
+FTransform UFTWeaponGameplayAbility::GetMuzzleTransform() const
+{
+	const AFTItemActor* Item = ActiveItem ? ActiveItem.Get() : GetItemActor();
+	const UStaticMeshComponent* MeshComponent = Item ? Item->GetItemMeshComponent() : nullptr;
+	const FName SocketName = Item && Item->ItemData ? Item->ItemData->MuzzleSocketName : NAME_None;
+	if (MeshComponent && SocketName != NAME_None && MeshComponent->DoesSocketExist(SocketName))
+	{
+		return MeshComponent->GetSocketTransform(SocketName, RTS_World);
+	}
+	if (Item)
+	{
+		return Item->GetActorTransform();
+	}
+
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	if (const APawn* Pawn = Cast<APawn>(Avatar))
+	{
+		if (AController* Controller = Pawn->GetController())
+		{
+			FVector ViewLocation;
+			FRotator ViewRotation;
+			Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+			return FTransform(ViewRotation, ViewLocation + ViewRotation.Vector() * 100.0f);
+		}
+	}
+
+	return Avatar
+		? FTransform(Avatar->GetActorRotation(),
+			Avatar->GetActorLocation() + Avatar->GetActorForwardVector() * 100.0f)
+		: GetItemSocketTransform(NAME_None);
+}
+
+bool UFTWeaponGameplayAbility::ApplyWeaponGameplayEffect(AActor* TargetActor) const
 {
 	if (!TargetActor || !ActiveItem || TargetActor == ActiveItem ||
 		TargetActor == GetAvatarActorFromActorInfo())
@@ -115,19 +159,11 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor) const
 	}
 	if (!GetAvatarActorFromActorInfo() || !GetAvatarActorFromActorInfo()->HasAuthority())
 	{
-		return true;
+		return false;
 	}
 
 	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
-	UAbilitySystemComponent* TargetASC = TargetActor->FindComponentByClass<UAbilitySystemComponent>();
-	if (!TargetASC)
-	{
-		if (const IAbilitySystemInterface* AbilitySystemInterface =
-			Cast<IAbilitySystemInterface>(TargetActor))
-		{
-			TargetASC = AbilitySystemInterface->GetAbilitySystemComponent();
-		}
-	}
+	UAbilitySystemComponent* TargetASC = ResolveAbilitySystemComponent(TargetActor);
 	if (SourceASC && TargetASC && ActiveDefinition)
 	{
 		TSubclassOf<UGameplayEffect> EffectClass = ActiveDefinition->EffectClass;
@@ -151,12 +187,25 @@ bool UFTWeaponGameplayAbility::ApplyWeaponDamage(AActor* TargetActor) const
 		}
 	}
 
-	AController* InstigatorController = nullptr;
-	if (const APawn* Pawn = Cast<APawn>(GetAvatarActorFromActorInfo()))
+	return false;
+}
+
+UAbilitySystemComponent* UFTWeaponGameplayAbility::ResolveAbilitySystemComponent(
+	AActor* TargetActor)
+{
+	if (!TargetActor)
 	{
-		InstigatorController = Pawn->GetController();
+		return nullptr;
 	}
-	UGameplayStatics::ApplyDamage(
-		TargetActor, SetByCallerDamage, InstigatorController, ActiveItem, nullptr);
-	return true;
+	if (UAbilitySystemComponent* AbilitySystemComponent =
+		TargetActor->FindComponentByClass<UAbilitySystemComponent>())
+	{
+		return AbilitySystemComponent;
+	}
+	if (const IAbilitySystemInterface* AbilitySystemInterface =
+		Cast<IAbilitySystemInterface>(TargetActor))
+	{
+		return AbilitySystemInterface->GetAbilitySystemComponent();
+	}
+	return nullptr;
 }
