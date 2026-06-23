@@ -16,7 +16,7 @@ public:
 
 protected:
 	virtual bool ExecuteWeaponAction() override;
-	virtual bool ShouldEndImmediately() const override { return false; }
+	// virtual bool ShouldEndImmediately() const override { return false; }
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,
 		const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo,

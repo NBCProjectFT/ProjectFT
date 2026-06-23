@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
+#include "GameplayTagContainer.h"
 #include "GameFramework/Character.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 #include "FTPlayerCharacter.generated.h"
@@ -12,7 +13,7 @@ class UCameraComponent;
 class UFTInteractionComponent;
 class UAbilitySystemComponent;
 class UFTAttributeSet;
-class UFTGA_UseItem;
+class UFTItemDataAsset;
 struct FOnAttributeChangeData;
 
 UCLASS()
@@ -74,10 +75,10 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UFTAttributeSet> AttributeSet;
 
-	// [Mock] 퀵슬롯 — 각 슬롯의 아이템 사용 어빌리티 클래스(UFTGA_UseItem 파생, 효과/시전시간/쿨다운을 어빌리티가 보유).
-	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 해당 어빌리티를 활성화하는 임시 슬롯이다.
+	// [Mock] 퀵슬롯 — 각 슬롯에 아이템 데이터 에셋(UFTItemDataAsset)을 지정한다. 사용 시 그 아이템의 UseData가 동작을 결정.
+	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 사용하는 임시 슬롯이다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
-	TArray<TSubclassOf<UFTGA_UseItem>> MockQuickSlots;
+	TArray<TObjectPtr<UFTItemDataAsset>> MockQuickSlots;
 
 	// [Mock] 현재 선택된 퀵슬롯 인덱스. 추후 '손에 든 아이템'으로 대체된다.
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
@@ -121,8 +122,11 @@ private:
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);
 
-	// MoveSpeed 속성이 바뀌면(버프/디버프 등) MaxWalkSpeed에 반영한다.
-	void OnMoveSpeedAttributeChanged(const FOnAttributeChangeData& Data);
+	// 이동속도 관련 속성(MoveSpeed/스프린트·앉기 배수)이 바뀌면 MaxWalkSpeed에 반영한다.
+	void OnSpeedAttributeChanged(const FOnAttributeChangeData& Data);
+
+	// 스턴 상태 태그(State.Debuff.Stun)가 붙고/풀릴 때 이동을 정지/복원한다.
+	void OnStunTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
 
 	// 체력이 0에 도달했을 때 호출(AttributeSet의 통지).
 	void HandleOutOfHealth();

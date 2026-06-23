@@ -2,8 +2,6 @@
 
 #include "FTGE_Cooldown.h"
 
-#include "GameplayEffectComponents/TargetTagsGameplayEffectComponent.h"
-
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 
 UFTGE_Cooldown::UFTGE_Cooldown()
@@ -15,14 +13,6 @@ UFTGE_Cooldown::UFTGE_Cooldown()
 	DurationByCaller.DataTag = TAG_FT_Data_Cooldown;
 	DurationMagnitude = FGameplayEffectModifierMagnitude(DurationByCaller);
 
-	// 적용 동안 소유자에게 쿨다운 태그를 부여 → 어빌리티 CheckCooldown이 재사용을 차단.
-	// 생성자에서는 이름 없는 NewObject를 쓰는 FindOrAddComponent/AddComponent 대신
-	// CreateDefaultSubobject로 컴포넌트를 만들어 GEComponents에 직접 추가해야 한다.
-	// (생성자 안에서의 NewObject(NAME_None) 호출은 "NewObject with empty name..." 치명적 에러를 유발한다.)
-	UTargetTagsGameplayEffectComponent* TargetTagsComponent = CreateDefaultSubobject<UTargetTagsGameplayEffectComponent>(TEXT("TargetTagsComponent"));
-	GEComponents.Add(TargetTagsComponent);
-
-	FInheritedTagContainer CooldownTags;
-	CooldownTags.Added.AddTag(TAG_FT_Cooldown_ItemUse);
-	TargetTagsComponent->SetAndApplyTargetTagChanges(CooldownTags);
+	// 부여 태그(쿨다운 식별)는 고정하지 않는다 — 아이템별 분리를 위해 어빌리티(UFTGA_ItemAbility::ApplyCooldown)가
+	// 스펙의 DynamicGrantedTags로 동적 주입한다(태그 미지정 아이템은 공용 Cooldown.ItemUse 폴백).
 }
