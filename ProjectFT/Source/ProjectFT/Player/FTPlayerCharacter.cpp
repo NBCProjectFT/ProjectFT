@@ -8,11 +8,13 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
-#include "ProjectFT/AbilitySystem/Abilities/FTGA_UseItem.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_ItemAbility.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -70,16 +72,32 @@ void AFTPlayerCharacter::BeginPlay()
 		// 싱글: 소유자=아바타=this. (InitializeComponent가 한 번 호출하지만 명시적으로 한 번 더 — 안전.)
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
-		// MoveSpeed 속성이 바뀌면(버프/디버프) MaxWalkSpeed에 즉시 반영.
+		// 이동속도에 영향을 주는 속성(기본속도/스프린트·앉기 배수)이 바뀌면 MaxWalkSpeed에 즉시 반영.
+		// (스프린트 도중 들어온 배수 버프도 토글 없이 바로 적용되도록 세 속성을 모두 듣는다.)
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMoveSpeedAttribute())
-			.AddUObject(this, &AFTPlayerCharacter::OnMoveSpeedAttributeChanged);
+			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetSprintSpeedMultiplierAttribute())
+			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetCrouchSpeedMultiplierAttribute())
+			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
 
-		// [Mock] 퀵슬롯의 아이템 사용 어빌리티들을 부여한다(인덱스=슬롯). 실제 인벤토리/장비가 붙으면 교체.
-		for (const TSubclassOf<UFTGA_UseItem>& AbilityClass : MockQuickSlots)
+		// 스턴 상태 태그가 붙고/풀릴 때 이동을 정지/복원한다.
+		AbilitySystemComponent->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Stun, EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &AFTPlayerCharacter::OnStunTagChanged);
+
+		// [Mock] 퀵슬롯 아이템들이 참조하는 사용 어빌리티를 (중복 제거하여) 부여한다. 실제 인벤토리/장비가 붙으면 교체.
+		TSet<TSubclassOf<UFTGameplayAbility>> GrantedUseAbilities;
+		for (const TObjectPtr<UFTItemDataAsset>& Item : MockQuickSlots)
 		{
-			if (AbilityClass)
+			if (!Item)
 			{
-				AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AbilityClass));
+				continue;
+			}
+			const TSubclassOf<UFTGameplayAbility> UseAbility = Item->ItemData.UseData.UseAbility;
+			if (UseAbility && !GrantedUseAbilities.Contains(UseAbility))
+			{
+				AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(UseAbility));
+				GrantedUseAbilities.Add(UseAbility);
 			}
 		}
 	}
@@ -214,20 +232,43 @@ void AFTPlayerCharacter::HandleSkillCheckPressed()
 
 void AFTPlayerCharacter::HandleUseItemPressed()
 {
-	// [Mock] 현재 선택된 퀵슬롯의 아이템 사용 어빌리티를 활성화한다. 추후 인벤토리/장비의 '손에 든 아이템'으로 교체.
+	// [Mock] 현재 선택된 퀵슬롯의 아이템 데이터를 페이로드로 실어 사용 어빌리티(Event.UseItem 트리거)를 발동한다.
 	if (!AbilitySystemComponent || !MockQuickSlots.IsValidIndex(SelectedQuickSlot))
 	{
 		return;
 	}
 
-	const TSubclassOf<UFTGA_UseItem> AbilityClass = MockQuickSlots[SelectedQuickSlot];
-	if (!AbilityClass)
+	UFTItemDataAsset* Item = MockQuickSlots[SelectedQuickSlot];
+	if (!Item || !Item->ItemData.UseData.UseAbility)
 	{
 		return;
 	}
 
-	// 쿨다운/시전시간/효과 적용은 어빌리티가 담당한다(쿨다운 중이면 활성화가 거부된다).
-	AbilitySystemComponent->TryActivateAbilityByClass(AbilityClass);
+	// 발동할 어빌리티가 선언한 트리거 태그를 그 CDO에서 읽어, 그 태그로만 이벤트를 보낸다.
+	// (아이템마다 다른 use-GA를 '정확히 그것만' 발동시키기 위함 — 공용 단일 태그면 같은 태그의 여러 어빌리티가 함께 발동됨.)
+	const UFTGameplayAbility* AbilityCDO = Item->ItemData.UseData.UseAbility.GetDefaultObject();
+	const FGameplayTag EventTag = AbilityCDO ? AbilityCDO->GetTriggerEventTag() : FGameplayTag();
+	if (!EventTag.IsValid())
+	{
+		return;
+	}
+
+	// 아이템별 쿨다운 차단: 쿨다운을 가진 아이템이면, 그 쿨다운 태그가 아직 붙어 있는 동안 발동하지 않는다.
+	// (표준 CheckCooldown은 GameplayEvent 발동 시 어떤 아이템인지 알 수 없어, 호출측인 여기서 태그로 판정한다.)
+	const FTItemUseStruct& UseData = Item->ItemData.UseData;
+	if (UseData.CooldownSeconds > 0.0f
+		&& AbilitySystemComponent->HasMatchingGameplayTag(UFTGA_ItemAbility::ResolveCooldownTag(UseData)))
+	{
+		return;
+	}
+
+	// 효과/시전/쿨다운/수치는 아이템 데이터(UseData)에 있고, 어빌리티가 페이로드에서 읽어 처리한다.
+	FGameplayEventData Payload;
+	Payload.EventTag = EventTag;
+	Payload.Instigator = this;
+	Payload.Target = this;
+	Payload.OptionalObject = Item;
+	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
 }
 
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
@@ -320,10 +361,31 @@ void AFTPlayerCharacter::UpdateStaminaRegen(float DeltaSeconds)
 	}
 }
 
-void AFTPlayerCharacter::OnMoveSpeedAttributeChanged(const FOnAttributeChangeData& Data)
+void AFTPlayerCharacter::OnSpeedAttributeChanged(const FOnAttributeChangeData& Data)
 {
-	// MoveSpeed 속성 변경(버프/디버프 등)을 즉시 MaxWalkSpeed에 반영한다.
+	// 이동속도 관련 속성(MoveSpeed/스프린트·앉기 배수) 변경을 즉시 MaxWalkSpeed에 반영한다.
 	ApplyMovementSpeed();
+}
+
+void AFTPlayerCharacter::OnStunTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!Movement)
+	{
+		return;
+	}
+
+	if (NewCount > 0)
+	{
+		// 스턴 시작: 즉시 정지 + 이동 비활성(루팅). 어빌리티 사용 차단은 베이스의 ActivationBlockedTags가 처리.
+		Movement->StopMovementImmediately();
+		Movement->DisableMovement();
+	}
+	else
+	{
+		// 스턴 해제: 보행으로 복원(공중 피격 등 이전 모드 복원은 단순화).
+		Movement->SetMovementMode(MOVE_Walking);
+	}
 }
 
 void AFTPlayerCharacter::HandleOutOfHealth()
