@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ProjectFT/Enum/FTItemCategoryType.h"
+// #include "ProjectFT/Enum/FTItemCategoryType.h"
 #include "ProjectFT/Struct/FTItemUseStruct.h"
 #include "FTItemDataStruct.generated.h"
 

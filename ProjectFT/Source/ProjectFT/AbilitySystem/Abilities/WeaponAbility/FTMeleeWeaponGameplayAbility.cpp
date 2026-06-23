@@ -37,7 +37,7 @@ void UFTMeleeWeaponGameplayAbility::NotifyWindowTick()
 
 void UFTMeleeWeaponGameplayAbility::NotifyWindowEnd()
 {
-	FinishAbility();
+	// FinishAbility();
 }
 
 void UFTMeleeWeaponGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle,
@@ -55,7 +55,7 @@ void UFTMeleeWeaponGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle 
 
 void UFTMeleeWeaponGameplayAbility::HandleSafetyTimeout()
 {
-	FinishAbility(true);
+	// FinishAbility(true);
 }
 
 void UFTMeleeWeaponGameplayAbility::CheckMeleeHits()
