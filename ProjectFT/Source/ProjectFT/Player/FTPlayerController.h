@@ -9,7 +9,6 @@
 class UInputMappingContext;
 class UInputAction;
 class IFTInputInterface;
-class UFTQuickSlotComponent;
 struct FInputActionValue;
 
 UCLASS()
@@ -38,7 +37,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> JumpAction;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> SprintAction;
 
@@ -63,9 +62,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> QuickSlot3Action;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
-	TObjectPtr<UInputAction> QuickSlot4Action;
-
 private:
 	// Enhanced Input 콜백. 받은 값을 가공 없이 입력 수신자로 넘긴다.
 	void OnMoveTriggered(const FInputActionValue& Value);
@@ -83,12 +79,10 @@ private:
 	void OnQuickSlot1Started(const FInputActionValue& Value);
 	void OnQuickSlot2Started(const FInputActionValue& Value);
 	void OnQuickSlot3Started(const FInputActionValue& Value);
-	void OnQuickSlot4Started(const FInputActionValue& Value);
-	UFTQuickSlotComponent* FindQuickSlotComponent() const;
-
-
-
-
+	
+	
+	
+	
 	// 현재 빙의 중인 Pawn(GC 추적용).
 	UPROPERTY(Transient)
 	TObjectPtr<APawn> CachedInputPawn;
