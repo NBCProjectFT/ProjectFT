@@ -1,75 +1,137 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "FTGA_UseItem.h"
 
-#include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_WaitDelay.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "GameplayEffect.h"
-
-#include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
+#include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h" //삭제 예정
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Components/FTQuickSlotComponent.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemActor.h"
 
 UFTGA_UseItem::UFTGA_UseItem()
 {
-	// 쿨다운은 공용 쿨다운 GE로 처리(지속시간은 ApplyCooldown에서 주입). 아이템별 분리가 필요하면 파생에서 교체.
-	CooldownGameplayEffectClass = UFTGE_Cooldown::StaticClass();
-
-	// 시전(활성) 중 소유자에게 상태 태그를 부여 → 시전 중 이동하면 캐릭터가 이 태그로 어빌리티를 취소한다.
+	CooldownGameplayEffectClass = UFTGE_Cooldown::StaticClass(); //삭제 예정
 	ActivationOwnedTags.AddTag(TAG_FT_State_UsingItem);
+
+	// 아이템 사용 입력이 보내는 GameplayEvent(Event.UseItem)로 발동된다(페이로드 = 대상 UFTItemDataAsset).
+	FAbilityTriggerData Trigger;
+	Trigger.TriggerTag = TAG_FT_Event_UseItem;
+	Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+	AbilityTriggers.Add(Trigger);
 }
 
-void UFTGA_UseItem::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UFTGA_UseItem::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
 {
+	// 발동 페이로드의 아이템 데이터에서 사용 정보를 읽어 캐싱한다(베이스). 없으면 사용 불가로 취소.
+	if (!CacheActiveItem(TriggerEventData))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, /*bReplicateEndAbility=*/true, /*bWasCancelled=*/true);
+		return;
+	}
+
 	// 쿨다운 차단은 CanActivateAbility(CheckCooldown)에서 이미 걸러진다. 여기서는 시전 흐름만 진행한다.
-	if (CastTimeSeconds > 0.0f)
+	if (ActiveUseData.CastTimeSeconds > 0.0f)
 	{
 		// 시전시간 동안 대기 후 효과 적용. 시전 중에는 동일 어빌리티가 활성 상태라 재사용이 막힌다.
-		UAbilityTask_WaitDelay* CastTask = UAbilityTask_WaitDelay::WaitDelay(this, CastTimeSeconds);
+		UAbilityTask_WaitDelay* CastTask = UAbilityTask_WaitDelay::WaitDelay(this, ActiveUseData.CastTimeSeconds);
 		CastTask->OnFinish.AddDynamic(this, &UFTGA_UseItem::OnCastFinished);
-		CastTask->ReadyForActivation();
-	}
-	else
+
+	
+/*//플레이어가 몽타주 직접 사용 중	
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (!PrepareItemUse() || !CommitAbility(Handle, ActorInfo, ActivationInfo) ||
+		!PlayItemMontage())
 	{
-		FinishUse();
+		FinishItemUse(true);
+		return;
 	}
+
+	const float CastTime = GetUseCastTime();
+	if (CastTime > 0.0f)
+	{
+		UAbilityTask_WaitDelay* CastTask = UAbilityTask_WaitDelay::WaitDelay(this, CastTime);
+		CastTask->OnFinish.AddDynamic(this, &ThisClass::OnCastFinished);
+		// 여기까지
+
+		*/
+		CastTask->ReadyForActivation();
+		return;
+	}
+	
+
+	// PerformItemUse();
+}
+
+void UFTGA_UseItem::EndAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	bool bReplicateEndAbility, bool bWasCancelled)
+{
+	// PlayedMontageDuration = 0.0f;
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo,
+		bReplicateEndAbility, bWasCancelled);
 }
 
 void UFTGA_UseItem::OnCastFinished()
 {
-	FinishUse();
+	// PerformItemUse();
 }
 
-void UFTGA_UseItem::FinishUse()
+void UFTGA_UseItem::PerformItemUse()
 {
-	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	if (!ASC || !ItemEffect)
+	// 비용/쿨다운을 표준 경로로 커밋(효과 적용 "전"에 → 비용 부족이면 효과 없이 취소).
+	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
-		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, /*bReplicateEndAbility=*/true, /*bWasCancelled=*/true);
+		// FinishItemUse(true);
 		return;
 	}
 
-	// 효과 적용(가이드 4.4 패턴: 컨텍스트에 근원 등록 → 스펙 생성 → 자신에게 적용). 만들어 둔 GE를 그대로 재사용.
-	FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
-	EffectContext.AddSourceObject(this);
-	const FGameplayEffectSpecHandle EffectSpec = ASC->MakeOutgoingSpec(ItemEffect, GetAbilityLevel(), EffectContext);
-	if (EffectSpec.IsValid())
-	{
-		ASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-	}
-
-	// 쿨다운 적용(재정의된 ApplyCooldown이 CooldownSeconds를 주입; 0이면 아무것도 하지 않음).
-	ApplyCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
+	// UseEffects를 자신에게 적용(베이스 헬퍼, TargetData 없음 → Owner).
+	ApplyUseEffects(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
 
 	OnItemConsumed();
+	if (ShouldEndImmediately())
+	{
+		// FinishItemUse();
+	}
+}
+/*
+bool UFTGA_UseItem::ExecuteItemUse()
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	const TSubclassOf<UGameplayEffect> EffectClass = GetUseEffectClass();
+	if (!ASC || !EffectClass)
+	{
+		return false;
+	}
 
-	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, /*bReplicateEndAbility=*/true, /*bWasCancelled=*/false);
+	FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
+	Context.AddSourceObject(GetCurrentSourceObject());
+	const FGameplayEffectSpecHandle Spec = ASC->MakeOutgoingSpec(
+		EffectClass, GetAbilityLevel(), Context);
+	if (!Spec.IsValid())
+	{
+		return false;
+	}
+
+	ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+	return true;
 }
 
-void UFTGA_UseItem::ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const
+void UFTGA_UseItem::ApplyCooldown(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo) const
 {
-	if (CooldownSeconds <= 0.0f)
+	const float Cooldown = GetUseCooldown();
+	if (Cooldown <= 0.0f)
 	{
-		return; // 쿨다운 없음.
+		return;
 	}
 
 	UGameplayEffect* CooldownGE = GetCooldownGameplayEffect();
@@ -78,16 +140,117 @@ void UFTGA_UseItem::ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const
 		return;
 	}
 
-	// 공용 쿨다운 GE에 이 어빌리티의 쿨다운 시간을 SetByCaller로 주입해 적용한다.
-	const FGameplayEffectSpecHandle CooldownSpec = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, CooldownGE->GetClass(), GetAbilityLevel(Handle, ActorInfo));
-	if (CooldownSpec.IsValid())
+	const FGameplayEffectSpecHandle Spec = MakeOutgoingGameplayEffectSpec(
+		Handle, ActorInfo, ActivationInfo, CooldownGE->GetClass(),
+		GetAbilityLevel(Handle, ActorInfo));
+	if (Spec.IsValid())
 	{
-		CooldownSpec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Cooldown, CooldownSeconds);
-		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, CooldownSpec);
+		Spec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Cooldown, Cooldown);
+		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, Spec);
 	}
 }
 
 void UFTGA_UseItem::OnItemConsumed()
 {
-	// 기본 구현 없음. 인벤토리 차감/사용 연출은 파생 클래스나 후속 작업에서 추가한다.
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	if (!Action || !Action->bConsumeOnUse)
+	{
+		return;
+	}
+
+	if (AActor* Avatar = GetAvatarActorFromActorInfo())
+	{
+		if (UFTQuickSlotComponent* QuickSlot =
+			Avatar->FindComponentByClass<UFTQuickSlotComponent>())
+		{
+			QuickSlot->ConsumeSelectedItem(1);
+		}
+	}
 }
+
+const FFTItemActionDefinition* UFTGA_UseItem::GetItemActionDefinition() const
+{
+	const UFTItemDataAsset* ItemData = GetItemData();
+	const UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	const FGameplayAbilitySpec* Spec = ASC
+		? ASC->FindAbilitySpecFromHandle(GetCurrentAbilitySpecHandle())
+		: nullptr;
+	if (!ItemData || !Spec)
+	{
+		return nullptr;
+	}
+
+	return ItemData->Actions.FindByPredicate(
+		[Spec](const FFTItemActionDefinition& Action)
+		{
+			const FGameplayTag ActionTag = Action.ActionTag.IsValid()
+				? Action.ActionTag
+				: TAG_FT_Weapon_Action_Primary;
+			return Spec->GetDynamicSpecSourceTags().HasTagExact(ActionTag);
+		});
+}
+
+const UFTItemDataAsset* UFTGA_UseItem::GetItemData() const
+{
+	UObject* SourceObject = GetCurrentSourceObject();
+	if (const UFTItemDataAsset* DataAsset = Cast<UFTItemDataAsset>(SourceObject))
+	{
+		return DataAsset;
+	}
+	if (const AFTItemActor* ItemActor = Cast<AFTItemActor>(SourceObject))
+	{
+		return ItemActor->ItemData;
+	}
+	return nullptr;
+}
+
+float UFTGA_UseItem::GetUseCastTime() const
+{
+	return CastTimeSeconds;
+}
+
+float UFTGA_UseItem::GetUseCooldown() const
+{
+	return CooldownSeconds;
+}
+
+TSubclassOf<UGameplayEffect> UFTGA_UseItem::GetUseEffectClass() const
+{
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	return Action && Action->EffectClass
+		? Action->EffectClass
+		: ItemEffect;
+}
+
+bool UFTGA_UseItem::PlayItemMontage()
+{
+	PlayedMontageDuration = 0.0f;
+	const FFTItemActionDefinition* Action = GetItemActionDefinition();
+	if (!Action || Action->Montage.IsNull())
+	{
+		return true;
+	}
+
+	UAnimMontage* Montage = Action->Montage.LoadSynchronous();
+	UAnimInstance* AnimInstance = GetCurrentActorInfo()
+		? GetCurrentActorInfo()->GetAnimInstance()
+		: nullptr;
+	if (!Montage || !AnimInstance)
+	{
+		return false;
+	}
+
+	PlayedMontageDuration = AnimInstance->Montage_Play(Montage);
+	return PlayedMontageDuration > 0.0f;
+}
+
+void UFTGA_UseItem::FinishItemUse(bool bWasCancelled)
+{
+	if (!IsActive())
+	{
+		return;
+	}
+	EndAbility(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo(),
+		GetCurrentActivationInfo(), true, bWasCancelled);
+}
+*/
