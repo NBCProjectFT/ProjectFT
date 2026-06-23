@@ -35,26 +35,26 @@ public:
 private:
 	// 시전 완료(또는 시전시간 0) 시 효과 적용 + 쿨다운 적용 + 종료.
 	void FinishUse();
-/*protected:
-	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle,
-		const FGameplayAbilityActorInfo* ActorInfo,
-		const FGameplayAbilityActivationInfo ActivationInfo) const override;
+protected:
+	// virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle,
+		// const FGameplayAbilityActorInfo* ActorInfo,
+		// const FGameplayAbilityActivationInfo ActivationInfo) const override;
 
 
 	virtual bool PrepareItemUse() { return true; }
 
 
-	virtual bool ExecuteItemUse();
+	// virtual bool ExecuteItemUse();
 	virtual bool ShouldEndImmediately() const { return true; }
-	virtual void OnItemConsumed();
+	// virtual void OnItemConsumed();
 
-	const UFTItemDataAsset* GetItemData() const;
-	const FFTItemActionDefinition* GetItemActionDefinition() const;
-	float GetUseCastTime() const;
-	float GetUseCooldown() const;
-	TSubclassOf<UGameplayEffect> GetUseEffectClass() const;
-	bool PlayItemMontage();
-	void FinishItemUse(bool bWasCancelled = false);
+	// const UFTItemDataAsset* GetItemData() const;
+	// const FFTItemActionDefinition* GetItemActionDefinition() const;
+	// float GetUseCastTime() const;
+	// float GetUseCooldown() const;
+	// TSubclassOf<UGameplayEffect> GetUseEffectClass() const;
+	// bool PlayItemMontage();
+	// void FinishItemUse(bool bWasCancelled = false);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Item")
 	TSubclassOf<UGameplayEffect> ItemEffect;
@@ -69,7 +69,7 @@ private:
 
 private:
 	void PerformItemUse();
-*/
+
 
 	UFUNCTION()
 	void OnCastFinished();

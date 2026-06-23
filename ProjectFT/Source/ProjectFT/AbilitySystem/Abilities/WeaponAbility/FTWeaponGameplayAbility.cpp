@@ -49,21 +49,21 @@ bool UFTWeaponGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHand
 	return Definition != nullptr;
 }
 
-bool UFTWeaponGameplayAbility::PrepareItemUse()
-{
-	ActiveItem = GetItemActor();
-	ActiveDefinition = GetActionDefinition();
-	return ActiveItem && ActiveDefinition;
-}
-
-bool UFTWeaponGameplayAbility::ExecuteItemUse()
-{
-	if (!ExecuteWeaponAction())
-	{
-		return false;
-	}
-	return true;
-}
+// bool UFTWeaponGameplayAbility::PrepareItemUse()
+// {
+// 	ActiveItem = GetItemActor();
+// 	ActiveDefinition = GetActionDefinition();
+// 	return ActiveItem && ActiveDefinition;
+// }
+//
+// bool UFTWeaponGameplayAbility::ExecuteItemUse()
+// {
+// 	if (!ExecuteWeaponAction())
+// 	{
+// 		return false;
+// 	}
+// 	return true;
+// }
 
 void UFTWeaponGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo,

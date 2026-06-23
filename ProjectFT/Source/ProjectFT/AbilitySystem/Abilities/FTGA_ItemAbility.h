@@ -31,7 +31,7 @@ public:
 
 protected:
 	// 쿨다운 지속시간을 ActiveUseData.CooldownSeconds로 주입한다(공용 UFTGE_Cooldown + SetByCaller). 0이면 no-op.
-	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
+	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const;
 
 	// 발동 페이로드에서 아이템을 읽어 ActiveUseData에 캐싱한다. 아이템이 없으면 nullptr 반환(자식이 취소 판단).
 	// 반환 포인터로 메시 등 전체 데이터에 접근 가능(효과/수치/시전/쿨다운은 ActiveUseData로 충분).

@@ -7,7 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
-#include "ProjectFT/AbilitySystem/Abilities/FTGA_UseHealPotion.h"
+// #include "ProjectFT/AbilitySystem/Abilities/FTGA_UseHealPotion.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_UseItem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
@@ -398,7 +398,7 @@ TSubclassOf<UGameplayAbility> UFTQuickSlotComponent::ResolveAbilityClassForActio
 
 	if (ActionTag.MatchesTagExact(TAG_FT_Item_Action_Heal))
 	{
-		return UFTGA_UseHealPotion::StaticClass();
+		// return UFTGA_UseHealPotion::StaticClass();
 	}
 
 	if (ActionTag.MatchesTagExact(TAG_FT_Item_Action_Throw))

@@ -65,7 +65,7 @@ void UFTGA_UseItem::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	}
 	
 
-	PerformItemUse();
+	// PerformItemUse();
 }
 
 void UFTGA_UseItem::EndAbility(const FGameplayAbilitySpecHandle Handle,
@@ -73,14 +73,14 @@ void UFTGA_UseItem::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	bool bReplicateEndAbility, bool bWasCancelled)
 {
-	PlayedMontageDuration = 0.0f;
+	// PlayedMontageDuration = 0.0f;
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo,
 		bReplicateEndAbility, bWasCancelled);
 }
 
 void UFTGA_UseItem::OnCastFinished()
 {
-	PerformItemUse();
+	// PerformItemUse();
 }
 
 void UFTGA_UseItem::PerformItemUse()
@@ -88,7 +88,7 @@ void UFTGA_UseItem::PerformItemUse()
 	// 비용/쿨다운을 표준 경로로 커밋(효과 적용 "전"에 → 비용 부족이면 효과 없이 취소).
 	if (!CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo))
 	{
-		FinishItemUse(true);
+		// FinishItemUse(true);
 		return;
 	}
 
@@ -98,7 +98,7 @@ void UFTGA_UseItem::PerformItemUse()
 	OnItemConsumed();
 	if (ShouldEndImmediately())
 	{
-		FinishItemUse();
+		// FinishItemUse();
 	}
 }
 /*
