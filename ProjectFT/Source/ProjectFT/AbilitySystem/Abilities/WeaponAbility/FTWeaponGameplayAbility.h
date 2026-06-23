@@ -28,8 +28,8 @@ public:
 		FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 
 protected:
-	virtual bool PrepareItemUse() override;
-	virtual bool ExecuteItemUse() override;
+	/*virtual bool PrepareItemUse() override;
+	virtual bool ExecuteItemUse() override;*/
 
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle,
 		const FGameplayAbilityActorInfo* ActorInfo,
@@ -38,7 +38,7 @@ protected:
 
 	virtual bool ExecuteWeaponAction() PURE_VIRTUAL(
 		UFTWeaponGameplayAbility::ExecuteWeaponAction, return false;);
-	virtual bool ShouldEndImmediately() const override { return true; }
+	// virtual bool ShouldEndImmediately() const override { return true; }
 
 	AFTItemActor* GetItemActor() const;
 	const FFTItemActionDefinition* GetActionDefinition() const;
@@ -46,7 +46,7 @@ protected:
 	FTransform GetMuzzleTransform() const;
 	bool ApplyWeaponGameplayEffect(AActor* TargetActor) const;
 	static UAbilitySystemComponent* ResolveAbilitySystemComponent(AActor* TargetActor);
-	void FinishAbility(bool bWasCancelled = false) { FinishItemUse(bWasCancelled); }
+	// void FinishAbility(bool bWasCancelled = false) { FinishItemUse(bWasCancelled); }
 
 	/**
 	 * Temporary SetByCaller magnitude for native FTGE_Damage.
