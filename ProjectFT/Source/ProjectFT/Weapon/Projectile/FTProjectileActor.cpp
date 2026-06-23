@@ -6,13 +6,39 @@
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
+#include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemActor.h"
+
+namespace
+{
+UAbilitySystemComponent* ResolveAbilitySystemComponent(AActor* Actor)
+{
+	if (!Actor)
+	{
+		return nullptr;
+	}
+	if (UAbilitySystemComponent* AbilitySystemComponent =
+		Actor->FindComponentByClass<UAbilitySystemComponent>())
+	{
+		return AbilitySystemComponent;
+	}
+	if (const IAbilitySystemInterface* AbilitySystemInterface =
+		Cast<IAbilitySystemInterface>(Actor))
+	{
+		return AbilitySystemInterface->GetAbilitySystemComponent();
+	}
+	return nullptr;
+}
+}
 
 AFTProjectileActor::AFTProjectileActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
+	SetReplicateMovement(true);
 	InitialLifeSpan = 5.0f;
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
@@ -38,6 +64,8 @@ AFTProjectileActor::AFTProjectileActor()
 void AFTProjectileActor::InitializeProjectile(float InDamage,
 	UAbilitySystemComponent* InSourceAbilitySystem,
 	TSubclassOf<UGameplayEffect> InEffectClass,
+	UFTItemDataAsset* InItemData,
+	FVector InLaunchDirection,
 	float InSpeed,
 	float InLifeSpan,
 	float InGravityScale,
@@ -46,7 +74,17 @@ void AFTProjectileActor::InitializeProjectile(float InDamage,
 	Damage = FMath::Max(0.0f, InDamage);
 	SourceAbilitySystem = InSourceAbilitySystem;
 	EffectClass = InEffectClass;
+	InitializeFromItemData(InItemData);
+
+	LaunchDirection = InLaunchDirection.GetSafeNormal();
+	if (LaunchDirection.IsNearlyZero())
+	{
+		LaunchDirection = GetActorForwardVector();
+	}
+	SetActorRotation(LaunchDirection.Rotation());
+
 	InitialLifeSpan = FMath::Max(0.1f, InLifeSpan);
+	SetLifeSpan(InitialLifeSpan);
 
 	if (CollisionComponent)
 	{
@@ -58,37 +96,144 @@ void AFTProjectileActor::InitializeProjectile(float InDamage,
 		ProjectileMovement->InitialSpeed = Speed;
 		ProjectileMovement->MaxSpeed = Speed;
 		ProjectileMovement->ProjectileGravityScale = FMath::Max(0.0f, InGravityScale);
+		ProjectileMovement->Velocity = LaunchDirection * Speed;
 	}
+}
+
+void AFTProjectileActor::InitializeFromItemData(UFTItemDataAsset* InItemData)
+{
+	ItemData = InItemData;
+	UE_LOG(LogFTItem, Verbose, TEXT("Projectile '%s' received ItemData: %s"),
+		*GetName(), *GetNameSafe(ItemData.Get()));
+	UpdateAppearance();
+}
+
+void AFTProjectileActor::UpdateAppearance()
+{
+	if (!ItemData)
+	{
+		UE_LOG(LogFTItem, Warning,
+			TEXT("Projectile '%s' cannot update appearance: ItemData is null."),
+			*GetName());
+		return;
+	}
+	if (ItemData->ItemData.ItemMesh.IsNull())
+	{
+		UE_LOG(LogFTItem, Warning,
+			TEXT("Projectile '%s' cannot update appearance: ItemData '%s' has no ItemMesh."),
+			*GetName(), *GetNameSafe(ItemData.Get()));
+		return;
+	}
+
+	UStaticMesh* LoadedMesh = ItemData->ItemData.ItemMesh.LoadSynchronous();
+	if (!LoadedMesh)
+	{
+		UE_LOG(LogFTItem, Warning,
+			TEXT("Projectile '%s' failed to load ItemMesh from ItemData '%s'."),
+			*GetName(), *GetNameSafe(ItemData.Get()));
+		return;
+	}
+
+	TArray<UStaticMeshComponent*> StaticMeshComponents;
+	GetComponents<UStaticMeshComponent>(StaticMeshComponents);
+	if (StaticMeshComponents.IsEmpty())
+	{
+		UE_LOG(LogFTItem, Warning,
+			TEXT("Projectile '%s' has no StaticMeshComponent to apply ItemMesh '%s'."),
+			*GetName(), *GetNameSafe(LoadedMesh));
+		return;
+	}
+
+	for (UStaticMeshComponent* StaticMeshComponent : StaticMeshComponents)
+	{
+		if (StaticMeshComponent)
+		{
+			StaticMeshComponent->SetStaticMesh(LoadedMesh);
+			StaticMeshComponent->SetRelativeScale3D(ItemData->ItemMeshScale);
+			StaticMeshComponent->EmptyOverrideMaterials();
+			StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			StaticMeshComponent->SetVisibility(true, true);
+			StaticMeshComponent->SetHiddenInGame(false, true);
+			StaticMeshComponent->SetVisibleInSceneCaptureOnly(false);
+			StaticMeshComponent->SetCastHiddenShadow(false);
+			StaticMeshComponent->MarkRenderStateDirty();
+		}
+	}
+
+	UE_LOG(LogFTItem, Verbose,
+		TEXT("Projectile '%s' applied ItemMesh '%s' from ItemData '%s' to %d StaticMeshComponent(s)."),
+		*GetName(), *GetNameSafe(LoadedMesh), *GetNameSafe(ItemData.Get()),
+		StaticMeshComponents.Num());
+}
+
+void AFTProjectileActor::SpawnItemOnImpact(const FHitResult& Hit)
+{
+	if (!ItemData || !ItemData->bSpawnItemOnProjectileImpact || !GetWorld())
+	{
+		return;
+	}
+
+	const FVector SpawnLocation = Hit.ImpactPoint.IsNearlyZero()
+		? GetActorLocation()
+		: Hit.ImpactPoint + Hit.ImpactNormal * 4.0f;
+	const FRotator SpawnRotation(0.0f, GetActorRotation().Yaw, 0.0f);
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = GetOwner();
+	SpawnParams.Instigator = GetInstigator();
+	SpawnParams.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	AFTItemActor* SpawnedItem = GetWorld()->SpawnActor<AFTItemActor>(
+		AFTItemActor::StaticClass(),
+		SpawnLocation,
+		SpawnRotation,
+		SpawnParams);
+	if (!SpawnedItem)
+	{
+		return;
+	}
+
+	SpawnedItem->InitializeFromItemData(ItemData);
+	SpawnedItem->SetEquipped(false);
 }
 
 void AFTProjectileActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CollisionComponent->OnComponentHit.AddUniqueDynamic(
-		this, &AFTProjectileActor::HandleProjectileHit);
+	UpdateAppearance();
 	CollisionComponent->IgnoreActorWhenMoving(GetOwner(), true);
 	CollisionComponent->IgnoreActorWhenMoving(GetInstigator(), true);
+	CollisionComponent->OnComponentHit.AddUniqueDynamic(
+		this, &AFTProjectileActor::HandleProjectileHit);
+
+	if (ProjectileMovement)
+	{
+		const float Speed = FMath::Max(1.0f, ProjectileMovement->InitialSpeed);
+		ProjectileMovement->Velocity = LaunchDirection * Speed;
+	}
 }
 
 void AFTProjectileActor::HandleProjectileHit(UPrimitiveComponent* HitComponent,
 	AActor* OtherActor, UPrimitiveComponent* OtherComponent,
 	FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (!OtherActor || OtherActor == this || OtherActor == GetOwner() || OtherActor == GetInstigator())
+	if (!HasAuthority())
 	{
 		return;
 	}
-
-	UAbilitySystemComponent* TargetASC = OtherActor->FindComponentByClass<UAbilitySystemComponent>();
-	if (!TargetASC)
+	if (bHasImpacted ||
+		!OtherActor ||
+		OtherActor == this ||
+		OtherActor == GetOwner() ||
+		OtherActor == GetInstigator())
 	{
-		if (const IAbilitySystemInterface* AbilitySystemInterface =
-			Cast<IAbilitySystemInterface>(OtherActor))
-		{
-			TargetASC = AbilitySystemInterface->GetAbilitySystemComponent();
-		}
+		return;
 	}
+	bHasImpacted = true;
+
+	UAbilitySystemComponent* TargetASC = ResolveAbilitySystemComponent(OtherActor);
 	if (SourceAbilitySystem && TargetASC)
 	{
 		TSubclassOf<UGameplayEffect> AppliedEffectClass = EffectClass;
@@ -106,13 +251,6 @@ void AFTProjectileActor::HandleProjectileHit(UPrimitiveComponent* HitComponent,
 			SourceAbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 		}
 	}
-	else
-	{
-		AController* InstigatorController = GetInstigator()
-			? GetInstigator()->GetController()
-			: nullptr;
-		UGameplayStatics::ApplyDamage(
-			OtherActor, Damage, InstigatorController, this, nullptr);
-	}
+	SpawnItemOnImpact(Hit);
 	Destroy();
 }

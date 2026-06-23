@@ -23,6 +23,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Input_Item_Primary, "Input.Item.Primary");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Action_Heal, "Item.Action.Heal");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Action_Throw, "Item.Action.Throw");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Behavior_Repickupable, "Item.Behavior.Repickupable");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Type_Misc, "Item.Type.Misc");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Type_Usable, "Item.Type.Usable");

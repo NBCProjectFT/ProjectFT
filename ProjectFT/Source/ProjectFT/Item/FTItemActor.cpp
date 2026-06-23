@@ -1,7 +1,7 @@
 #include "FTItemActor.h"
 
 #include "Components/StaticMeshComponent.h"
-#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Components/FTProjectileComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 
@@ -14,22 +14,13 @@ AFTItemActor::AFTItemActor()
 	SetRootComponent(MeshComponent);
 	MeshComponent->SetSimulatePhysics(true);
 	MeshComponent->SetCollisionProfileName(TEXT("PhysicsBody"));
+
+	ProjectileComponent = CreateDefaultSubobject<UFTProjectileComponent>(TEXT("ProjectileComponent"));
 }
 
 void AFTItemActor::BeginPlay()
 {
 	Super::BeginPlay();
-	ConfigureFromItemData();
-}
-
-void AFTItemActor::InitializeFromItemData(UFTItemDataAsset* InItemData)
-{
-	ItemData = InItemData;
-	ConfigureFromItemData();
-}
-
-void AFTItemActor::ConfigureFromItemData()
-{
 	UpdateAppearance();
 }
 
@@ -45,6 +36,31 @@ bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 	return true;
 }
 
+void AFTItemActor::InitializeFromItemData(UFTItemDataAsset* InItemData)
+{
+	ItemData = InItemData;
+	UpdateAppearance();
+}
+
+void AFTItemActor::SetEquipped(bool bEquipped)
+{
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	if (bEquipped)
+	{
+		MeshComponent->SetSimulatePhysics(false);
+		MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		return;
+	}
+
+	MeshComponent->SetCollisionProfileName(TEXT("PhysicsBody"));
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	MeshComponent->SetSimulatePhysics(true);
+}
+
 void AFTItemActor::UpdateAppearance()
 {
 	if (!ItemData || ItemData->ItemData.ItemMesh.IsNull())
@@ -55,33 +71,8 @@ void AFTItemActor::UpdateAppearance()
 	if (UStaticMesh* LoadedMesh = ItemData->ItemData.ItemMesh.LoadSynchronous())
 	{
 		MeshComponent->SetStaticMesh(LoadedMesh);
+		MeshComponent->SetRelativeScale3D(ItemData->ItemMeshScale);
 	}
-}
-
-const FFTItemActionDefinition* AFTItemActor::FindActionDefinition(FGameplayTag ActionTag) const
-{
-	if (!ItemData || !ActionTag.IsValid())
-	{
-		return nullptr;
-	}
-
-	return ItemData->Actions.FindByPredicate(
-		[ActionTag](const FFTItemActionDefinition& Definition)
-		{
-			const FGameplayTag DefinitionTag = Definition.ActionTag.IsValid()
-				? Definition.ActionTag
-				: TAG_FT_Weapon_Action_Primary;
-			return DefinitionTag.MatchesTagExact(ActionTag);
-		});
-}
-
-FTransform AFTItemActor::GetMuzzleTransform() const
-{
-	if (ItemData && MeshComponent && MeshComponent->DoesSocketExist(ItemData->MuzzleSocketName))
-	{
-		return MeshComponent->GetSocketTransform(ItemData->MuzzleSocketName, RTS_World);
-	}
-	return GetActorTransform();
 }
 
 void AFTItemActor::DestroyItem()

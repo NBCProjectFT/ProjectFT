@@ -1,7 +1,6 @@
 #include "FTQuickSlotComponent.h"
 
 #include "AbilitySystemComponent.h"
-#include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
@@ -296,14 +295,9 @@ bool UFTQuickSlotComponent::EquipSelectedItem()
 		return false;
 	}
 
-	ItemActor->ItemData = ItemData;
+	ItemActor->InitializeFromItemData(ItemData);
 	UGameplayStatics::FinishSpawningActor(ItemActor, GetOwner()->GetActorTransform());
-	TInlineComponentArray<UPrimitiveComponent*> Primitives(ItemActor);
-	for (UPrimitiveComponent* Primitive : Primitives)
-	{
-		Primitive->SetSimulatePhysics(false);
-		Primitive->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
+	ItemActor->SetEquipped(true);
 
 	USceneComponent* AttachTarget = ResolveAttachTarget(ItemData->EquipSocketName);
 	if (!AttachTarget || !ItemActor->AttachToComponent(

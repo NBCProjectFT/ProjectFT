@@ -2,13 +2,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "GameplayTagContainer.h"
 #include "ProjectFT/Interface/FTInteractable.h"
 #include "FTItemActor.generated.h"
 
 class UFTItemDataAsset;
+class UFTProjectileComponent;
 class UStaticMeshComponent;
-struct FFTItemActionDefinition;
 
 UCLASS()
 class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
@@ -17,16 +16,15 @@ class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
 
 public:
 	AFTItemActor();
-	void InitializeFromItemData(UFTItemDataAsset* InItemData);
-	const FFTItemActionDefinition* FindActionDefinition(FGameplayTag ActionTag) const;
-	FTransform GetMuzzleTransform() const;
 	UStaticMeshComponent* GetItemMeshComponent() const { return MeshComponent; }
+	UFTProjectileComponent* GetProjectileComponent() const { return ProjectileComponent; }
 
 	/*
 	 * @brief : 아이템의 외형을 데이터 에셋에 맞춰 업데이트 하는 메서드입니다.
 	 */
+	void InitializeFromItemData(UFTItemDataAsset* InItemData);
+	void SetEquipped(bool bEquipped);
 	void UpdateAppearance();
-	void ConfigureFromItemData();
 
 protected:
 	virtual void BeginPlay() override;
@@ -46,4 +44,7 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFTProjectileComponent> ProjectileComponent;
 };

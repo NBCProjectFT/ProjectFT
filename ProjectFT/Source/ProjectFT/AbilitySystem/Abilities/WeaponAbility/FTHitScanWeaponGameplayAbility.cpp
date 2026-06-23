@@ -12,11 +12,15 @@ bool UFTHitScanWeaponGameplayAbility::ExecuteWeaponAction()
 		return false;
 	}
 
-	const FTransform MuzzleTransform = ActiveItem->GetMuzzleTransform();
+	const FTransform MuzzleTransform = GetMuzzleTransform();
 	AActor* Shooter = GetAvatarActorFromActorInfo();
 	if (!Shooter)
 	{
 		return false;
+	}
+	if (!Shooter->HasAuthority())
+	{
+		return true;
 	}
 
 	const FVector MuzzleLocation = MuzzleTransform.GetLocation();
@@ -48,6 +52,10 @@ bool UFTHitScanWeaponGameplayAbility::ExecuteWeaponAction()
 	FVector ShotDirection = (AimPoint - MuzzleLocation).GetSafeNormal();
 	if (ShotDirection.IsNearlyZero())
 	{
+		ShotDirection = AimDirection.GetSafeNormal();
+	}
+	if (ShotDirection.IsNearlyZero())
+	{
 		ShotDirection = MuzzleTransform.GetUnitAxis(EAxis::X);
 	}
 
@@ -60,7 +68,7 @@ bool UFTHitScanWeaponGameplayAbility::ExecuteWeaponAction()
 		UE_LOG(LogTemp, Warning, TEXT("HitScan hit actor: %s (%s)"),
 			*GetNameSafe(Hit.GetActor()),
 			Hit.GetActor() ? *Hit.GetActor()->GetClass()->GetName() : TEXT("None"));
-		ApplyWeaponDamage(Hit.GetActor());
+		ApplyWeaponGameplayEffect(Hit.GetActor());
 	}
 	else
 	{

@@ -6,7 +6,6 @@
 #include "AbilitySystemInterface.h"
 #include "GameFramework/Actor.h"
 #include "ProjectFT/Interface/FTInteractable.h"
-#include "ProjectFT/Interface/FTDamageable.h"
 #include "FTLootShelf.generated.h"
 
 class UStaticMeshComponent;
@@ -21,7 +20,7 @@ class UFTAttributeSet;
  */
 UCLASS()
 class PROJECTFT_API AFTLootShelf : public AActor, public IFTInteractable,
-	public IFTDamageable, public IAbilitySystemInterface
+	public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -33,10 +32,6 @@ public:
 	// 즉시 상호작용(Interact)은 사용하지 않는다(채널형이라 누르면 채널링이 시작됨). 프롬프트만 제공한다.
 	virtual FText GetInteractionPrompt_Implementation() const override;
 	//~ End IFTInteractable
-
-	//~ Begin IFTDamageable
-	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
-	//~ End IFTDamageable
 
 protected:
 	virtual void BeginPlay() override;

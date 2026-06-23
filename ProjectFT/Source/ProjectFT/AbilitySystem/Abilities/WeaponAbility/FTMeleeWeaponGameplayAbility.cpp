@@ -103,7 +103,7 @@ void UFTMeleeWeaponGameplayAbility::CheckMeleeHits()
 		{
 			continue;
 		}
-		if (ApplyWeaponDamage(OtherActor))
+		if (ApplyWeaponGameplayEffect(OtherActor))
 		{
 			HitActors.Add(Key);
 		}
