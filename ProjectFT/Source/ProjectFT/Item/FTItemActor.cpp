@@ -4,6 +4,9 @@
 #include "ProjectFT/Components/FTProjectileComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
 AFTItemActor::AFTItemActor()
 {
@@ -26,11 +29,16 @@ void AFTItemActor::BeginPlay()
 
 bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 {
-	if (!ItemData)
-	{
-		return false;
-	}
+	if (!ItemData) return false;
+	
+	// GameplayMessageSubsystem을 통해 아이템 획득 메시지 전송
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	FFTMessagePayloadStruct Payload;
+	Payload.ItemId = ItemData->ItemData.ItemId;
+	Payload.InstigatorActor = Interactor;
+	Payload.TargetActor = this;
 
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ItemPickedUp, Payload);
 	UE_LOG(LogFTItem, Log, TEXT("Picked up item: %s"), *ItemData->ItemData.ItemName.ToString());
 	DestroyItem();
 	return true;
