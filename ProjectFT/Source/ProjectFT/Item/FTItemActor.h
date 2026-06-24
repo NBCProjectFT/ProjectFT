@@ -17,7 +17,6 @@ class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
 public:
 	AFTItemActor();
 	UStaticMeshComponent* GetItemMeshComponent() const { return MeshComponent; }
-	UFTProjectileComponent* GetProjectileComponent() const { return ProjectileComponent; }
 
 	/*
 	 * @brief : 아이템의 외형을 데이터 에셋에 맞춰 업데이트 하는 메서드입니다.
@@ -44,7 +43,5 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UFTProjectileComponent> ProjectileComponent;
+	
 };

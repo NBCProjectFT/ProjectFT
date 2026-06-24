@@ -38,10 +38,7 @@ struct PROJECTFT_API FFTItemActionDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Action|Combat",
 		meta = (ClampMin = "0.0", DisplayName = "Attack Range"))
 	float Range = 10000.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Action|Combat|Projectile")
-	TSubclassOf<AFTProjectileActor> ProjectileClass;
-
+	
 	/** Item data used as the projectile's visual source. Empty means use the equipped item data. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Action|Combat|Projectile")
 	TObjectPtr<UFTItemDataAsset> ProjectileItemData = nullptr;
