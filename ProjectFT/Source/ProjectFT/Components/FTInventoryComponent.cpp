@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "FTInventoryComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
@@ -41,62 +39,52 @@ bool UFTInventoryComponent::AddItem(FName ItemId, int32 Quantity)
 {
 	if (ItemId.IsNone() || Quantity <= 0) return false;
 
+	// 메타 데이터에 존재하는 아이템인지 확인
 	UFTItemDataAsset* ItemDataAsset = FindItemData(ItemId);
 	if (!ItemDataAsset)
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("AddItem Fail: Item ID '%s' is not registered in the database!"), *ItemId.ToString());
+		UE_LOG(LogFTItem, Warning, TEXT("아이템 획득 실패: 데이터베이스에 Item ID '%s'가 존재하지 않습니다."), *ItemId.ToString());
 		return false;
 	}
 
+	// 아이템 구조체 정보 저장
 	const FTItemDataStruct& Data = ItemDataAsset->ItemData;
 
-	// 1. 무게 한도 검증
+	// 무게 한도 검증
 	float AddWeight = Data.Weight * Quantity;
 	if (CurrentWeight + AddWeight > MaxWeight)
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("AddItem Fail: Exceeded weight capacity. Current: %f, Max: %f, Adding: %f"), CurrentWeight, MaxWeight, AddWeight);
+		UE_LOG(LogFTItem, Warning, TEXT("아이템 획득 실패: 인벤토리에 추가 가능한 무게보다 아이템의 무게가 무겁습니다. 현재 무게: %f, 최대 무게: %f, 추가돼야 할 무게: %f"), CurrentWeight, MaxWeight, AddWeight);
 		return false;
 	}
 
-	int32 RemainingQuantity = Quantity;
-
-	// 2. 기존 스택에 중첩 저장 시도 (MaxStack > 1인 경우)
-	if (Data.MaxStack > 1)
+	// 기존 슬롯이 있으면 누적
+	bool bFound = false;
+	for (FFTInventoryItem& Slot : Items)
 	{
-		for (FFTInventoryItem& Slot : Items)
+		if (Slot.ItemId == ItemId)
 		{
-			if (Slot.ItemId == ItemId && Slot.Quantity < Data.MaxStack)
-			{
-				int32 AvailableSpace = Data.MaxStack - Slot.Quantity;
-				int32 AmountToAdd = FMath::Min(RemainingQuantity, AvailableSpace);
-
-				Slot.Quantity += AmountToAdd;
-				RemainingQuantity -= AmountToAdd;
-
-				if (RemainingQuantity <= 0) break;
-			}
+			Slot.Quantity += Quantity;
+			bFound = true;
+			break;
 		}
 	}
 
-	// 3. 남은 아이템은 새로운 인벤토리 슬롯에 보관
-	while (RemainingQuantity > 0)
+	// 기존 슬롯이 없으면 새 슬롯 추가
+	if (!bFound)
 	{
-		int32 AmountToSlot = FMath::Min(RemainingQuantity, Data.MaxStack);
-
 		FFTInventoryItem NewSlot;
 		NewSlot.ItemId = ItemId;
-		NewSlot.Quantity = AmountToSlot;
+		NewSlot.Quantity = Quantity;
 		NewSlot.ItemDataAsset = ItemDataAsset;
-
 		Items.Add(NewSlot);
-		RemainingQuantity -= AmountToSlot;
 	}
 
-	// 4. 상태 갱신 및 델리게이트 알림
+	// 상태 갱신 및 델리게이트 알림
 	UpdateWeight();
 	OnInventoryChanged.Broadcast();
 
-	UE_LOG(LogFTItem, Log, TEXT("AddItem Success: %d of '%s' added to Inventory."), Quantity, *ItemId.ToString());
+	UE_LOG(LogFTItem, Log, TEXT("아이템 획득 성공: '%s' %d개를 인벤토리에 추가했습니다."), *ItemId.ToString(), Quantity);
 	return true;
 }
 
@@ -104,38 +92,34 @@ bool UFTInventoryComponent::RemoveItem(FName ItemId, int32 Quantity)
 {
 	if (ItemId.IsNone() || Quantity <= 0) return false;
 
-	// 역순으로 탐색하여 수량 제거 (끝쪽 슬롯부터 소모하는 방식)
-	int32 RemainingToRemove = Quantity;
-	for (int32 i = Items.Num() - 1; i >= 0; --i)
+	for (int32 i = 0; i < Items.Num(); ++i)
 	{
 		if (Items[i].ItemId == ItemId)
 		{
-			if (Items[i].Quantity > RemainingToRemove)
+			if (Items[i].Quantity < Quantity)
 			{
-				Items[i].Quantity -= RemainingToRemove;
-				RemainingToRemove = 0;
-				break;
+				// 가진 개수보다 더 지우려 한 경우
+				UE_LOG(LogFTItem, Warning, TEXT("아이템 제거 실패: '%s'를 %d개 소유 중이므로 %d개 제거가 불가능합니다."), *ItemId.ToString(), Items[i].Quantity, Quantity);
+				return false;
 			}
-			else
+			
+			if (Items[i].Quantity > Quantity)
 			{
-				RemainingToRemove -= Items[i].Quantity;
-				Items.RemoveAt(i); // 슬롯 비우기
+				Items[i].Quantity -= Quantity;
 			}
+			else if (Items[i].Quantity == Quantity)
+			{
+				Items.RemoveAt(i);
+			}
+
+			UpdateWeight();
+			OnInventoryChanged.Broadcast();
+			return true;
 		}
 	}
 
-	if (RemainingToRemove > 0)
-	{
-		// 완벽하게 다 지우지 못한 경우 원래 가지고 있던 양보다 많이 지우려 시도함
-		UE_LOG(LogFTItem, Warning, TEXT("RemoveItem: Attempted to remove %d of '%s' but only removed remaining %d."), Quantity, *ItemId.ToString(), Quantity - RemainingToRemove);
-		UpdateWeight();
-		OnInventoryChanged.Broadcast();
-		return false;
-	}
-
-	UpdateWeight();
-	OnInventoryChanged.Broadcast();
-	return true;
+	UE_LOG(LogFTItem, Warning, TEXT("아이템 제거 실패: Item ID '%s'가 인벤토리에 존재하지 않습니다."), *ItemId.ToString());
+	return false;
 }
 
 void UFTInventoryComponent::ClearInventory()
@@ -149,6 +133,32 @@ void UFTInventoryComponent::SetMaxWeight(float NewMaxWeight)
 {
 	MaxWeight = FMath::Max(0.0f, NewMaxWeight);
 	OnInventoryChanged.Broadcast();
+}
+
+const int32 UFTInventoryComponent::GetItemQuantity(FName ItemId) const 
+{
+	for (const FFTInventoryItem& slot : Items)
+	{
+		if (slot.ItemId == ItemId)
+		{
+			return slot.Quantity;
+		}
+	}
+	
+	return 0;
+}
+
+const UFTItemDataAsset* UFTInventoryComponent::GetItemPtr(FName ItemId) const
+{
+	for (const FFTInventoryItem& slot : Items)
+	{
+		if (slot.ItemId == ItemId)
+		{
+			return slot.ItemDataAsset.Get();
+		}
+	}
+	
+	return nullptr;
 }
 
 void UFTInventoryComponent::UpdateWeight()
