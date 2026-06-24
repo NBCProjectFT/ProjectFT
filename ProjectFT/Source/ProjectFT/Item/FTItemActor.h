@@ -6,6 +6,7 @@
 #include "FTItemActor.generated.h"
 
 class UFTItemDataAsset;
+class UFTProjectileComponent;
 class UStaticMeshComponent;
 
 UCLASS()
@@ -15,10 +16,13 @@ class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
 
 public:
 	AFTItemActor();
+	UStaticMeshComponent* GetItemMeshComponent() const { return MeshComponent; }
 
 	/*
 	 * @brief : 아이템의 외형을 데이터 에셋에 맞춰 업데이트 하는 메서드입니다.
 	 */
+	void InitializeFromItemData(UFTItemDataAsset* InItemData);
+	void SetEquipped(bool bEquipped);
 	void UpdateAppearance();
 
 protected:
@@ -39,4 +43,5 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
+	
 };

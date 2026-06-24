@@ -65,7 +65,7 @@ void AFTPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Started, this, &AFTPlayerController::OnSprintStarted);
 		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Completed, this, &AFTPlayerController::OnSprintCompleted);
 	}
-
+	
 	if (CrouchAction)
 	{
 		EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Started, this, &AFTPlayerController::OnCrouchStarted);
@@ -102,7 +102,7 @@ void AFTPlayerController::SetupInputComponent()
 	{
 		EnhancedInput->BindAction(QuickSlot2Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot2Started);
 	}
-
+	
 	if (QuickSlot3Action)
 	{
 		EnhancedInput->BindAction(QuickSlot3Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot3Started);

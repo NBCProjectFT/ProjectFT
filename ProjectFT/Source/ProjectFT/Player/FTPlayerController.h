@@ -37,7 +37,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> JumpAction;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> SprintAction;
 
@@ -83,10 +83,10 @@ private:
 	void OnQuickSlot1Started(const FInputActionValue& Value);
 	void OnQuickSlot2Started(const FInputActionValue& Value);
 	void OnQuickSlot3Started(const FInputActionValue& Value);
-
-
-
-
+	
+	
+	
+	
 	// 현재 빙의 중인 Pawn(GC 추적용).
 	UPROPERTY(Transient)
 	TObjectPtr<APawn> CachedInputPawn;

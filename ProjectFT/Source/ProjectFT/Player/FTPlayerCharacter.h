@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
+#include "GameplayTagContainer.h"
 #include "GameFramework/Character.h"
 #include "ProjectFT/Interface/FTDamageable.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
@@ -13,7 +14,7 @@ class UCameraComponent;
 class UFTInteractionComponent;
 class UAbilitySystemComponent;
 class UFTAttributeSet;
-class UGameplayEffect;
+class UFTItemDataAsset;
 struct FOnAttributeChangeData;
 
 UCLASS()
@@ -48,51 +49,51 @@ public:
 	//~ Begin IAbilitySystemInterface
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	//~ End IAbilitySystemInterface
-
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-	//~ Begin ACharacter
-	// 앉기/일어서기로 캡슐 높이가 바뀔 때 카메라가 순간이동하지 않도록 보간한다.
-	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-	//~ End ACharacter
-
-	// 점프 대신 traversal(vault/hurdle/mantle)을 먼저 시도한다. 소비했으면 true. (확장 지점, 현재 false)
-	virtual bool TryStartTraversal();
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Camera", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UCameraComponent> FirstPersonCamera;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UFTInteractionComponent> InteractionComponent;
-
-	// GAS: 능력/이펙트/속성의 허브. 속성값(체력/스태미나/이속 등)은 AttributeSet이 보유한다.
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|GAS", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
-
-	// 캐릭터의 서브오브젝트로 만들면 ASC가 InitializeComponent 시 자동 등록한다.
-	UPROPERTY()
-	TObjectPtr<UFTAttributeSet> AttributeSet;
-
-	// [Mock] 퀵슬롯 — 각 슬롯에 적용할 GameplayEffect 클래스(예: 0=SpeedBuff, 1=Heal, 2=Poison).
-	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 자신에게 GE를 적용하는 임시 슬롯이다.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
-	TArray<TSubclassOf<UGameplayEffect>> MockQuickSlots;
-
-	// [Mock] 현재 선택된 퀵슬롯 인덱스. 추후 '손에 든 아이템'으로 대체된다.
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
-	int32 SelectedQuickSlot = 0;
-
-	// 초당 스태미나 소진하는 양.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
-	float SprintStaminaCostPerSecond = 20.0f;
-
-	// 탈진 후 스프린트 재개에 필요한 최소 스태미나 비율(0~1). 프레임마다 빨라졌다 느려졌다 방지.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float SprintResumeStaminaFraction = 0.2f;
-
+    
+    protected:
+    	// Called when the game starts or when spawned
+    	virtual void BeginPlay() override;
+    
+    	//~ Begin ACharacter
+    	// 앉기/일어서기로 캡슐 높이가 바뀔 때 카메라가 순간이동하지 않도록 보간한다.
+    	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+    	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+    	//~ End ACharacter
+    
+    	// 점프 대신 traversal(vault/hurdle/mantle)을 먼저 시도한다. 소비했으면 true. (확장 지점, 현재 false)
+    	virtual bool TryStartTraversal();
+    
+    	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Camera", meta = (AllowPrivateAccess = "true"))
+    	TObjectPtr<UCameraComponent> FirstPersonCamera;
+    
+    	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
+    	TObjectPtr<UFTInteractionComponent> InteractionComponent;
+    
+    	// GAS: 능력/이펙트/속성의 허브. 속성값(체력/스태미나/이속 등)은 AttributeSet이 보유한다.
+    	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|GAS", meta = (AllowPrivateAccess = "true"))
+    	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+    
+    	// 캐릭터의 서브오브젝트로 만들면 ASC가 InitializeComponent 시 자동 등록한다.
+    	UPROPERTY()
+        	TObjectPtr<UFTAttributeSet> AttributeSet;
+        
+        	// [Mock] 퀵슬롯 — 각 슬롯에 아이템 데이터 에셋(UFTItemDataAsset)을 지정한다. 사용 시 그 아이템의 UseData가 동작을 결정.
+        	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 사용하는 임시 슬롯이다.
+        	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
+        	TArray<TObjectPtr<UFTItemDataAsset>> MockQuickSlots;
+        
+        	// [Mock] 현재 선택된 퀵슬롯 인덱스. 추후 '손에 든 아이템'으로 대체된다.
+        	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
+        	int32 SelectedQuickSlot = 0;
+        
+        	// 초당 스태미나 소진하는 양.
+        	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
+        	float SprintStaminaCostPerSecond = 20.0f;
+        
+        	// 탈진 후 스프린트 재개에 필요한 최소 스태미나 비율(0~1). 프레임마다 빨라졌다 느려졌다 방지.
+        	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+        	float SprintResumeStaminaFraction = 0.2f;
+	
 	// 스태미나 초당 회복량(사용 후 지연 뒤부터). 0이면 회복 안 함.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Stat|Regen", meta = (ClampMin = "0.0"))
 	float StaminaRegenPerSecond = 15.0f;
@@ -122,34 +123,37 @@ private:
 
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);
-
-	// MoveSpeed 속성이 바뀌면(버프/디버프 등) MaxWalkSpeed에 반영한다.
-	void OnMoveSpeedAttributeChanged(const FOnAttributeChangeData& Data);
-
-	// 체력이 0에 도달했을 때 호출(AttributeSet의 통지).
-	void HandleOutOfHealth();
-
-	// 현재 카메라 보정량(CrouchCameraOffsetZ)을 카메라 상대 위치에 반영한다.
-	void UpdateCrouchCameraOffset();
-
-	// 앉기/일어서기로 캡슐 중심이 실제로 이동한 경우에만 그만큼 카메라를 반대로 보정한다.
-	void ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ);
-
-	// 스프린트 입력을 꾹 누르고 있는 동안 true(키 상태).
-	bool bSprintHeld = false;
-
-	// 실제로 스프린트가 적용 중인지(키 + 스태미나 + 비크라우치 조건 충족).
-	bool bIsSprinting = false;
-
-	// 스태미나 0으로 탈진한 상태. 일정 비율 회복 전까지 스프린트 재개를 막는다.
-	bool bSprintExhausted = false;
-
-	// 마지막 스태미나 사용 후 경과 시간(회복 지연 판정용).
-	float TimeSinceStaminaUse = 0.0f;
-
-	// 서 있을 때의 카메라 기본 상대 위치. 앉기 보간의 기준점.
-	FVector DefaultCameraRelativeLocation = FVector(0.0f, 0.0f, 70.0f);
-
-	// 캡슐 높이 변화로 생긴 카메라 Z 보정량. 매 프레임 0으로 보간된다.
-	float CrouchCameraOffsetZ = 0.0f;
-};
+	
+	// 이동속도 관련 속성(MoveSpeed/스프린트·앉기 배수)이 바뀌면 MaxWalkSpeed에 반영한다.
+    	void OnSpeedAttributeChanged(const FOnAttributeChangeData& Data);
+    
+    	// 스턴 상태 태그(State.Debuff.Stun)가 붙고/풀릴 때 이동을 정지/복원한다.
+    	void OnStunTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+    
+    	// 체력이 0에 도달했을 때 호출(AttributeSet의 통지).
+    	void HandleOutOfHealth();
+    
+    	// 현재 카메라 보정량(CrouchCameraOffsetZ)을 카메라 상대 위치에 반영한다.
+    	void UpdateCrouchCameraOffset();
+    
+    	// 앉기/일어서기로 캡슐 중심이 실제로 이동한 경우에만 그만큼 카메라를 반대로 보정한다.
+    	void ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ);
+    
+    	// 스프린트 입력을 꾹 누르고 있는 동안 true(키 상태).
+    	bool bSprintHeld = false;
+    
+    	// 실제로 스프린트가 적용 중인지(키 + 스태미나 + 비크라우치 조건 충족).
+    	bool bIsSprinting = false;
+    
+    	// 스태미나 0으로 탈진한 상태. 일정 비율 회복 전까지 스프린트 재개를 막는다.
+    	bool bSprintExhausted = false;
+    
+    	// 마지막 스태미나 사용 후 경과 시간(회복 지연 판정용).
+    	float TimeSinceStaminaUse = 0.0f;
+    
+    	// 서 있을 때의 카메라 기본 상대 위치. 앉기 보간의 기준점.
+    	FVector DefaultCameraRelativeLocation = FVector(0.0f, 0.0f, 70.0f);
+    
+    	// 캡슐 높이 변화로 생긴 카메라 Z 보정량. 매 프레임 0으로 보간된다.
+    	float CrouchCameraOffsetZ = 0.0f;
+    };

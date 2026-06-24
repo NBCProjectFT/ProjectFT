@@ -2,13 +2,13 @@
 
 #include "FTLootShelf.h"
 
-#include <ProjectFT/Struct/FTDamageTextPayloadStruct.h>
-
+#include "AbilitySystemComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
+#include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 
 #include "ProjectFT/Item/FTItemActor.h"
@@ -26,6 +26,7 @@ UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Dealt, "Event.Damage.Dealt");
 AFTLootShelf::AFTLootShelf()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 
 	// 진열대 메시를 루트로. 테스트가 바로 되도록 엔진 기본 큐브를 할당한다(에디터에서 교체 가능).
 	ShelfMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ShelfMesh"));
@@ -40,11 +41,27 @@ AFTLootShelf::AFTLootShelf()
 
 	// 꾹 눌러 훔치는 채널형 상호작용 컴포넌트.
 	ChanneledInteraction = CreateDefaultSubobject<UFTChanneledInteractionComponent>(TEXT("ChanneledInteraction"));
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true);
+	AttributeSet = CreateDefaultSubobject<UFTAttributeSet>(TEXT("AttributeSet"));
+}
+
+UAbilitySystemComponent* AFTLootShelf::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 
 void AFTLootShelf::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (AbilitySystemComponent && AttributeSet)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		AttributeSet->SetMaxHealth(InitialHealth);
+		AttributeSet->SetHealth(InitialHealth);
+		AttributeSet->OnOutOfHealth.AddUObject(this, &ThisClass::HandleOutOfHealth);
+	}
 
 	// 게이지 완료 시 훔치기 성공 처리.
 	if (ChanneledInteraction)
@@ -61,23 +78,17 @@ FText AFTLootShelf::GetInteractionPrompt_Implementation() const
 	return InteractionPrompt;
 }
 
-float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
+void AFTLootShelf::HandleOutOfHealth()
 {
-	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-
-	if (bHasBeenLooted) return ActualDamage;
-
-	Health -= DamageAmount;
-	if (Health <= 0.0f)
+	if (bHasBeenLooted)
 	{
-		bHasBeenLooted = true;
-		UE_LOG(LogFTItem, Log, TEXT("LootShelf '%s' destroyed! Dropping items..."), *GetName());
-		
-		DropItemsOnFloor();
-		Destroy();
+		return;
 	}
 
-	return ActualDamage;
+	bHasBeenLooted = true;
+	UE_LOG(LogFTItem, Log, TEXT("LootShelf '%s' destroyed! Dropping items..."), *GetName());
+	DropItemsOnFloor();
+	Destroy();
 }
 
 void AFTLootShelf::HandleStealCompleted()
@@ -129,8 +140,8 @@ void AFTLootShelf::DropItemsOnFloor()
 		AFTItemActor* NewItem = GetWorld()->SpawnActor<AFTItemActor>(AFTItemActor::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams);
 		if (NewItem)
 		{
-			NewItem->ItemData = LootItemData;
-			NewItem->UpdateAppearance();
+			NewItem->InitializeFromItemData(LootItemData);
+			NewItem->SetEquipped(false);
 		}
 	}
 }
