@@ -28,7 +28,7 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
-
+	
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->bOrientRotationToMovement = false;
@@ -84,7 +84,7 @@ void AFTPlayerCharacter::BeginPlay()
 		// 스턴 상태 태그가 붙고/풀릴 때 이동을 정지/복원한다.
 		AbilitySystemComponent->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Stun, EGameplayTagEventType::NewOrRemoved)
 			.AddUObject(this, &AFTPlayerCharacter::OnStunTagChanged);
-
+		
 		// [Mock] 퀵슬롯 아이템들이 참조하는 사용 어빌리티를 (중복 제거하여) 부여한다. 실제 인벤토리/장비가 붙으면 교체.
 		TSet<TSubclassOf<UFTGameplayAbility>> GrantedUseAbilities;
 		for (const TObjectPtr<UFTItemDataAsset>& Item : MockQuickSlots)
@@ -148,7 +148,7 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 		CancelTags.AddTag(TAG_FT_State_UsingItem);
 		AbilitySystemComponent->CancelAbilities(&CancelTags);
 	}
-
+	
 	// UE 표준 컨벤션: MoveValue.Y = 전방, MoveValue.X = 우측. 축 구성은 IMC에서 맞춘다.
 	const FRotator YawRotation(0.0f, GetControlRotation().Yaw, 0.0f);
 	const FRotationMatrix YawMatrix(YawRotation);
@@ -252,7 +252,7 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 	{
 		return;
 	}
-
+	
 	// 아이템별 쿨다운 차단: 쿨다운을 가진 아이템이면, 그 쿨다운 태그가 아직 붙어 있는 동안 발동하지 않는다.
 	// (표준 CheckCooldown은 GameplayEvent 발동 시 어떤 아이템인지 알 수 없어, 호출측인 여기서 태그로 판정한다.)
 	const FTItemUseStruct& UseData = Item->ItemData.UseData;
@@ -312,7 +312,7 @@ void AFTPlayerCharacter::UpdateSprintState(float DeltaSeconds)
 	{
 		bSprintExhausted = false;
 	}
-
+	
 	bool bSprinting = bSprintHeld && !bIsCrouched && !bSprintExhausted && Stamina > 0.0f;
 
 	const UCharacterMovementComponent* Movement = GetCharacterMovement();
@@ -343,7 +343,7 @@ void AFTPlayerCharacter::UpdateStaminaRegen(float DeltaSeconds)
 	{
 		return;
 	}
-
+	
 	TimeSinceStaminaUse += DeltaSeconds;
 
 	// 스태미나 회복(마지막 사용 후 지연이 지난 다음부터).
