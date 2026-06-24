@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -10,29 +8,30 @@
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "FTInventoryComponent.generated.h"
 
-// 인벤토리 슬롯 구조체
+/** @brief 인벤토리 슬롯 한 칸의 정보를 담는 구조체 */
 USTRUCT(BlueprintType)
 struct FFTInventoryItem
 {
 	GENERATED_BODY()
 
 public:
-	// 아이템 고유 식별자 (DataAsset의 ItemId와 일치)
+	/** @brief 아이템 고유 식별자 (DataAsset의 ItemId와 일치) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	FName ItemId = NAME_None;
 
-	// 해당 슬롯에 누적된 수량
+	/** @brief 누적된 아이템 수량 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	int32 Quantity = 0;
 
-	// 아이템의 세부 메타데이터 (이름, 아이콘, 무게 등) 정보 포인터
+	/** @brief 아이템의 세부 메타데이터 (이름, 아이콘, 무게 등) 정보 포인터 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	TObjectPtr<UFTItemDataAsset> ItemDataAsset = nullptr;
 };
 
-// 인벤토리 상태 변경 시 UI 알림용 델리게이트
+/** @brief 인벤토리 상태 변경 시 UI 알림용 델리게이트 */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTOnInventoryChanged);
 
+/** @brief 플레이어 캐릭터 등에 부착되는 핵심 인벤토리 컴포넌트 */
 UCLASS(ClassGroup = (FT), meta = (BlueprintSpawnableComponent))
 class PROJECTFT_API UFTInventoryComponent : public UActorComponent
 {
@@ -41,63 +40,113 @@ class PROJECTFT_API UFTInventoryComponent : public UActorComponent
 public:
 	UFTInventoryComponent();
 
-	//~ 인벤토리 조작 API
+	/**
+	 * @brief 인벤토리에 특정 아이템을 수량만큼 추가합니다.
+	 * @param ItemId : 추가할 아이템의 ID
+	 * @param Quantity : 추가할 아이템의 수량
+	 * @return 아이템 추가 성공 여부 (무게 초과 시 false)
+	 */
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
 	bool AddItem(FName ItemId, int32 Quantity);
 
+	/**
+	 * @brief 인벤토리에서 특정 아이템을 수량만큼 제거합니다.
+	 * @param ItemId : 제거할 아이템의 ID
+	 * @param Quantity : 제거할 아이템의 수량
+	 * @return 아이템 제거 성공 여부 (소지 수량 부족 시 false)
+	 */
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
 	bool RemoveItem(FName ItemId, int32 Quantity);
 
+	/** @brief 인벤토리의 모든 아이템을 비우고 초기화합니다. */
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
 	void ClearInventory();
 
-	//~ Getters
+	/**
+	 * @brief 인벤토리에 들어 있는 실제 아이템 리스트를 반환합니다.
+	 * @return 인벤토리 슬롯 배열의 const 참조
+	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	const TArray<FFTInventoryItem>& GetItems() const { return Items; }
-
+	
+	/**
+	 * @brief 현재 인벤토리에 보관된 아이템들의 총 무게를 반환합니다.
+	 * @return 현재 총 무게
+	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	float GetCurrentWeight() const { return CurrentWeight; }
 
+	/**
+	 * @brief 인벤토리가 소지할 수 있는 최대 소지 가능 무게를 반환합니다.
+	 * @return 최대 소지 가능 무게
+	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	float GetMaxWeight() const { return MaxWeight; }
 
+	/**
+	 * @brief 최대 소지 가능 무게를 변경합니다.
+	 * @param NewMaxWeight : 새로 설정할 최대 소지 가능 무게
+	 */
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
 	void SetMaxWeight(float NewMaxWeight);
-
-	//~ 델리게이트
+	
+	/**
+	 * @brief 특정 아이템의 현재 누적된 총 수량을 반환합니다.
+	 * @param ItemId : 조회할 아이템의 ID
+	 * @return 해당 아이템의 누적 수량 (없을 경우 0)
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory|Item")
+	const int32 GetItemQuantity(FName ItemId) const;
+	
+	/** @brief 인벤토리 상태 변경 시 호출되는 이벤트 델리게이트 */
 	UPROPERTY(BlueprintAssignable, Category = "FT|Inventory")
 	FFTOnInventoryChanged OnInventoryChanged;
+
+	/**
+	 * @brief 특정 아이템의 UFTItemDataAsset 메모리 주소를 반환합니다.
+	 * @param ItemId : 조회할 아이템의 ID
+	 * @return UFTItemDataAsset의 메모리 주소(없을 경우 nullptr)
+	 */
+	const UFTItemDataAsset* GetItemPtr(FName ItemId) const;
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// 무게 및 스탯 갱신
+	/** @brief 인벤토리에 보관된 모든 아이템들의 무게를 합산하여 실시간 갱신합니다. */
 	void UpdateWeight();
 
 public:
-	// ItemId를 통해 메타데이터를 검색하는 헬퍼 함수
+	/**
+	 * @brief ItemId를 통해 메타데이터 에셋을 검색하는 전역 헬퍼 함수
+	 * @param ItemId : 검색할 아이템의 ID
+	 * @return 에셋 매니저에서 로드된 UFTItemDataAsset의 포인터
+	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	UFTItemDataAsset* FindItemData(FName ItemId) const;
 
 protected:
-	// GameplayMessage 수신 처리기
+	/**
+	 * @brief GameplayMessageSubsystem을 통해 아이템 획득 메시지를 수신했을 때 호출됩니다.
+	 * @param Channel : 메시지 채널 태그
+	 * @param Payload : 아이템 획득 메시지 페이로드 데이터
+	 */
 	void HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 
 protected:
-	// 인벤토리에 들어 있는 실제 아이템 리스트
+	/** @brief 인벤토리에 들어 있는 실제 아이템 리스트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Inventory")
 	TArray<FFTInventoryItem> Items;
 
-	// 최대 소지 가능 무게
+	/** @brief 최대 소지 가능 무게 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Inventory|Capacity")
 	float MaxWeight = 100.0f;
 
-	// 현재 총 무게
+	/** @brief 현재 총 무게 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Inventory|Capacity")
 	float CurrentWeight = 0.0f;
 
 private:
-	// GameplayMessageSubsystem 구독 해제용 핸들
+	/** @brief GameplayMessageSubsystem 구독 해제용 핸들 */
 	FGameplayMessageListenerHandle MessageListenerHandle;
 };
