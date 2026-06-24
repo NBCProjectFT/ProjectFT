@@ -36,30 +36,9 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_StunDuration);
 
 // 던지기(전용 GA) — 사용 이벤트 트리거.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ThrowItem);
-// Weapon action tags
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Primary);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Secondary);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Action_Reload);
-
-// Weapon type tags
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_Melee);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_HitScan);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Weapon_Type_Projectile);
 
 // GAS data and state tags
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Damage);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Weapon_Attacking);
-
-// Quick-slot input tags
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_QuickSlot_1);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_QuickSlot_2);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_QuickSlot_3);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_QuickSlot_4);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Input_Item_Primary);
-
-// Item behavior tags
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Item_Action_Heal);
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Item_Action_Throw);
 
 // Item classification tags. ItemDataAsset may own multiple types at once.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Item_Type_Misc);

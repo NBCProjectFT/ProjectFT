@@ -1,7 +1,6 @@
 #include "FTItemActor.h"
 
 #include "Components/StaticMeshComponent.h"
-#include "ProjectFT/Components/FTProjectileComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
@@ -17,8 +16,7 @@ AFTItemActor::AFTItemActor()
 	SetRootComponent(MeshComponent);
 	MeshComponent->SetSimulatePhysics(true);
 	MeshComponent->SetCollisionProfileName(TEXT("PhysicsBody"));
-
-	ProjectileComponent = CreateDefaultSubobject<UFTProjectileComponent>(TEXT("ProjectileComponent"));
+	
 }
 
 void AFTItemActor::BeginPlay()
