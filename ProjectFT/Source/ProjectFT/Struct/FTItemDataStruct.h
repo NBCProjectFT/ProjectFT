@@ -24,9 +24,6 @@ public:
 	float Weight = 0.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
-	int32 MaxStack = 1;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	TSoftObjectPtr<UTexture2D> ItemIcon;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
