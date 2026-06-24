@@ -9,6 +9,7 @@ class UFTInventoryViewModel;
 class UFTCraftingViewModel;
 class UFTQuestViewModel;
 class UFTSettlementViewModel;
+class UFTInventoryWidget;
 
 UCLASS()
 class PROJECTFT_API UFTUIManagerSubsystem : public UGameInstanceSubsystem
@@ -40,6 +41,12 @@ public:
 	void ShowInventory();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideInventory();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ToggleInventory();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowCrafting();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
@@ -53,4 +60,11 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowSettlementScreen();
+
+private:
+	APlayerController* GetPrimaryPlayerController() const;
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UFTInventoryWidget> InventoryWidget = nullptr;
 };

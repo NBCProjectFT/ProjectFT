@@ -8,7 +8,9 @@
 class UFTItemDataAsset;
 class UFTLoadingWidget;
 class UFTMainHUDWidget;
+class UFTInventoryWidget;
 class UFTQuestListWidget;
+class UMaterialInterface;
 
 UCLASS(BlueprintType)
 class PROJECTFT_API UFTGameDataAsset : public UPrimaryDataAsset
@@ -42,5 +44,17 @@ public:
 	TSoftClassPtr<UFTMainHUDWidget> MainHUDWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	TSoftClassPtr<UFTInventoryWidget> InventoryWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UFTQuestListWidget> QuestListWidgetClass;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	TSoftClassPtr<UUserWidget> DamageTextWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	TSoftObjectPtr<UMaterialInterface> DamageTextBackgroundMaterial;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	TSoftObjectPtr<UMaterialInterface> PaperFlutterMaterial;
 };

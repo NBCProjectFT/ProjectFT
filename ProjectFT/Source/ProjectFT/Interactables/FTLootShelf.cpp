@@ -2,6 +2,8 @@
 
 #include "FTLootShelf.h"
 
+#include <ProjectFT/Struct/FTDamageTextPayloadStruct.h>
+
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
@@ -14,6 +16,12 @@
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "NativeGameplayTags.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "../Struct/FTDamageTextPayloadStruct.h"
+
+UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Received, "Event.Damage.Received");
+UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Dealt, "Event.Damage.Dealt");
 
 AFTLootShelf::AFTLootShelf()
 {
@@ -43,6 +51,9 @@ void AFTLootShelf::BeginPlay()
 	{
 		ChanneledInteraction->OnCompleted.AddDynamic(this, &AFTLootShelf::HandleStealCompleted);
 	}
+	
+	FTimerHandle T;
+	GetWorldTimerManager().SetTimer(T, this, &AFTLootShelf::TestCode, 1.0f, true);
 }
 
 FText AFTLootShelf::GetInteractionPrompt_Implementation() const
@@ -75,7 +86,7 @@ void AFTLootShelf::HandleStealCompleted()
 	bHasBeenLooted = true;
 
 	UE_LOG(LogFTPlayer, Log, TEXT("LootShelf '%s' 훔치기 완료. 인벤토리에 아이템을 추가합니다."), *GetName());
-
+	
 	GiveStealReward();
 
 	if (bDestroyOnComplete)
@@ -122,4 +133,14 @@ void AFTLootShelf::DropItemsOnFloor()
 			NewItem->UpdateAppearance();
 		}
 	}
+}
+
+void AFTLootShelf::TestCode()
+{
+	FFTDamageTextPayloadStruct Payload;
+	Payload.Damage = 100.f;
+	Payload.HitLocation = GetActorLocation();
+	
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_Damage_Dealt, Payload);
 }

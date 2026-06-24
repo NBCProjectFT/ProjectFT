@@ -12,6 +12,7 @@
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -213,6 +214,17 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 	if (Spec.IsValid())
 	{
 		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+	}
+}
+
+void AFTPlayerCharacter::HandleInventoryPressed()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->ToggleInventory();
+		}
 	}
 }
 

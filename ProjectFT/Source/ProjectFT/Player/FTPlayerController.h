@@ -54,6 +54,9 @@ protected:
 	TObjectPtr<UInputAction> UseItemAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> InventoryAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> QuickSlot1Action;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
@@ -76,6 +79,7 @@ private:
 	void OnInteractCompleted(const FInputActionValue& Value);
 	void OnSkillCheckStarted(const FInputActionValue& Value);
 	void OnUseItemStarted(const FInputActionValue& Value);
+	void OnInventoryStarted(const FInputActionValue& Value);
 	void OnQuickSlot1Started(const FInputActionValue& Value);
 	void OnQuickSlot2Started(const FInputActionValue& Value);
 	void OnQuickSlot3Started(const FInputActionValue& Value);

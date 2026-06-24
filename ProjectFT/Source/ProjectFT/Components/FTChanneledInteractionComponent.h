@@ -60,7 +60,7 @@ public:
 protected:
 	// 0→1까지 채우는 데 필요한 총 작업 시간(초).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction", meta = (ClampMin = "0.01"))
-	float RequiredSeconds = 8.0f;
+	float RequiredSeconds = 1.0f;
 
 	// 스킬체크 사이 간격(초) 범위. 채널 시작/스킬체크 종료 후 이 범위에서 랜덤으로 다음 스킬체크를 예약한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0"))

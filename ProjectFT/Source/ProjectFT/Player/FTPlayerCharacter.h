@@ -41,6 +41,7 @@ public:
 	virtual void HandleInteractReleased() override;
 	virtual void HandleSkillCheckPressed() override;
 	virtual void HandleUseItemPressed() override;
+	virtual void HandleInventoryPressed() override;
 	virtual void HandleSelectQuickSlot(int32 SlotIndex) override;
 	//~ End IFTInputInterface
 

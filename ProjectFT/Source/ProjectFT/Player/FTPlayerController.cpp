@@ -88,6 +88,11 @@ void AFTPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Started, this, &AFTPlayerController::OnUseItemStarted);
 	}
 
+	if (InventoryAction)
+	{
+		EnhancedInput->BindAction(InventoryAction, ETriggerEvent::Started, this, &AFTPlayerController::OnInventoryStarted);
+	}
+
 	if (QuickSlot1Action)
 	{
 		EnhancedInput->BindAction(QuickSlot1Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot1Started);
@@ -220,6 +225,14 @@ void AFTPlayerController::OnUseItemStarted(const FInputActionValue& Value)
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleUseItemPressed();
+	}
+}
+
+void AFTPlayerController::OnInventoryStarted(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleInventoryPressed();
 	}
 }
 
