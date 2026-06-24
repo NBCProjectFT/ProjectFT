@@ -12,7 +12,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 
-#include "ProjectFT/AbilitySystem/FTAttributeSet.h"
+#include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Interface/FTInteractable.h"
@@ -82,7 +82,7 @@ void UFTInteractionComponent::TryInteract()
 		{
 			if (UAbilitySystemComponent* ASC = AbilityOwner->GetAbilitySystemComponent())
 			{
-				WorkSpeed = ASC->GetNumericAttribute(UFTAttributeSet::GetDexterityAttribute());
+				WorkSpeed = ASC->GetNumericAttribute(UFTPlayerAttributeSet::GetDexterityAttribute());
 			}
 		}
 
