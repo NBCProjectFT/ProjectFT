@@ -33,8 +33,7 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->bOrientRotationToMovement = false;
-		// 초기값(CDO/프리뷰용). 런타임엔 BeginPlay의 ApplyMovementSpeed가 MoveSpeed 속성으로 덮어쓴다.
-		Movement->MaxWalkSpeed = 600.0f;
+		// MaxWalkSpeed 초기값(프리뷰)은 베이스 ctor가 MoveSpeed 속성에서 셋한다.
 		Movement->GetNavAgentPropertiesRef().bCanCrouch = true;
 		Movement->MaxWalkSpeedCrouched = 300.0f;
 	}
@@ -65,19 +64,14 @@ void AFTPlayerCharacter::BeginPlay()
 
 	if (AbilitySystemComponent)
 	{
-		// InitAbilityActorInfo는 베이스(AFTCharacterBase::BeginPlay)가 Super 호출 시 이미 수행했다.
-		// 이동속도에 영향을 주는 속성(기본속도/스프린트·앉기 배수)이 바뀌면 MaxWalkSpeed에 즉시 반영.
-		// (스프린트 도중 들어온 배수 버프도 토글 없이 바로 적용되도록 세 속성을 모두 듣는다.)
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMoveSpeedAttribute())
-			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
+		// InitAbilityActorInfo와 MoveSpeed→MaxWalkSpeed 기본 파생은 베이스(AFTCharacterBase)가 Super에서 처리한다.
+		// 플레이어는 추가 속도 속성(스프린트·앉기 배수)만 더 듣는다 — 변경 시 베이스의 OnSpeedAttributeChanged가 ApplyMovementSpeed(override)를 재호출.
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetSprintSpeedMultiplierAttribute())
 			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetCrouchSpeedMultiplierAttribute())
 			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
 
-		// 스턴 상태 태그가 붙고/풀릴 때 이동을 정지/복원한다.
-		AbilitySystemComponent->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Stun, EGameplayTagEventType::NewOrRemoved)
-			.AddUObject(this, &AFTPlayerCharacter::OnStunTagChanged);
+		// 스턴 시 이동 정지/복원은 베이스(AFTCharacterBase)가 처리한다.
 		
 		// [Mock] 퀵슬롯 아이템들이 참조하는 사용 어빌리티를 (중복 제거하여) 부여한다. 실제 인벤토리/장비가 붙으면 교체.
 		TSet<TSubclassOf<UFTGameplayAbility>> GrantedUseAbilities;
@@ -96,10 +90,7 @@ void AFTPlayerCharacter::BeginPlay()
 		}
 	}
 
-	// 사망 통지(OnOutOfHealth → HandleDeath)는 베이스가 바인딩한다. 플레이어는 HandleDeath()를 override.
-
-	// 초기 속성값으로 서기/스프린트/앉기 속도를 일괄 반영한다.
-	ApplyMovementSpeed();
+	// 사망 통지(OnOutOfHealth → HandleDeath)와 초기 ApplyMovementSpeed 호출은 베이스가 Super에서 처리한다(플레이어 override 실행).
 
 	// 서 있을 때의 카메라 상대 위치를 앉기 보간의 기준점으로 캐시한다.
 	if (FirstPersonCamera)
@@ -349,33 +340,6 @@ void AFTPlayerCharacter::UpdateStaminaRegen(float DeltaSeconds)
 		&& AttributeSet->GetHealth() < AttributeSet->GetMaxHealth())
 	{
 		AbilitySystemComponent->ApplyModToAttribute(UFTAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, HealthRegenPerSecond * DeltaSeconds);
-	}
-}
-
-void AFTPlayerCharacter::OnSpeedAttributeChanged(const FOnAttributeChangeData& Data)
-{
-	// 이동속도 관련 속성(MoveSpeed/스프린트·앉기 배수) 변경을 즉시 MaxWalkSpeed에 반영한다.
-	ApplyMovementSpeed();
-}
-
-void AFTPlayerCharacter::OnStunTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
-{
-	UCharacterMovementComponent* Movement = GetCharacterMovement();
-	if (!Movement)
-	{
-		return;
-	}
-
-	if (NewCount > 0)
-	{
-		// 스턴 시작: 즉시 정지 + 이동 비활성(루팅). 어빌리티 사용 차단은 베이스의 ActivationBlockedTags가 처리.
-		Movement->StopMovementImmediately();
-		Movement->DisableMovement();
-	}
-	else
-	{
-		// 스턴 해제: 보행으로 복원(공중 피격 등 이전 모드 복원은 단순화).
-		Movement->SetMovementMode(MOVE_Walking);
 	}
 }
 
