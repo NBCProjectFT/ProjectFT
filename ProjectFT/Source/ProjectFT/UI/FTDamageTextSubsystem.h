@@ -12,6 +12,7 @@ class UTextBlock;
 class UImage;
 class UWidgetAnimation;
 class UMaterialInterface;
+struct FFTDamageTextPayloadStruct;
 
 USTRUCT()
 struct FFTDamageTextPoolItemStruct
