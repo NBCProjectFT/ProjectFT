@@ -1,12 +1,9 @@
 ﻿
 #include "FTSecurityCharacter.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 
 AFTSecurityCharacter::AFTSecurityCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
-	GetCharacterMovement()->MaxWalkSpeed = 300.f;
 }
 
 void AFTSecurityCharacter::BeginPlay()
@@ -22,5 +19,5 @@ void AFTSecurityCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 void AFTSecurityCharacter::SetMoveSpeed(float NewSpeed)
 {
-	GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
+	Super::SetMoveSpeed(NewSpeed);
 }

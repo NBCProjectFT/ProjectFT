@@ -155,6 +155,7 @@ void AFTNPCAIController::EnterReporting()
 	bReportCompleted = false;
 	bReportCancelled = false;
 	LastLoggedReportPercent = -1;
+	LastLoggedReportDecayPercent = 101;
 
 	UpdateTargetState();
 	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Enter Reporting"));
@@ -184,10 +185,38 @@ bool AFTNPCAIController::TickReporting(float DeltaTime)
 		CancelReport();
 		return false;
 	}
+	
+	if (!bIsTargetActivelyStealing)
+	{
+		if (CurrentReportProgress > 0.0f)
+		{
+			ReportElapsedTime = FMath::Max(
+				ReportElapsedTime - DeltaTime * (ReportDuration / FMath::Max(ReportDecayDuration, KINDA_SMALL_NUMBER)),
+				0.0f
+			);
+			CurrentReportProgress = FMath::Clamp(ReportElapsedTime / FMath::Max(ReportDuration, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
+			BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, CurrentReportProgress);
+
+			const int32 ReportPercent = FMath::FloorToInt(CurrentReportProgress * 100.0f);
+			if (ReportPercent / 10 < LastLoggedReportDecayPercent / 10)
+			{
+				LastLoggedReportDecayPercent = ReportPercent;
+				UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Decay %d%%"), ReportPercent);
+			}
+		}
+
+		if (CurrentReportProgress <= 0.0f)
+		{
+			CancelReport();
+		}
+
+		return false;
+	}
 
 	ReportElapsedTime += DeltaTime;
 	CurrentReportProgress = FMath::Clamp(ReportElapsedTime / FMath::Max(ReportDuration, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
 	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, CurrentReportProgress);
+	LastLoggedReportDecayPercent = 101;
 
 	const int32 ReportPercent = FMath::FloorToInt(CurrentReportProgress * 100.0f);
 	if (ReportPercent / 10 > LastLoggedReportPercent / 10)
@@ -214,6 +243,9 @@ void AFTNPCAIController::CancelReport()
 
 	bReportCancelled = true;
 	CurrentReportProgress = 0.0f;
+	ReportElapsedTime = 0.0f;
+	LastLoggedReportDecayPercent = 0;
+	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, 0.0f);
 	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Cancelled"));
 }
 
@@ -224,6 +256,8 @@ void AFTNPCAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetStealing = false;
+		bIsTargetActivelyStealing = false;
+		bCanStartReportFlow = false;
 		return;
 	}
 
@@ -233,28 +267,31 @@ void AFTNPCAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetStealing = false;
+		bIsTargetActivelyStealing = false;
+		bCanStartReportFlow = false;
 		return;
 	}
 
 	TargetDistance = FVector::Dist(ControlledPawn->GetActorLocation(), TargetActor->GetActorLocation());
 	bHasSeenTarget = IsTargetCurrentlyVisible();
 
-	const bool bTargetCurrentlyStealing = IsTargetStealing(TargetActor);
-	if (bHasSeenTarget && bTargetCurrentlyStealing)
+	bIsTargetActivelyStealing = IsTargetStealing(TargetActor);
+	if (bHasSeenTarget && bIsTargetActivelyStealing)
 	{
 		LastObservedStealingTime = GetWorld() ? GetWorld()->GetTimeSeconds() : LastObservedStealingTime;
 	}
 
 	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	const bool bRecentlyObservedStealing = CurrentTime - LastObservedStealingTime <= ObservedStealingMemorySeconds;
-	bIsTargetStealing = bTargetCurrentlyStealing || bRecentlyObservedStealing;
+	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
+	bCanStartReportFlow = TargetActor && bHasSeenTarget && bIsTargetActivelyStealing;
 
-	LogReportConditionDebug(bTargetCurrentlyStealing);
+	LogReportConditionDebug(bIsTargetActivelyStealing);
 }
 
 bool AFTNPCAIController::CanStartReportFlow() const
 {
-	return TargetActor && bHasSeenTarget && bIsTargetStealing;
+	return bCanStartReportFlow;
 }
 
 bool AFTNPCAIController::IsPlayerActor(const AActor* Actor) const
@@ -309,7 +346,7 @@ bool AFTNPCAIController::ShouldCancelReport() const
 {
 	return !TargetActor ||
 		!bHasSeenTarget ||
-		!bIsTargetStealing ||
+		// !bIsTargetStealing
 		TargetDistance > ReportCancelDistance;
 }
 
@@ -398,7 +435,6 @@ void AFTNPCAIController::DrawSightDebug() const
 
 void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 {
-	const bool bCanStartReportFlow = CanStartReportFlow();
 	if (bLastLoggedHasSeenTarget == bHasSeenTarget &&
 		bLastLoggedIsTargetStealing == bIsTargetStealing &&
 		bLastLoggedCanStartReportFlow == bCanStartReportFlow)
@@ -422,4 +458,3 @@ void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 		bCanStartReportFlow ? TEXT("true") : TEXT("false")
 	);
 }
-

@@ -1,11 +1,11 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "FTNPCCharacter.generated.h"
 
 UCLASS()
-class PROJECTFT_API AFTNPCCharacter : public ACharacter
+class PROJECTFT_API AFTNPCCharacter : public AFTAICharacterBase
 {
 	GENERATED_BODY()
 

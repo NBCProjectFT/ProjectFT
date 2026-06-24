@@ -44,6 +44,12 @@ public:
 	bool bIsTargetStealing = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Target")
+	bool bIsTargetActivelyStealing = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Target")
+	bool bCanStartReportFlow = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Target")
 	float TargetDistance = 0.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
@@ -63,6 +69,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ReportDuration = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	float ReportDecayDuration = 2.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ReportAmount = 10.0f;
@@ -106,6 +115,7 @@ public:
 private:
 	float ReportElapsedTime = 0.0f;
 	int32 LastLoggedReportPercent = -1;
+	int32 LastLoggedReportDecayPercent = 101;
 	float LastObservedStealingTime = -FLT_MAX;
 	bool bLastLoggedHasSeenTarget = false;
 	bool bLastLoggedIsTargetStealing = false;

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "ProjectFT/Core/GameplayMessageProcessor.h"
+#include "UObject/ObjectKey.h"
 #include "FTReportGaugeComponent.generated.h"
 
 struct FFTNPCReportPayloadStruct;
@@ -33,5 +34,11 @@ protected:
 	bool bSecurityCalled = false;
 
 private:
+	TMap<TObjectKey<AActor>, float> ActiveReportContributions;
+
+	void OnReportStarted(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void OnReportProgress(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnReportCompleted(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void SetReportContribution(const FFTNPCReportPayloadStruct& Payload, float NewContribution);
+	void ClearReportContribution(AActor* ReportActor);
 };
