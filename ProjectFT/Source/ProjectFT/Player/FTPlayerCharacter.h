@@ -3,22 +3,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilitySystemInterface.h"
 #include "GameplayTagContainer.h"
-#include "GameFramework/Character.h"
-#include "ProjectFT/Interface/FTDamageable.h"
+#include "ProjectFT/Character/FTCharacterBase.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 #include "FTPlayerCharacter.generated.h"
 
 class UCameraComponent;
 class UFTInteractionComponent;
-class UAbilitySystemComponent;
-class UFTAttributeSet;
+class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 struct FOnAttributeChangeData;
 
+// GAS 배선(ASC/공용 속성셋/IAbilitySystemInterface/사망 훅)은 AFTCharacterBase가 제공한다.
 UCLASS()
-class PROJECTFT_API AFTPlayerCharacter : public ACharacter, public IFTDamageable, public IFTInputInterface, public IAbilitySystemInterface
+class PROJECTFT_API AFTPlayerCharacter : public AFTCharacterBase, public IFTInputInterface
 {
 	GENERATED_BODY()
 
@@ -45,10 +43,6 @@ public:
 	virtual void HandleSelectQuickSlot(int32 SlotIndex) override;
 	//~ End IFTInputInterface
 
-	//~ Begin IAbilitySystemInterface
-	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
-	//~ End IAbilitySystemInterface
-    
     protected:
     	// Called when the game starts or when spawned
     	virtual void BeginPlay() override;
@@ -68,13 +62,10 @@ public:
     	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
     	TObjectPtr<UFTInteractionComponent> InteractionComponent;
     
-    	// GAS: 능력/이펙트/속성의 허브. 속성값(체력/스태미나/이속 등)은 AttributeSet이 보유한다.
-    	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|GAS", meta = (AllowPrivateAccess = "true"))
-    	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
-    
-    	// 캐릭터의 서브오브젝트로 만들면 ASC가 InitializeComponent 시 자동 등록한다.
-    	UPROPERTY()
-        	TObjectPtr<UFTAttributeSet> AttributeSet;
+        	// 플레이어 전용 속성셋(스태미나/이동 배수/손재주). ASC·공용 AttributeSet은 베이스(AFTCharacterBase)가 보유하며,
+        	// 이 세트는 캐릭터 서브오브젝트라 베이스의 ASC에 자동 등록된다.
+        	UPROPERTY()
+        	TObjectPtr<UFTPlayerAttributeSet> PlayerAttributeSet;
         
         	// [Mock] 퀵슬롯 — 각 슬롯에 아이템 데이터 에셋(UFTItemDataAsset)을 지정한다. 사용 시 그 아이템의 UseData가 동작을 결정.
         	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 사용하는 임시 슬롯이다.
@@ -129,8 +120,8 @@ private:
     	// 스턴 상태 태그(State.Debuff.Stun)가 붙고/풀릴 때 이동을 정지/복원한다.
     	void OnStunTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
     
-    	// 체력이 0에 도달했을 때 호출(AttributeSet의 통지).
-    	void HandleOutOfHealth();
+    	// 체력이 0에 도달했을 때 호출(베이스의 OnOutOfHealth 통지). 플레이어 사망 처리.
+    	virtual void HandleDeath() override;
     
     	// 현재 카메라 보정량(CrouchCameraOffsetZ)을 카메라 상대 위치에 반영한다.
     	void UpdateCrouchCameraOffset();

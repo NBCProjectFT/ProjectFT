@@ -12,6 +12,7 @@
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_ItemAbility.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
+#include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -52,14 +53,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	// 상호작용 컴포넌트.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
 
-	// GAS: 능력시스템 컴포넌트 + 속성셋. 속성셋은 캐릭터 서브오브젝트라 ASC가 자동 등록한다.
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
-	AttributeSet = CreateDefaultSubobject<UFTAttributeSet>(TEXT("AttributeSet"));
-}
-
-UAbilitySystemComponent* AFTPlayerCharacter::GetAbilitySystemComponent() const
-{
-	return AbilitySystemComponent;
+	// GAS: 플레이어 전용 속성셋만 여기서 생성한다(ASC·공용 AttributeSet은 베이스 AFTCharacterBase가 생성).
+	// 캐릭터 서브오브젝트라 베이스의 ASC가 자동 등록한다.
+	PlayerAttributeSet = CreateDefaultSubobject<UFTPlayerAttributeSet>(TEXT("PlayerAttributeSet"));
 }
 
 // Called when the game starts or when spawned
@@ -69,16 +65,14 @@ void AFTPlayerCharacter::BeginPlay()
 
 	if (AbilitySystemComponent)
 	{
-		// 싱글: 소유자=아바타=this. (InitializeComponent가 한 번 호출하지만 명시적으로 한 번 더 — 안전.)
-		AbilitySystemComponent->InitAbilityActorInfo(this, this);
-
+		// InitAbilityActorInfo는 베이스(AFTCharacterBase::BeginPlay)가 Super 호출 시 이미 수행했다.
 		// 이동속도에 영향을 주는 속성(기본속도/스프린트·앉기 배수)이 바뀌면 MaxWalkSpeed에 즉시 반영.
 		// (스프린트 도중 들어온 배수 버프도 토글 없이 바로 적용되도록 세 속성을 모두 듣는다.)
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMoveSpeedAttribute())
 			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetSprintSpeedMultiplierAttribute())
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetSprintSpeedMultiplierAttribute())
 			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetCrouchSpeedMultiplierAttribute())
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetCrouchSpeedMultiplierAttribute())
 			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
 
 		// 스턴 상태 태그가 붙고/풀릴 때 이동을 정지/복원한다.
@@ -102,10 +96,7 @@ void AFTPlayerCharacter::BeginPlay()
 		}
 	}
 
-	if (AttributeSet)
-	{
-		AttributeSet->OnOutOfHealth.AddUObject(this, &AFTPlayerCharacter::HandleOutOfHealth);
-	}
+	// 사망 통지(OnOutOfHealth → HandleDeath)는 베이스가 바인딩한다. 플레이어는 HandleDeath()를 override.
 
 	// 초기 속성값으로 서기/스프린트/앉기 속도를 일괄 반영한다.
 	ApplyMovementSpeed();
@@ -283,29 +274,29 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 
 void AFTPlayerCharacter::ApplyMovementSpeed()
 {
-	if (!AttributeSet)
+	if (!AttributeSet || !PlayerAttributeSet)
 	{
 		return;
 	}
 
-	// 서기/스프린트/앉기 속도를 모두 MoveSpeed 속성(버프 포함 최종값)에서 파생한다.
+	// 기본속도는 공용 MoveSpeed(버프 포함 최종값), 스프린트·앉기 배수는 플레이어 전용 속성에서 파생한다.
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		const float BaseSpeed = AttributeSet->GetMoveSpeed();
-		Movement->MaxWalkSpeed = bIsSprinting ? BaseSpeed * AttributeSet->GetSprintSpeedMultiplier() : BaseSpeed;
-		Movement->MaxWalkSpeedCrouched = BaseSpeed * AttributeSet->GetCrouchSpeedMultiplier();
+		Movement->MaxWalkSpeed = bIsSprinting ? BaseSpeed * PlayerAttributeSet->GetSprintSpeedMultiplier() : BaseSpeed;
+		Movement->MaxWalkSpeedCrouched = BaseSpeed * PlayerAttributeSet->GetCrouchSpeedMultiplier();
 	}
 }
 
 void AFTPlayerCharacter::UpdateSprintState(float DeltaSeconds)
 {
-	if (!AbilitySystemComponent || !AttributeSet)
+	if (!AbilitySystemComponent || !PlayerAttributeSet)
 	{
 		return;
 	}
 
-	const float Stamina = AttributeSet->GetStamina();
-	const float MaxStamina = AttributeSet->GetMaxStamina();
+	const float Stamina = PlayerAttributeSet->GetStamina();
+	const float MaxStamina = PlayerAttributeSet->GetMaxStamina();
 
 	// 탈진 해제: 스태미나가 최대치의 SprintResumeStaminaFraction 이상으로 회복되면 다시 스프린트 가능.
 	if (bSprintExhausted && Stamina >= MaxStamina * SprintResumeStaminaFraction)
@@ -320,10 +311,10 @@ void AFTPlayerCharacter::UpdateSprintState(float DeltaSeconds)
 	if (bSprinting && bMovingOnGround)
 	{
 		// 스태미나 속성을 직접 감소(클램프는 PreAttributeChange가 처리). 소모 시 회복 지연 타이머 리셋.
-		AbilitySystemComponent->ApplyModToAttribute(UFTAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -SprintStaminaCostPerSecond * DeltaSeconds);
+		AbilitySystemComponent->ApplyModToAttribute(UFTPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -SprintStaminaCostPerSecond * DeltaSeconds);
 		TimeSinceStaminaUse = 0.0f;
 
-		if (AttributeSet->GetStamina() <= 0.0f)
+		if (PlayerAttributeSet->GetStamina() <= 0.0f)
 		{
 			bSprintExhausted = true;
 			bSprinting = false;
@@ -339,18 +330,18 @@ void AFTPlayerCharacter::UpdateSprintState(float DeltaSeconds)
 
 void AFTPlayerCharacter::UpdateStaminaRegen(float DeltaSeconds)
 {
-	if (!AbilitySystemComponent || !AttributeSet)
+	if (!AbilitySystemComponent || !AttributeSet || !PlayerAttributeSet)
 	{
 		return;
 	}
-	
+
 	TimeSinceStaminaUse += DeltaSeconds;
 
 	// 스태미나 회복(마지막 사용 후 지연이 지난 다음부터).
 	if (StaminaRegenPerSecond > 0.0f && TimeSinceStaminaUse >= StaminaRegenDelay
-		&& AttributeSet->GetStamina() < AttributeSet->GetMaxStamina())
+		&& PlayerAttributeSet->GetStamina() < PlayerAttributeSet->GetMaxStamina())
 	{
-		AbilitySystemComponent->ApplyModToAttribute(UFTAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, StaminaRegenPerSecond * DeltaSeconds);
+		AbilitySystemComponent->ApplyModToAttribute(UFTPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, StaminaRegenPerSecond * DeltaSeconds);
 	}
 
 	// 체력 회복(기본 0이라 보통 비활성).
@@ -388,7 +379,7 @@ void AFTPlayerCharacter::OnStunTagChanged(const FGameplayTag CallbackTag, int32 
 	}
 }
 
-void AFTPlayerCharacter::HandleOutOfHealth()
+void AFTPlayerCharacter::HandleDeath()
 {
 	UE_LOG(LogFTPlayer, Log, TEXT("'%s' died (health depleted)."), *GetNameSafe(this));
 	// 사망 후처리(레벨 전환 등)는 GameFlow 연동으로 — 이번 스코프 밖.
