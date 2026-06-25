@@ -9,9 +9,11 @@
 
 UFTGE_Slow::UFTGE_Slow()
 {
-	// 지속 정책 + 지속시간(5초 고정).
+	// 지속 정책 + 지속시간은 아이템 데이터가 SetByCaller(Data.Duration)로 주입한다.
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
-	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(5.0f));
+	FSetByCallerFloat DurationByCaller;
+	DurationByCaller.DataTag = TAG_FT_Data_Duration;
+	DurationMagnitude = FGameplayEffectModifierMagnitude(DurationByCaller);
 
 	// 이동속도 ×0.5 (Multiplicitive = 곱연산).
 	FGameplayModifierInfo Mod;
