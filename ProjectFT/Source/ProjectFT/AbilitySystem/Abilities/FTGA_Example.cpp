@@ -3,7 +3,6 @@
 #include "FTGA_Example.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
-#include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
 
 UFTGA_Example::UFTGA_Example()
 {
@@ -45,10 +44,13 @@ UFTGA_Example::UFTGA_Example()
 	// =====================================================================================
 
 	// CooldownGameplayEffectClass : 쿨다운 GE. Commit 시 적용되고 만료 전까지 재사용 불가.
-	//   ※ 본 프로젝트의 UFTGE_Cooldown은 지속시간을 SetByCaller(Data.Cooldown)로 주입받으므로,
-	//     실제로 사용하려면 UFTGA_UseItem처럼 ApplyCooldown()을 오버라이드해 매그니튜드를 넣어야 한다.
-	//     (여기서는 "클래스를 지정하는 방법" 자체를 보여주기 위한 예시.)
-	CooldownGameplayEffectClass = UFTGE_Cooldown::StaticClass();
+	//   표준 경로의 CheckCooldown/에디터 데이터 검증은 이 GE의 '정적' 부여 태그(GetGrantedTags)만 읽는다.
+	//   → 태그가 0개인 GE를 여기 지정하면 "쿨다운으로 쓰려면 태그를 부여해야 함" 검증 에러가 난다.
+	//   일반 쿨다운이라면 GE에 TargetTagsGameplayEffectComponent로 정적 태그를 하나 부여하면 된다(FTGE_Stun 참고):
+	//     CooldownGameplayEffectClass = UFTGE_SomeCooldownWithStaticTag::StaticClass();
+	//   ※ 단, 본 프로젝트의 아이템 쿨다운은 '아이템별 독립'이라 표준 경로를 쓰지 않는다 — UFTGE_Cooldown은
+	//     정적 태그가 없고(공유 차단을 막으려고 일부러), UFTGA_ItemAbility가 ApplyCooldown에서 아이템별 태그를
+	//     동적으로 부여해 직접 Apply한다. 그래서 이 데모는 이 프로퍼티를 '지정하지 않는다'(지정하면 검증 에러).
 
 	// CostGameplayEffectClass : 비용 GE(마나/스태미나 등). Commit 시 적용. 프로젝트에 비용 GE가 생기면 지정.
 	//   CostGameplayEffectClass = UFTGE_StaminaCost::StaticClass();
