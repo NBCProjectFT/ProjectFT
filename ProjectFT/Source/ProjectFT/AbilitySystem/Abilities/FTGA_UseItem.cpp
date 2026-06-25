@@ -27,7 +27,7 @@ void UFTGA_UseItem::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 		return;
 	}
 
-	// 쿨다운 차단은 CanActivateAbility(CheckCooldown)에서 이미 걸러진다. 여기서는 시전 흐름만 진행한다.
+	// 쿨다운 차단은 사용 입력 시 호출측(AFTPlayerCharacter)이 아이템별 태그로 이미 걸러낸다. 여기서는 시전 흐름만 진행한다.
 	if (ActiveUseData.CastTimeSeconds > 0.0f)
 	{
 		// 시전시간 동안 대기 후 효과 적용. 시전 중에는 동일 어빌리티가 활성 상태라 재사용이 막힌다.
