@@ -18,7 +18,7 @@ struct PROJECTFT_API FFTMeleeAttackStruct
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
 
 	// 어태치될 소켓의 이름
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee|Trace")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee|Attach")
 	FName AttachSocketName = TEXT("MeleeHandGrip_R");
 
 	// 타격 판정 캡슐의 시작 소켓이다.
