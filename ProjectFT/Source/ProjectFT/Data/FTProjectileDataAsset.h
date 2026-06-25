@@ -1,7 +1,8 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "ProjectFT/Item/FTItemActor.h"
+#include "FTItemDataAsset.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Struct/FTProjectileAttackStruct.h"
 #include "FTProjectileDataAsset.generated.h"
 
@@ -9,7 +10,7 @@
 // AFTItemActor를 상속받아서 값을 사용한다.
 // ProjectileAttackData에 몽타주와 발사할 ProjectileActor의 정보를 넣는다.
 UCLASS(BlueprintType)
-class PROJECTFT_API AFTProjectileDataAsset : public AFTItemActor
+class PROJECTFT_API UFTProjectileDataAsset : public UFTItemDataAsset
 {
 	GENERATED_BODY()
 
