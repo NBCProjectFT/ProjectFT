@@ -8,6 +8,7 @@
 #include "FTGA_ItemAbility.generated.h"
 
 class UFTItemDataAsset;
+class UGameplayEffect;
 
 /**
  * 아이템 데이터(FTItemUseStruct)로 구동되는 "사용 어빌리티"의 공용 베이스.
@@ -43,6 +44,12 @@ protected:
 
 	// 효과 적용 직후 1회 호출되는 확장 훅(인벤토리 차감/사용 연출 등). 기본 구현은 비어 있다.
 	virtual void OnItemConsumed();
+
+	// 쿨다운 GE 클래스(아이템별 동적 태그를 얹어 어빌리티가 '직접' 적용). 기본값 UFTGE_Cooldown.
+	// 표준 CooldownGameplayEffectClass 경로를 쓰지 않는 이유: 그 경로의 CheckCooldown은 GE의 '정적' 부여 태그로만
+	// 차단해 어빌리티 단위(=모든 아이템 공유)로만 동작한다. 아이템별 독립 쿨다운엔 호출측(AFTPlayerCharacter) 개별 판정이 필요하다.
+	UPROPERTY(EditDefaultsOnly, Category = "FT|Cooldown")
+	TSubclassOf<UGameplayEffect> CooldownEffectClass;
 
 	// 이번 활성에서 사용할 아이템의 사용 데이터(발동 시 페이로드에서 복사). ApplyCooldown/ApplyUseEffects가 참조한다.
 	UPROPERTY()
