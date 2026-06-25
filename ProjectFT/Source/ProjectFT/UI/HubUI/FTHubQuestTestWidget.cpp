@@ -4,12 +4,15 @@
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
 #include "FTQuestListObject.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubQuestBoard.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 
-void UFTHubQuestTestWidget::InitializeQuestTest(AFTHubQuestBoard* InQuestBoard)
+void UFTHubQuestTestWidget::InitializeQuestTest(AFTHubQuestBoard* InQuestBoard, UFTInventoryComponent* InPlayerInventory)
 {
 	QuestBoard = InQuestBoard;
+	PlayerInventory = InPlayerInventory;
 	SelectedQuest = nullptr;
 	RefreshQuests();
 }
@@ -20,21 +23,24 @@ void UFTHubQuestTestWidget::NativeConstruct()
 
 	if (LV_Quests)
 	{
+		LV_Quests->OnItemClicked().RemoveAll(this);
 		LV_Quests->OnItemClicked().AddUObject(this, &UFTHubQuestTestWidget::HandleQuestClicked);
 	}
 
 	if (BTN_CompleteQuest)
 	{
+		BTN_CompleteQuest->OnClicked.RemoveDynamic(this, &UFTHubQuestTestWidget::HandleCompleteQuestClicked);
 		BTN_CompleteQuest->OnClicked.AddDynamic(this, &UFTHubQuestTestWidget::HandleCompleteQuestClicked);
 		BTN_CompleteQuest->SetIsEnabled(false);
 	}
 
 	if (BTN_Close)
 	{
+		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubQuestTestWidget::HandleCloseClicked);
 		BTN_Close->OnClicked.AddDynamic(this, &UFTHubQuestTestWidget::HandleCloseClicked);
 	}
 
-	UpdateSelectedQuestDetails();
+	RefreshQuests();
 }
 
 void UFTHubQuestTestWidget::RefreshQuests()
@@ -63,7 +69,7 @@ void UFTHubQuestTestWidget::RefreshQuests()
 	for (const FTQuestStruct& Quest : Quests)
 	{
 		UFTQuestListObject* QuestObject = NewObject<UFTQuestListObject>(this);
-		QuestObject->Initialize(Quest, QuestBoard->CanCompleteQuest(Quest));
+		QuestObject->Initialize(Quest, QuestBoard->CanCompleteQuest(Quest, PlayerInventory));
 		LV_Quests->AddItem(QuestObject);
 
 		if (Quest.QuestID == SelectedQuestID)
@@ -107,11 +113,19 @@ void UFTHubQuestTestWidget::UpdateSelectedQuestDetails()
 			RequiredItems += TEXT("\n");
 		}
 
+		const int32 PlayerCount = PlayerInventory
+			? PlayerInventory->GetItemQuantity(RequiredItem.ItemID)
+			: 0;
+		const int32 StorageCount = QuestBoard->GetHubStorage()
+			? QuestBoard->GetHubStorage()->GetStorageItemCount(RequiredItem.ItemID)
+			: 0;
+		const int32 TotalCount = PlayerCount + StorageCount;
+
 		RequiredItems += FString::Printf(
-			TEXT("요구 아이템: %s x%d"),
+			TEXT("요구 아이템: %s x%d / 보유 %d"),
 			*RequiredItem.ItemID.ToString(),
-			RequiredItem.Count
-		);
+			RequiredItem.Count,
+			TotalCount);
 	}
 
 	FString RewardItems;
@@ -149,7 +163,7 @@ void UFTHubQuestTestWidget::HandleCompleteQuestClicked()
 		return;
 	}
 
-	if (QuestBoard->TryCompleteQuest(SelectedQuest->GetQuest().QuestID))
+	if (QuestBoard->TryCompleteQuest(SelectedQuest->GetQuest().QuestID, PlayerInventory))
 	{
 		RefreshQuests();
 	}

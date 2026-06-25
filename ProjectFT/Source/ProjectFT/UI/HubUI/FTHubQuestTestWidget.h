@@ -6,6 +6,7 @@
 
 class AFTHubQuestBoard;
 class UButton;
+class UFTInventoryComponent;
 class UFTQuestListObject;
 class UListView;
 class UTextBlock;
@@ -17,7 +18,7 @@ class PROJECTFT_API UFTHubQuestTestWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Quest")
-	void InitializeQuestTest(AFTHubQuestBoard* InQuestBoard);
+	void InitializeQuestTest(AFTHubQuestBoard* InQuestBoard, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -56,6 +57,9 @@ private:
 
 	UPROPERTY(Transient)
 	AFTHubQuestBoard* QuestBoard;
+
+	UPROPERTY(Transient)
+	UFTInventoryComponent* PlayerInventory;
 
 	UPROPERTY(Transient)
 	UFTQuestListObject* SelectedQuest;
