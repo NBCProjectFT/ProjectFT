@@ -4,6 +4,8 @@
 #include "Engine/DataTable.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Hub/FTHubShop.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTHubQuestTestWidget.h"
@@ -11,6 +13,7 @@
 AFTHubQuestBoard::AFTHubQuestBoard()
 	: QuestDataTable(nullptr)
 	, HubStorage(nullptr)
+	, HubShop(nullptr)
 	, HubQuestTestWidget(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -70,6 +73,8 @@ void AFTHubQuestBoard::OpenQuestWidget(AActor* Interactor)
 		return;
 	}
 
+	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
+
 	if (!HubQuestTestWidget)
 	{
 		HubQuestTestWidget = CreateWidget<UFTHubQuestTestWidget>(
@@ -81,9 +86,9 @@ void AFTHubQuestBoard::OpenQuestWidget(AActor* Interactor)
 		{
 			return;
 		}
-
-		HubQuestTestWidget->InitializeQuestTest(this);
 	}
+
+	HubQuestTestWidget->InitializeQuestTest(this, PlayerInventory);
 
 	if (!HubQuestTestWidget->IsInViewport())
 	{
@@ -116,16 +121,16 @@ void AFTHubQuestBoard::CloseQuestWidget()
 	PlayerController->SetInputMode(InputMode);
 }
 
-bool AFTHubQuestBoard::CanCompleteQuest(const FTQuestStruct& Quest) const
+bool AFTHubQuestBoard::CanCompleteQuest(const FTQuestStruct& Quest, UFTInventoryComponent* PlayerInventory) const
 {
-	if (!HubStorage)
+	if (!PlayerInventory && !HubStorage)
 	{
 		return false;
 	}
 
 	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
 	{
-		if (HubStorage->GetStorageItemCount(RequiredItem.ItemID) < RequiredItem.Count)
+		if (GetCombinedItemCount(PlayerInventory, RequiredItem.ItemID) < RequiredItem.Count)
 		{
 			return false;
 		}
@@ -134,11 +139,15 @@ bool AFTHubQuestBoard::CanCompleteQuest(const FTQuestStruct& Quest) const
 	return true;
 }
 
-bool AFTHubQuestBoard::TryCompleteQuest(FName QuestID)
+bool AFTHubQuestBoard::TryCompleteQuest(FName QuestID, UFTInventoryComponent* PlayerInventory)
 {
 	const FTQuestStruct* Quest = FindQuestByID(QuestID);
-
-	if (!Quest || !HubStorage || !CanCompleteQuest(*Quest))
+	
+	if (CompletedQuestIDs.Contains(QuestID))
+	{
+		return false;
+	}
+	if (!Quest || !PlayerInventory || !CanCompleteQuest(*Quest, PlayerInventory))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Quest Complete Failed: %s"), *QuestID.ToString());
 		return false;
@@ -146,12 +155,28 @@ bool AFTHubQuestBoard::TryCompleteQuest(FName QuestID)
 
 	for (const FTCraftIngredientStruct& RequiredItem : Quest->RequiredItems)
 	{
-		HubStorage->RemoveStorageItem(RequiredItem.ItemID, RequiredItem.Count);
+		if (!ConsumeCombinedItem(PlayerInventory, RequiredItem.ItemID, RequiredItem.Count))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Quest Complete Failed: %s"), *QuestID.ToString());
+			return false;
+		}
 	}
 
 	for (const FTCraftIngredientStruct& RewardItem : Quest->RewardItems)
 	{
-		HubStorage->AddStorageItem(RewardItem.ItemID, RewardItem.Count);
+		if (!PlayerInventory->AddItem(RewardItem.ItemID, RewardItem.Count))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Quest Reward Failed: %s"), *QuestID.ToString());
+			return false;
+		}
+	}
+
+	if (HubShop)
+	{
+		for (const FName& ShopItemID : Quest->UnlockedShopItemIDs)
+		{
+			HubShop->UnlockShopItem(ShopItemID);
+		}
 	}
 
 	CompletedQuestIDs.Add(QuestID);
@@ -245,4 +270,85 @@ void AFTHubQuestBoard::UnlockQuest(FName QuestID)
 	}
 
 	AvailableQuestIDs.Add(QuestID);
+}
+
+UFTInventoryComponent* AFTHubQuestBoard::FindPlayerInventory(AActor* Interactor) const
+{
+	if (Interactor)
+	{
+		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
+	}
+
+	const APlayerController* PlayerController = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr;
+
+	if (!PlayerController)
+	{
+		return nullptr;
+	}
+
+	if (APawn* Pawn = PlayerController->GetPawn())
+	{
+		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
+	}
+
+	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
+}
+
+int32 AFTHubQuestBoard::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const
+{
+	int32 Count = 0;
+
+	if (PlayerInventory)
+	{
+		Count += PlayerInventory->GetItemQuantity(ItemID);
+	}
+
+	if (HubStorage)
+	{
+		Count += HubStorage->GetStorageItemCount(ItemID);
+	}
+
+	return Count;
+}
+
+bool AFTHubQuestBoard::ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count)
+{
+	if (ItemID.IsNone() || Count <= 0 || GetCombinedItemCount(PlayerInventory, ItemID) < Count)
+	{
+		return false;
+	}
+
+	int32 RemainingCount = Count;
+
+	if (PlayerInventory)
+	{
+		const int32 PlayerCount = PlayerInventory->GetItemQuantity(ItemID);
+		const int32 RemoveFromPlayer = FMath::Min(PlayerCount, RemainingCount);
+
+		if (RemoveFromPlayer > 0 && PlayerInventory->RemoveItem(ItemID, RemoveFromPlayer))
+		{
+			RemainingCount -= RemoveFromPlayer;
+		}
+	}
+
+	if (RemainingCount > 0 && HubStorage)
+	{
+		const int32 StorageCount = HubStorage->GetStorageItemCount(ItemID);
+		const int32 RemoveFromStorage = FMath::Min(StorageCount, RemainingCount);
+
+		if (RemoveFromStorage > 0 && HubStorage->RemoveStorageItem(ItemID, RemoveFromStorage))
+		{
+			RemainingCount -= RemoveFromStorage;
+		}
+	}
+
+	return RemainingCount <= 0;
 }

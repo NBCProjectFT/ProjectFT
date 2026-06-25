@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-// #include "ProjectFT/Enum/FTItemCategoryType.h"
+#include "ProjectFT/Enum/FTItemCategoryType.h"
 #include "ProjectFT/Struct/FTItemUseStruct.h"
 #include "FTItemDataStruct.generated.h"
 
@@ -22,6 +22,12 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	float Weight = 0.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
+	int32 Cost = 0;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
+	EFTItemCategoryType CategoryType = EFTItemCategoryType::None;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	TSoftObjectPtr<UTexture2D> ItemIcon;

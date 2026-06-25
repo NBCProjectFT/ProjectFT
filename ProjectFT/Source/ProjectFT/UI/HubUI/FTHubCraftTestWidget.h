@@ -7,6 +7,7 @@
 class AFTHubWorkbench;
 class UButton;
 class UFTCraftRecipeListObject;
+class UFTInventoryComponent;
 class UListView;
 class UTextBlock;
 
@@ -17,7 +18,7 @@ class PROJECTFT_API UFTHubCraftTestWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Craft")
-	void InitializeCraftTest(AFTHubWorkbench* InHubWorkbench);
+	void InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -55,6 +56,9 @@ private:
 
 	UPROPERTY(Transient)
 	AFTHubWorkbench* HubWorkbench;
+
+	UPROPERTY(Transient)
+	UFTInventoryComponent* PlayerInventory;
 
 	UPROPERTY(Transient)
 	UFTCraftRecipeListObject* SelectedRecipe;

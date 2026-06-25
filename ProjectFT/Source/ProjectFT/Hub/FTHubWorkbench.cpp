@@ -5,6 +5,7 @@
 #include "FTHubStorage.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTHubCraftTestWidget.h"
 
@@ -25,7 +26,8 @@ bool AFTHubWorkbench::Interact_Implementation(AActor* Interactor)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Hub Workbench Interacted"));
 
-	PrintAllRecipes();
+	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
+	PrintAllRecipes(PlayerInventory);
 	OpenCraftWidget(Interactor);
 
 	return true;
@@ -65,6 +67,8 @@ void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
 		CloseCraftWidget();
 		return;
 	}
+	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
+
 	if (!HubCraftTestWidget)
 	{
 		HubCraftTestWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, HubCraftTestWidgetClass);
@@ -72,9 +76,9 @@ void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
 		{
 			return;
 		}
-
-		HubCraftTestWidget->InitializeCraftTest(this);
 	}
+
+	HubCraftTestWidget->InitializeCraftTest(this, PlayerInventory);
 
 	if (!HubCraftTestWidget->IsInViewport())
 	{
@@ -88,7 +92,7 @@ void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
 	}
 }
 
-void AFTHubWorkbench::PrintAllRecipes() const
+void AFTHubWorkbench::PrintAllRecipes(UFTInventoryComponent* PlayerInventory) const
 {
 	TArray<FTCraftRecipeStruct> Recipes;
 	GetCraftRecipes(Recipes);
@@ -99,9 +103,7 @@ void AFTHubWorkbench::PrintAllRecipes() const
 
 		for (const FTCraftIngredientStruct& Ingredient : Recipe.RequiredItems)
 		{
-			const int32 OwnedCount = HubStorage
-				? HubStorage->GetStorageItemCount(Ingredient.ItemID)
-				: 0;
+			const int32 OwnedCount = GetCombinedItemCount(PlayerInventory, Ingredient.ItemID);
 
 			UE_LOG(LogTemp, Warning, TEXT("Required: %s x%d / Owned: %d"),
 				*Ingredient.ItemID.ToString(),
@@ -110,20 +112,20 @@ void AFTHubWorkbench::PrintAllRecipes() const
 		}
 
 		UE_LOG(LogTemp, Warning, TEXT("CanCraft: %s"),
-			CanCraftRecipe(Recipe) ? TEXT("true") : TEXT("false"));
+			CanCraftRecipe(Recipe, PlayerInventory) ? TEXT("true") : TEXT("false"));
 	}
 }
 
-bool AFTHubWorkbench::CanCraftRecipe(const FTCraftRecipeStruct& Recipe) const
+bool AFTHubWorkbench::CanCraftRecipe(const FTCraftRecipeStruct& Recipe, UFTInventoryComponent* PlayerInventory) const
 {
-	if (!HubStorage)
+	if (!PlayerInventory && !HubStorage)
 	{
 		return false;
 	}
 
 	for (const FTCraftIngredientStruct& Ingredient : Recipe.RequiredItems)
 	{
-		if (HubStorage->GetStorageItemCount(Ingredient.ItemID) < Ingredient.Count)
+		if (GetCombinedItemCount(PlayerInventory, Ingredient.ItemID) < Ingredient.Count)
 		{
 			return false;
 		}
@@ -143,11 +145,11 @@ const FTCraftRecipeStruct* AFTHubWorkbench::FindRecipeByID(FName RecipeID) const
 	return CraftRecipeDataTable->FindRow<FTCraftRecipeStruct>(RecipeID, TEXT("FindRecipeByID"));
 }
 
-bool AFTHubWorkbench::TryCraftRecipe(FName RecipeID)
+bool AFTHubWorkbench::TryCraftRecipe(FName RecipeID, UFTInventoryComponent* PlayerInventory)
 {
 	const FTCraftRecipeStruct* Recipe = FindRecipeByID(RecipeID);
 
-	if (!Recipe || !HubStorage || !CanCraftRecipe(*Recipe))
+	if (!Recipe || !PlayerInventory || !CanCraftRecipe(*Recipe, PlayerInventory))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Craft Failed: %s"), *RecipeID.ToString());
 		return false;
@@ -155,10 +157,18 @@ bool AFTHubWorkbench::TryCraftRecipe(FName RecipeID)
 
 	for (const FTCraftIngredientStruct& Ingredient : Recipe->RequiredItems)
 	{
-		HubStorage->RemoveStorageItem(Ingredient.ItemID, Ingredient.Count);
+		if (!ConsumeCombinedItem(PlayerInventory, Ingredient.ItemID, Ingredient.Count))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Craft Failed: %s"), *RecipeID.ToString());
+			return false;
+		}
 	}
 
-	HubStorage->AddStorageItem(Recipe->ResultItemID, Recipe->ResultCount);
+	if (!PlayerInventory->AddItem(Recipe->ResultItemID, Recipe->ResultCount))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Craft Reward Failed: %s"), *RecipeID.ToString());
+		return false;
+	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Craft Success: %s"), *RecipeID.ToString());
 	return true;
@@ -208,4 +218,85 @@ void AFTHubWorkbench::GetCraftRecipes(TArray<FTCraftRecipeStruct>& OutRecipes) c
 AFTHubStorage* AFTHubWorkbench::GetHubStorage() const
 {
 	return HubStorage;
+}
+
+UFTInventoryComponent* AFTHubWorkbench::FindPlayerInventory(AActor* Interactor) const
+{
+	if (Interactor)
+	{
+		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
+	}
+
+	const APlayerController* PlayerController = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr;
+
+	if (!PlayerController)
+	{
+		return nullptr;
+	}
+
+	if (APawn* Pawn = PlayerController->GetPawn())
+	{
+		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
+	}
+
+	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
+}
+
+int32 AFTHubWorkbench::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const
+{
+	int32 Count = 0;
+
+	if (PlayerInventory)
+	{
+		Count += PlayerInventory->GetItemQuantity(ItemID);
+	}
+
+	if (HubStorage)
+	{
+		Count += HubStorage->GetStorageItemCount(ItemID);
+	}
+
+	return Count;
+}
+
+bool AFTHubWorkbench::ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count)
+{
+	if (ItemID.IsNone() || Count <= 0 || GetCombinedItemCount(PlayerInventory, ItemID) < Count)
+	{
+		return false;
+	}
+
+	int32 RemainingCount = Count;
+
+	if (PlayerInventory)
+	{
+		const int32 PlayerCount = PlayerInventory->GetItemQuantity(ItemID);
+		const int32 RemoveFromPlayer = FMath::Min(PlayerCount, RemainingCount);
+
+		if (RemoveFromPlayer > 0 && PlayerInventory->RemoveItem(ItemID, RemoveFromPlayer))
+		{
+			RemainingCount -= RemoveFromPlayer;
+		}
+	}
+
+	if (RemainingCount > 0 && HubStorage)
+	{
+		const int32 StorageCount = HubStorage->GetStorageItemCount(ItemID);
+		const int32 RemoveFromStorage = FMath::Min(StorageCount, RemainingCount);
+
+		if (RemoveFromStorage > 0 && HubStorage->RemoveStorageItem(ItemID, RemoveFromStorage))
+		{
+			RemainingCount -= RemoveFromStorage;
+		}
+	}
+
+	return RemainingCount <= 0;
 }
