@@ -79,6 +79,9 @@ private:
 	void OnQuickSlot1Started(const FInputActionValue& Value);
 	void OnQuickSlot2Started(const FInputActionValue& Value);
 	void OnQuickSlot3Started(const FInputActionValue& Value);
+
+	// [Temp/Debug] IA 에셋/IMC 매핑 없이 테이저를 테스트하기 위한 핸들러 — 퀵슬롯0 선택 후 사용(T 키에 바인딩).
+	void OnDebugUseQuickSlot0();
 	
 	
 	
