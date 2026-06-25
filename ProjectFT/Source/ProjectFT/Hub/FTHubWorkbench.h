@@ -9,6 +9,7 @@
 class AFTHubStorage;
 class UFTHubCraftTestWidget;
 class UDataTable;
+class UFTInventoryComponent;
 
 UCLASS()
 class PROJECTFT_API AFTHubWorkbench : public AActor, public IFTInteractable
@@ -21,9 +22,9 @@ public:
 	virtual bool Interact_Implementation(AActor* Interactor) override;
 	virtual FText GetInteractionPrompt_Implementation() const override;
 
-	bool CanCraftRecipe(const FTCraftRecipeStruct& Recipe) const;
+	bool CanCraftRecipe(const FTCraftRecipeStruct& Recipe, UFTInventoryComponent* PlayerInventory) const;
 	UFUNCTION(BlueprintCallable, Category = "Craft")
-	bool TryCraftRecipe(FName RecipeID);
+	bool TryCraftRecipe(FName RecipeID, UFTInventoryComponent* PlayerInventory);
 	
 	UFUNCTION(BlueprintCallable, Category = "Craft|UI")
 	void CloseCraftWidget();
@@ -48,9 +49,12 @@ protected:
 
 private:
 	void OpenCraftWidget(AActor* Interactor);
-	void PrintAllRecipes() const;
+	void PrintAllRecipes(UFTInventoryComponent* PlayerInventory) const;
 
 	const FTCraftRecipeStruct* FindRecipeByID(FName RecipeID) const;
+	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
+	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
+	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
 
 	UPROPERTY(Transient)
 	UFTHubCraftTestWidget* HubCraftTestWidget;
