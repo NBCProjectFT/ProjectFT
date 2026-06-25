@@ -3,6 +3,7 @@
 #include "FTCharacterBase.h"
 
 #include "AbilitySystemComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
@@ -20,6 +21,13 @@ AFTCharacterBase::AFTCharacterBase()
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->MaxWalkSpeed = AttributeSet->GetMoveSpeed();
+	}
+
+	// 무기 트레이스(Weapon = ECC_GameTraceChannel1)가 캡슐을 '통과'해 메시에 정밀히 맞도록 캡슐만 Ignore로 둔다.
+	// 캡슐 기본 Weapon 응답은 Block이라 명시적으로 덮어씀 — 메시는 CharacterMesh 프로파일(QueryOnly + Weapon 기본 Block)이라 그대로 맞는다.
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Ignore);
 	}
 }
 
@@ -95,6 +103,19 @@ void AFTCharacterBase::OnStunTagChanged(const FGameplayTag CallbackTag, int32 Ne
 		else
 		{
 			Movement->SetMovementMode(MOVE_Walking);
+		}
+	}
+
+	// 스턴 '지속' 연출(GameplayCue): 시작 시 추가, 해제 시 제거 → 스턴 태그 수명과 묶인다. 비주얼은 GC_Stun Notify(BP, 루핑)가 담당.
+	if (AbilitySystemComponent)
+	{
+		if (bStunned)
+		{
+			AbilitySystemComponent->AddGameplayCue(TAG_FT_GameplayCue_State_Stun);
+		}
+		else
+		{
+			AbilitySystemComponent->RemoveGameplayCue(TAG_FT_GameplayCue_State_Stun);
 		}
 	}
 

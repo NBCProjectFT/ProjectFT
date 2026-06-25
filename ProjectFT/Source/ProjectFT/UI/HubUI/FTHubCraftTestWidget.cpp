@@ -5,13 +5,15 @@
 #include "Components/TextBlock.h"
 #include "FTCraftRecipeListObject.h"
 #include "FTStorageItemListObject.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 
-void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench)
+void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory)
 {
 	HubWorkbench = InHubWorkbench;
+	PlayerInventory = InPlayerInventory;
 	SelectedRecipe = nullptr;
 	RefreshAll();
 }
@@ -20,14 +22,27 @@ void UFTHubCraftTestWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	LV_CraftRecipes->OnItemClicked().AddUObject(this, &UFTHubCraftTestWidget::HandleRecipeClicked);
-	BTN_Craft->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftClicked);
-	BTN_Craft->SetIsEnabled(false);
+	if (LV_CraftRecipes)
+	{
+		LV_CraftRecipes->OnItemClicked().RemoveAll(this);
+		LV_CraftRecipes->OnItemClicked().AddUObject(this, &UFTHubCraftTestWidget::HandleRecipeClicked);
+	}
+
+	if (BTN_Craft)
+	{
+		BTN_Craft->OnClicked.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCraftClicked);
+		BTN_Craft->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftClicked);
+		BTN_Craft->SetIsEnabled(false);
+	}
+
 	UpdateSelectedRecipeDetails();
 	if (BTN_Close)
 	{
+		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
 		BTN_Close->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
 	}
+
+	RefreshAll();
 }
 
 void UFTHubCraftTestWidget::RefreshAll()
@@ -79,7 +94,7 @@ void UFTHubCraftTestWidget::RefreshCraftRecipes()
 	for (const FTCraftRecipeStruct& Recipe : Recipes)
 	{
 		UFTCraftRecipeListObject* RecipeObject = NewObject<UFTCraftRecipeListObject>(this);
-		RecipeObject->Initialize(Recipe, HubWorkbench->CanCraftRecipe(Recipe));
+		RecipeObject->Initialize(Recipe, HubWorkbench->CanCraftRecipe(Recipe, PlayerInventory));
 		LV_CraftRecipes->AddItem(RecipeObject);
 
 		if (Recipe.RecipeID == SelectedRecipeID)
@@ -118,7 +133,19 @@ void UFTHubCraftTestWidget::UpdateSelectedRecipeDetails()
 			RequiredItems += TEXT("\n");
 		}
 
-		RequiredItems += FString::Printf(TEXT("%s x%d"), *Ingredient.ItemID.ToString(), Ingredient.Count);
+		const int32 PlayerCount = PlayerInventory
+			? PlayerInventory->GetItemQuantity(Ingredient.ItemID)
+			: 0;
+		const int32 StorageCount = HubWorkbench->GetHubStorage()
+			? HubWorkbench->GetHubStorage()->GetStorageItemCount(Ingredient.ItemID)
+			: 0;
+		const int32 TotalCount = PlayerCount + StorageCount;
+
+		RequiredItems += FString::Printf(
+			TEXT("%s x%d / 보유 %d"),
+			*Ingredient.ItemID.ToString(),
+			Ingredient.Count,
+			TotalCount);
 	}
 
 	TXT_SelectedRecipeName->SetText(FText::FromName(Recipe.RecipeID));
@@ -141,7 +168,7 @@ void UFTHubCraftTestWidget::HandleCraftClicked()
 		return;
 	}
 
-	if (HubWorkbench->TryCraftRecipe(SelectedRecipe->GetRecipe().RecipeID))
+	if (HubWorkbench->TryCraftRecipe(SelectedRecipe->GetRecipe().RecipeID, PlayerInventory))
 	{
 		RefreshAll();
 	}
