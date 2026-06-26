@@ -8,5 +8,6 @@ enum class EFTQuestStateType : uint8
 {
 	Locked,
 	Available,
+	Active,
 	Completed
 };
