@@ -9,7 +9,6 @@
 
 class AFTHubStorage;
 class AFTHubShop;
-class UFTHubQuestTestWidget;
 class UDataTable;
 class UFTInventoryComponent;
 
@@ -30,13 +29,15 @@ public:
 	bool TryCompleteQuest(FName QuestID, UFTInventoryComponent* PlayerInventory);
 
 	void GetQuestList(TArray<FTQuestStruct>& OutQuests) const;
+	void GetQuestListByState(EFTQuestStateType QuestState, TArray<FTQuestStruct>& OutQuests) const;
 
 	AFTHubStorage* GetHubStorage() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Quest|UI")
-	void CloseQuestWidget();
-	
+	UFUNCTION(BlueprintCallable, Category = "Quest")
+	bool AcceptQuest(FName QuestID);
+
 	bool IsQuestAvailable(FName QuestID) const;
+	bool IsQuestActive(FName QuestID) const;
 	bool IsQuestCompleted(FName QuestID) const;
 	EFTQuestStateType GetQuestState(FName QuestID) const;
 	void UnlockQuest(FName QuestID);
@@ -60,19 +61,14 @@ protected:
 	TSet<FName> AvailableQuestIDs;
 
 	UPROPERTY(VisibleAnywhere, Category = "Quest")
+	TSet<FName> ActiveQuestIDs;
+
+	UPROPERTY(VisibleAnywhere, Category = "Quest")
 	TSet<FName> CompletedQuestIDs;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Quest|UI")
-	TSubclassOf<UFTHubQuestTestWidget> HubQuestTestWidgetClass;
-
 private:
-	void OpenQuestWidget(AActor* Interactor);
-
 	const FTQuestStruct* FindQuestByID(FName QuestID) const;
 	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
-
-	UPROPERTY(Transient)
-	UFTHubQuestTestWidget* HubQuestTestWidget;
 };
