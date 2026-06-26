@@ -21,7 +21,10 @@ public:
 	FName GetItemID() const;
 	int32 GetCount() const;
 	int32 GetPrice() const;
+	float GetTotalWeight() const;
 	bool IsLocked() const;
+	bool IsChecked() const;
+	void SetChecked(bool bInChecked);
 	const FText& GetDisplayName() const;
 	const FText& GetDescription() const;
 	TSoftObjectPtr<UTexture2D> GetItemIcon() const;
@@ -32,7 +35,9 @@ private:
 	FName ItemID = NAME_None;
 	int32 Count = 1;
 	int32 Price = 0;
+	float UnitWeight = 0.0f;
 	bool bLocked = false;
+	bool bChecked = false;
 	FText DisplayName;
 	FText Description;
 	TSoftObjectPtr<UTexture2D> ItemIcon;
