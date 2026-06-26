@@ -5,6 +5,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "InputCoreTypes.h"
 #include "InputMappingContext.h"
 
 #include "ProjectFT/Core/FTLogChannels.h"
@@ -102,6 +103,14 @@ void AFTPlayerController::SetupInputComponent()
 	{
 		EnhancedInput->BindAction(QuickSlot3Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot3Started);
 	}
+
+#if !UE_BUILD_SHIPPING
+	// [Temp/Debug] IA 에셋/IMC 매핑이 아직 없어도 테이저를 바로 쏴보기 위한 하드코딩 키. T = 퀵슬롯0 선택 후 사용.
+	if (InputComponent)
+	{
+		InputComponent->BindKey(EKeys::T, IE_Pressed, this, &AFTPlayerController::OnDebugUseQuickSlot0);
+	}
+#endif
 }
 
 void AFTPlayerController::OnPossess(APawn* InPawn)
@@ -244,5 +253,15 @@ void AFTPlayerController::OnQuickSlot3Started(const FInputActionValue& Value)
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleSelectQuickSlot(2);
+	}
+}
+
+void AFTPlayerController::OnDebugUseQuickSlot0()
+{
+	// [Temp/Debug] 퀵슬롯0을 선택한 뒤 사용 — 테이저 DA를 MockQuickSlots[0]에 넣고 T를 누르면 발사된다.
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(0);
+		CachedLocomotionInput->HandleUseItemPressed();
 	}
 }
