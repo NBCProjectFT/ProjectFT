@@ -144,15 +144,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory|QuickSlot")
 	bool GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& OutItem) const;
 
-	/**
-	 * @brief N번 퀵슬롯에 저장된 아이템을 소모합니다.
-	 * @param SlotIndex : 소모할 퀵슬롯 인덱스 (0 ~ 5)
-	 * @param Quantity : 소모할 수량
-	 * @return 소모 성공 여부 (소지량 부족 등)
-	 */
-	UFUNCTION(BlueprintCallable, Category = "FT|Inventory|QuickSlot")
-	bool ConsumeQuickSlotItem(int32 SlotIndex, int32 Quantity = 1);
-
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -167,7 +158,14 @@ protected:
 	 * @param Payload : 아이템 획득 메시지 페이로드 데이터
 	 */
 	void HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
-
+	
+	/**
+	 * @brief GameplayMessageSubsystem을 통해 아이템 사용 메시지를 수신했을 때 호출됩니다.
+	 * @param Channel : 메시지 채널 태그
+	 * @param Payload : 아이템 사용 메시지 페이로드 데이터
+	 */
+	void HandleItemConsumedMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	
 protected:
 	/** @brief 인벤토리에 들어 있는 실제 아이템 리스트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Inventory")
@@ -186,6 +184,9 @@ protected:
 	float CurrentWeight = 0.0f;
 
 private:
-	/** @brief GameplayMessageSubsystem 구독 해제용 핸들 */
-	FGameplayMessageListenerHandle MessageListenerHandle;
+	/** @brief 아이템 획득 메시지 구독 해제용 핸들 */
+	FGameplayMessageListenerHandle PickedUpListenerHandle;
+
+	/** @brief 아이템 사용 메시지 구독 해제용 핸들 */
+	FGameplayMessageListenerHandle ConsumedListenerHandle;
 };
