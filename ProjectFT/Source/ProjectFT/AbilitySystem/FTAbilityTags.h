@@ -50,6 +50,11 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Stun);
 // 던지기(전용 GA) — 사용 이벤트 트리거.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ThrowItem);
 
+// 근접공격(전용 GA)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_Begin);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_End);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_Hit);
+
 // GAS data and state tags
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Damage);
 
