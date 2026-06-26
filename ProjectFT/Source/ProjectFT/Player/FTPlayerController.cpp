@@ -104,6 +104,21 @@ void AFTPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(QuickSlot3Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot3Started);
 	}
 
+	if (QuickSlot4Action)
+	{
+		EnhancedInput->BindAction(QuickSlot4Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot4Started);
+	}
+
+	if (QuickSlot5Action)
+	{
+		EnhancedInput->BindAction(QuickSlot5Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot5Started);
+	}
+
+	if (QuickSlot6Action)
+	{
+		EnhancedInput->BindAction(QuickSlot6Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot6Started);
+	}
+
 #if !UE_BUILD_SHIPPING
 	// [Temp/Debug] IA 에셋/IMC 매핑이 아직 없어도 테이저를 바로 쏴보기 위한 하드코딩 키. T = 퀵슬롯0 선택 후 사용.
 	if (InputComponent)
@@ -256,12 +271,44 @@ void AFTPlayerController::OnQuickSlot3Started(const FInputActionValue& Value)
 	}
 }
 
+void AFTPlayerController::OnQuickSlot4Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(3);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot5Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(4);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot6Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(5);
+	}
+}
+
 void AFTPlayerController::OnDebugUseQuickSlot0()
 {
-	// [Temp/Debug] 퀵슬롯0을 선택한 뒤 사용 — 테이저 DA를 MockQuickSlots[0]에 넣고 T를 누르면 발사된다.
+	// [Temp/Debug] 퀵슬롯0을 선택한 뒤 사용한다.
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleSelectQuickSlot(0);
 		CachedLocomotionInput->HandleUseItemPressed();
+	}
+}
+
+void AFTPlayerController::ToggleInventoryStarted(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleToggleInventoryPressed();
 	}
 }

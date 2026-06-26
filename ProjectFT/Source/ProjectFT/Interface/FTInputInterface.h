@@ -60,4 +60,7 @@ public:
 
 	// 퀵슬롯 선택 입력(SlotIndex번 슬롯을 현재 선택으로 둔다). 실제 사용은 HandleUseItemPressed가 수행한다.
 	virtual void HandleSelectQuickSlot(int32 SlotIndex) = 0;
+	
+	// 인벤토리 토글
+	virtual void HandleToggleInventoryPressed() = 0;
 };
