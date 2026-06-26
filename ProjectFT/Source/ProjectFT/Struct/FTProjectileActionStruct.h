@@ -5,6 +5,7 @@
 
 class UAnimMontage;
 class UFTItemDataAsset;
+class AFTProjectileActor;
 
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FFTProjectileActionStruct
@@ -19,10 +20,22 @@ public:
 	// 어태치될 소켓의 이름
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Attach")
 	FName AttachSocketName = TEXT("MeleeHandGrip_R");
+	
+	// 총구 소켓 이름
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Launch Site")
+	FName LaunchSocketName = TEXT("Muzzle");
 
+	// 투사체 아이템 액터
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ProjectileActor")
+	TObjectPtr<AFTProjectileActor> ProjectileActor;
+	
 	// Projectile로 사용 될 아이템 데이터 에셋
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ActorData")
 	TObjectPtr<UFTItemDataAsset> ItemData;
+	
+	// 사정거리
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile|ProjectileData")
+	float Range = 5000.0f;
 
 	// Projectile에 전달할 속도
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ProjectileData")

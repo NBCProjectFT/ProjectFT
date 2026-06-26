@@ -197,7 +197,6 @@ void UFTMeleeActionTraceNotifyState::TraceAndSendHitEvent(USkeletalMeshComponent
 	if (!TraceMesh) return;
 	if (!BuildTraceCapsule(TraceMesh, Start, End, Center, HalfHeight, Rotation)) return;
 	
-
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(FTMeleeNotifyTrace), false, OwnerActor);
 	QueryParams.AddIgnoredActor(OwnerActor);
 

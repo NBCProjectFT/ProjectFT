@@ -16,5 +16,5 @@ class PROJECTFT_API UFTProjectileDataAsset : public UFTItemDataAsset
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile Data")
-	FFTProjectileActionStruct ProjectileAttackData;
+	FFTProjectileActionStruct ProjectileActionData;
 };
