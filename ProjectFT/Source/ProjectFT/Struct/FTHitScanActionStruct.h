@@ -17,7 +17,7 @@ public:
 
 	// 어태치될 소켓의 이름
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HitScan|Attach")
-	FName AttachSocketName = TEXT("MeleeHandGrip_R");
+	FName AttachSocketName = TEXT("HitScanHandGrip_R");
 
 	// 총구 소켓 이름
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HitScan|Trace")
