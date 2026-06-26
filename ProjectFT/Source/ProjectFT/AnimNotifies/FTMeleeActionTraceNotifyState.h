@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -6,6 +5,7 @@
 #include "FTMeleeActionTraceNotifyState.generated.h"
 
 class UMeshComponent;
+struct FFTMeleeActionStruct;
 
 UCLASS(meta = (DisplayName = "FT Melee Attack Trace"))
 class PROJECTFT_API UFTMeleeActionTraceNotifyState : public UAnimNotifyState
@@ -30,7 +30,11 @@ public:
 		UAnimSequenceBase* Animation,
 		const FAnimNotifyEventReference& EventReference) override;
 
-	UMeshComponent* ResolveTraceMesh(const USkeletalMeshComponent* MeshComp) const;
+	UMeshComponent* ResolveTraceMesh(
+		const USkeletalMeshComponent* MeshComp,
+		FName InHitStartSocketName,
+		FName InHitEndSocketName
+	) const;
 
 protected:
 	// 무기 또는 캐릭터 Mesh에 있어야 하는 시작 소켓
@@ -54,15 +58,21 @@ protected:
 	bool bDrawDebug = true;
 
 private:
-	
+	const FFTMeleeActionStruct* ResolveMeleeActionData(
+		const USkeletalMeshComponent* MeshComp
+	) const;
+
 	bool BuildTraceCapsule(
 		const UMeshComponent* TraceMesh,
+		FName InHitStartSocketName,
+		FName InHitEndSocketName,
+		float InCapsuleRadius,
 		FVector& OutStart,
 		FVector& OutEnd,
 		FVector& OutCenter,
-		float& OuthalfHeight,
+		float& OutHalfHeight,
 		FQuat& OutRotation
-		) const;
+	) const;
 
 	void SendTraceBeginEvent(USkeletalMeshComponent* MeshComp) const;
 	void SendTraceEndEvent(USkeletalMeshComponent* MeshComp) const;
