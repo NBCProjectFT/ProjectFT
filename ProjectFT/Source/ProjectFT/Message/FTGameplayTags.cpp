@@ -14,3 +14,5 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportProgress, "Event.NPC.ReportProgress
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportCompleted, "Event.NPC.ReportCompleted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseStarted, "Event.Security.ChaseStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityAttackStarted, "Event.Security.AttackStarted");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
