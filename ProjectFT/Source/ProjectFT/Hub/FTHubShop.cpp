@@ -1,8 +1,5 @@
 #include "FTHubShop.h"
 
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
-#include "ProjectFT/UI/HubUI/FTHubShopWidget.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 
 AFTHubShop::AFTHubShop()
@@ -46,11 +43,51 @@ AFTHubShop::AFTHubShop()
 		FTShopItemStruct ShopItem;
 		ShopItem.ItemID = ItemID;
 		ShopItem.Count = 1;
-		ShopItem.Price = 0;
+		ShopItem.Price = 120;
 		ShopItem.bUnlockedByDefault = true;
 		ShopItem.bFixedSlot = false;
 		RandomItemPool.Add(ShopItem);
 	}
+
+	FTTradePostStruct BuyWaterPost;
+	BuyWaterPost.PostID = TEXT("Buy_Water");
+	BuyWaterPost.Title = FText::FromString(TEXT("[삽니다] 물 급구"));
+	BuyWaterPost.Description = FText::FromString(TEXT("계산대 뒤에서 목이 타는 사람이 있습니다. 상점보다 조금 더 쳐드립니다."));
+	BuyWaterPost.ItemID = TEXT("물");
+	BuyWaterPost.Count = 1;
+	BuyWaterPost.Price = 90;
+	BuyWaterPost.bBuyRequest = true;
+	MarketBuyPosts.Add(BuyWaterPost);
+
+	FTTradePostStruct BuyColaPost;
+	BuyColaPost.PostID = TEXT("Buy_Cola");
+	BuyColaPost.Title = FText::FromString(TEXT("[삽니다] 콜라 삽니다"));
+	BuyColaPost.Description = FText::FromString(TEXT("멘토스는 제가 준비했습니다. 이유는 묻지 마세요."));
+	BuyColaPost.ItemID = TEXT("콜라");
+	BuyColaPost.Count = 1;
+	BuyColaPost.Price = 140;
+	BuyColaPost.bBuyRequest = true;
+	MarketBuyPosts.Add(BuyColaPost);
+
+	FTTradePostStruct SellSoapPost;
+	SellSoapPost.PostID = TEXT("Sell_Soap");
+	SellSoapPost.Title = FText::FromString(TEXT("[팝니다] 거의 새 비누"));
+	SellSoapPost.Description = FText::FromString(TEXT("한 번도 안 쓴 것 같은 기분의 비누입니다. 상점보다 쌉니다."));
+	SellSoapPost.ItemID = TEXT("비누");
+	SellSoapPost.Count = 1;
+	SellSoapPost.Price = 70;
+	SellSoapPost.bBuyRequest = false;
+	MarketSellPosts.Add(SellSoapPost);
+
+	FTTradePostStruct SellMentosPost;
+	SellMentosPost.PostID = TEXT("Sell_Mentos");
+	SellMentosPost.Title = FText::FromString(TEXT("[팝니다] 멘토스"));
+	SellMentosPost.Description = FText::FromString(TEXT("콜라 옆에 두지 않는 조건으로 싸게 넘깁니다."));
+	SellMentosPost.ItemID = TEXT("멘토스");
+	SellMentosPost.Count = 1;
+	SellMentosPost.Price = 80;
+	SellMentosPost.bBuyRequest = false;
+	MarketSellPosts.Add(SellMentosPost);
 }
 
 void AFTHubShop::BeginPlay()
@@ -79,8 +116,7 @@ void AFTHubShop::BeginPlay()
 bool AFTHubShop::Interact_Implementation(AActor* Interactor)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Hub Shop Interacted"));
-
-	OpenShopWidget(Interactor);
+	PrintShopItems();
 	return true;
 }
 
@@ -134,6 +170,83 @@ bool AFTHubShop::BuyItem(FName ItemID, UFTInventoryComponent* PlayerInventory)
 	return true;
 }
 
+bool AFTHubShop::SellItemToShop(FName ItemID, int32 Count, UFTInventoryComponent* PlayerInventory)
+{
+	if (ItemID.IsNone() || Count <= 0 || !PlayerInventory)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Shop Sell Failed: %s"), *ItemID.ToString());
+		return false;
+	}
+
+	if (!PlayerInventory->RemoveItem(ItemID, Count))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Shop Sell Failed: %s x%d"), *ItemID.ToString(), Count);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Shop Sell Success: %s x%d / Price %d"), *ItemID.ToString(), Count, GetShopSellPrice(ItemID) * Count);
+	return true;
+}
+
+int32 AFTHubShop::GetShopSellPrice(FName ItemID) const
+{
+	const FTShopItemStruct* ShopItem = FindCurrentShopItem(ItemID);
+	if (ShopItem)
+	{
+		return FMath::Max(1, ShopItem->Price / 2);
+	}
+
+	return 50;
+}
+
+bool AFTHubShop::BuyMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory)
+{
+	const FTTradePostStruct* Post = FindMarketSellPost(PostID);
+	if (!Post || !PlayerInventory)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Market Buy Failed: %s"), *PostID.ToString());
+		return false;
+	}
+
+	if (!PlayerInventory->AddItem(Post->ItemID, Post->Count))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Market Buy Reward Failed: %s"), *PostID.ToString());
+		return false;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Market Buy Success: %s x%d / Price %d"), *Post->ItemID.ToString(), Post->Count, Post->Price);
+	return true;
+}
+
+bool AFTHubShop::SellMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory)
+{
+	const FTTradePostStruct* Post = FindMarketBuyPost(PostID);
+	if (!Post || !PlayerInventory)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Market Sell Failed: %s"), *PostID.ToString());
+		return false;
+	}
+
+	if (!PlayerInventory->RemoveItem(Post->ItemID, Post->Count))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Market Sell Remove Failed: %s"), *PostID.ToString());
+		return false;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Market Sell Success: %s x%d / Price %d"), *Post->ItemID.ToString(), Post->Count, Post->Price);
+	return true;
+}
+
+void AFTHubShop::GetMarketBuyPosts(TArray<FTTradePostStruct>& OutPosts) const
+{
+	OutPosts = MarketBuyPosts;
+}
+
+void AFTHubShop::GetMarketSellPosts(TArray<FTTradePostStruct>& OutPosts) const
+{
+	OutPosts = MarketSellPosts;
+}
+
 void AFTHubShop::UnlockShopItem(FName ItemID)
 {
 	if (ItemID.IsNone())
@@ -179,91 +292,6 @@ void AFTHubShop::GetShopItems(TArray<FTShopItemStruct>& OutShopItems) const
 	OutShopItems = CurrentShopItems;
 }
 
-void AFTHubShop::CloseShopWidget()
-{
-	if (HubShopWidget && HubShopWidget->IsInViewport())
-	{
-		HubShopWidget->RemoveFromParent();
-	}
-
-	APlayerController* PlayerController = GetWorld()
-		? GetWorld()->GetFirstPlayerController()
-		: nullptr;
-
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	PlayerController->bShowMouseCursor = false;
-
-	FInputModeGameOnly InputMode;
-	PlayerController->SetInputMode(InputMode);
-}
-
-void AFTHubShop::OpenShopWidget(AActor* Interactor)
-{
-	if (HubShopWidget && HubShopWidget->IsInViewport())
-	{
-		CloseShopWidget();
-		return;
-	}
-
-	if (!HubShopWidgetClass)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HubShopWidgetClass is not assigned."));
-		PrintShopItems();
-		return;
-	}
-
-	APlayerController* PlayerController = nullptr;
-
-	if (APawn* InteractorPawn = Cast<APawn>(Interactor))
-	{
-		PlayerController = Cast<APlayerController>(InteractorPawn->GetController());
-	}
-
-	if (!PlayerController)
-	{
-		PlayerController = GetWorld()
-			? GetWorld()->GetFirstPlayerController()
-			: nullptr;
-	}
-
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
-
-	if (!HubShopWidget)
-	{
-		HubShopWidget = CreateWidget<UFTHubShopWidget>(
-			PlayerController,
-			HubShopWidgetClass
-		);
-
-		if (!HubShopWidget)
-		{
-			return;
-		}
-	}
-
-	HubShopWidget->InitializeShopWidget(this, PlayerInventory);
-
-	if (!HubShopWidget->IsInViewport())
-	{
-		HubShopWidget->AddToViewport();
-
-		PlayerController->bShowMouseCursor = true;
-
-		FInputModeGameAndUI InputMode;
-		InputMode.SetWidgetToFocus(HubShopWidget->TakeWidget());
-		PlayerController->SetInputMode(InputMode);
-	}
-}
-
 const FTShopItemStruct* AFTHubShop::FindCurrentShopItem(FName ItemID) const
 {
 	for (const FTShopItemStruct& ShopItem : CurrentShopItems)
@@ -277,34 +305,30 @@ const FTShopItemStruct* AFTHubShop::FindCurrentShopItem(FName ItemID) const
 	return nullptr;
 }
 
-UFTInventoryComponent* AFTHubShop::FindPlayerInventory(AActor* Interactor) const
+const FTTradePostStruct* AFTHubShop::FindMarketBuyPost(FName PostID) const
 {
-	if (Interactor)
+	for (const FTTradePostStruct& Post : MarketBuyPosts)
 	{
-		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
+		if (Post.PostID == PostID)
 		{
-			return PlayerInventory;
+			return &Post;
 		}
 	}
 
-	const APlayerController* PlayerController = GetWorld()
-		? GetWorld()->GetFirstPlayerController()
-		: nullptr;
+	return nullptr;
+}
 
-	if (!PlayerController)
+const FTTradePostStruct* AFTHubShop::FindMarketSellPost(FName PostID) const
+{
+	for (const FTTradePostStruct& Post : MarketSellPosts)
 	{
-		return nullptr;
-	}
-
-	if (APawn* Pawn = PlayerController->GetPawn())
-	{
-		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
+		if (Post.PostID == PostID)
 		{
-			return PlayerInventory;
+			return &Post;
 		}
 	}
 
-	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
+	return nullptr;
 }
 
 void AFTHubShop::PrintShopItems() const
