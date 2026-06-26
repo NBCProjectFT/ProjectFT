@@ -190,7 +190,7 @@ protected:
 	 * - LeftMouseButton
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Equipment|Attack", meta = (EditCondition = "bEnableTemporaryAttackInput"))
-	FKey TemporaryAttackKey = EKeys::LeftMouseButton;
+	FKey TemporaryAttackKey = EKeys::X;
 
 	/**
 	 * true이면 BeginPlay에서 DefaultItemData의 UseAbility를 ASC에 미리 부여합니다.
