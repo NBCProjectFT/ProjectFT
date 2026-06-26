@@ -62,6 +62,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> QuickSlot3Action;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> QuickSlot4Action;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> QuickSlot5Action;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> QuickSlot6Action;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> ToggleInventoryAction;
+
 private:
 	// Enhanced Input 콜백. 받은 값을 가공 없이 입력 수신자로 넘긴다.
 	void OnMoveTriggered(const FInputActionValue& Value);
@@ -79,6 +91,10 @@ private:
 	void OnQuickSlot1Started(const FInputActionValue& Value);
 	void OnQuickSlot2Started(const FInputActionValue& Value);
 	void OnQuickSlot3Started(const FInputActionValue& Value);
+	void OnQuickSlot4Started(const FInputActionValue& Value);
+	void OnQuickSlot5Started(const FInputActionValue& Value);
+	void OnQuickSlot6Started(const FInputActionValue& Value);
+	void ToggleInventoryStarted(const FInputActionValue& Value);
 
 	// [Temp/Debug] IA 에셋/IMC 매핑 없이 테이저를 테스트하기 위한 핸들러 — 퀵슬롯0 선택 후 사용(T 키에 바인딩).
 	void OnDebugUseQuickSlot0();
