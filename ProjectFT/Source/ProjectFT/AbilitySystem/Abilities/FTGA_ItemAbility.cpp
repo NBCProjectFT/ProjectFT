@@ -3,10 +3,13 @@
 #include "FTGA_ItemAbility.h"
 
 #include "GameplayEffect.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
 UFTGA_ItemAbility::UFTGA_ItemAbility()
 {
@@ -22,6 +25,7 @@ const UFTItemDataAsset* UFTGA_ItemAbility::CacheActiveItem(const FGameplayEventD
 	if (ItemAsset)
 	{
 		ActiveUseData = ItemAsset->ItemData.UseData;
+		ActiveItemId = ItemAsset->ItemData.ItemId;
 	}
 	return ItemAsset;
 }
@@ -79,7 +83,25 @@ void UFTGA_ItemAbility::ApplyCooldown(const FGameplayAbilitySpecHandle Handle, c
 
 void UFTGA_ItemAbility::OnItemConsumed()
 {
-	// 기본 구현 없음. 인벤토리 차감/사용 연출은 후속 작업에서 추가한다.
+	// 아이템이 소비됐음을 메시지로 알린다(인벤토리 차감/퀘스트/통계 등 관심 시스템이 각자 구독해 반응).
+	// 인벤토리를 직접 차감하지 않는 이유: 소비에 반응하는 리스너가 여럿이고, 획득(Event.Item.PickedUp)과 대칭을 이루기 위함.
+	// 차감은 아바타를 Instigator로 받은 그 폰의 UFTInventoryComponent가 처리한다(본인 것만 거름).
+	if (ActiveItemId.IsNone())
+	{
+		return;
+	}
+
+	AActor* AvatarActor = GetAvatarActorFromActorInfo();
+	if (!AvatarActor)
+	{
+		return;
+	}
+
+	FFTMessagePayloadStruct Payload;
+	Payload.InstigatorActor = AvatarActor;
+	Payload.ItemId = ActiveItemId;
+
+	UGameplayMessageSubsystem::Get(AvatarActor).BroadcastMessage(TAG_FT_Event_ItemConsumed, Payload);
 }
 
 FGameplayTag UFTGA_ItemAbility::ResolveCooldownTag(const FTItemUseStruct& UseData)

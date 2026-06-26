@@ -54,4 +54,8 @@ protected:
 	// 이번 활성에서 사용할 아이템의 사용 데이터(발동 시 페이로드에서 복사). ApplyCooldown/ApplyUseEffects가 참조한다.
 	UPROPERTY()
 	FTItemUseStruct ActiveUseData;
+
+	// 이번 활성에서 사용한 아이템 식별자(발동 시 페이로드에서 복사). OnItemConsumed의 인벤토리 차감에 사용한다.
+	UPROPERTY()
+	FName ActiveItemId = NAME_None;
 };
