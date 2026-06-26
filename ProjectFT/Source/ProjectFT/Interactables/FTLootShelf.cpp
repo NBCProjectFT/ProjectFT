@@ -57,11 +57,30 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 	if (bHasBeenLooted) return ActualDamage;
 
 	Health -= DamageAmount;
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+
+	// 1. 데미지를 입을 때마다 '파괴 중(Damaged)' 메시지 브로드캐스트
+	FFTMessagePayloadStruct DamagedPayload;
+	DamagedPayload.InstigatorActor = DamageCauser;
+	DamagedPayload.TargetActor = this;
+	DamagedPayload.Value = Health;
+
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ShelfDamaged, DamagedPayload);
+
+	// 2. 체력이 0 이하가 되어 파괴되었을 때 '파괴 완료(Destroyed)' 메시지 브로드캐스트
 	if (Health <= 0.0f)
 	{
 		bHasBeenLooted = true;
-		UE_LOG(LogFTItem, Log, TEXT("LootShelf '%s' destroyed! Dropping items..."), *GetName());
+		UE_LOG(LogFTItem, Log, TEXT("매대 '%s'가 파괴되었습니다! 아이템이 드랍됩니다..."), *GetName());
 		
+		FFTMessagePayloadStruct DestroyedPayload;
+		DestroyedPayload.InstigatorActor = DamageCauser;
+		DestroyedPayload.TargetActor = this;
+		DestroyedPayload.Value = 0.0f;
+
+		MessageSubsystem.BroadcastMessage(TAG_FT_Event_ShelfDestroyed, DestroyedPayload);
+
 		DropItemsOnFloor();
 		Destroy();
 	}

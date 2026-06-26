@@ -13,6 +13,7 @@
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -72,22 +73,6 @@ void AFTPlayerCharacter::BeginPlay()
 			.AddUObject(this, &AFTPlayerCharacter::OnSpeedAttributeChanged);
 
 		// 스턴 시 이동 정지/복원은 베이스(AFTCharacterBase)가 처리한다.
-		
-		// [Mock] 퀵슬롯 아이템들이 참조하는 사용 어빌리티를 (중복 제거하여) 부여한다. 실제 인벤토리/장비가 붙으면 교체.
-		TSet<TSubclassOf<UFTGameplayAbility>> GrantedUseAbilities;
-		for (const TObjectPtr<UFTItemDataAsset>& Item : MockQuickSlots)
-		{
-			if (!Item)
-			{
-				continue;
-			}
-			const TSubclassOf<UFTGameplayAbility> UseAbility = Item->ItemData.UseData.UseAbility;
-			if (UseAbility && !GrantedUseAbilities.Contains(UseAbility))
-			{
-				AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(UseAbility));
-				GrantedUseAbilities.Add(UseAbility);
-			}
-		}
 	}
 
 	// 사망 통지(OnOutOfHealth → HandleDeath)와 초기 ApplyMovementSpeed 호출은 베이스가 Super에서 처리한다(플레이어 override 실행).
@@ -214,14 +199,26 @@ void AFTPlayerCharacter::HandleSkillCheckPressed()
 
 void AFTPlayerCharacter::HandleUseItemPressed()
 {
-	// [Mock] 현재 선택된 퀵슬롯의 아이템 데이터를 페이로드로 실어 사용 어빌리티(Event.UseItem 트리거)를 발동한다.
-	if (!AbilitySystemComponent || !MockQuickSlots.IsValidIndex(SelectedQuickSlot))
+	if (!AbilitySystemComponent)
 	{
 		return;
 	}
 
-	UFTItemDataAsset* Item = MockQuickSlots[SelectedQuickSlot];
+	UFTItemDataAsset* Item = CurrentHeldInventoryItem.ItemDataAsset.Get();
 	if (!Item || !Item->ItemData.UseData.UseAbility)
+	{
+		return;
+	}
+
+	UFTInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory || CurrentHeldInventoryItem.ItemId.IsNone()
+		|| Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
+	{
+		CurrentHeldInventoryItem = FFTInventoryItem();
+		return;
+	}
+
+	if (!EnsureUseAbilityGranted(Item->ItemData.UseData.UseAbility))
 	{
 		return;
 	}
@@ -255,12 +252,47 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 {
-	// [Mock] 선택만 바꾼다. 인덱스 기반이라 슬롯 수가 늘어도(키만 추가) 이 로직은 그대로다.
-	if (MockQuickSlots.IsValidIndex(SlotIndex))
+	UFTInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory)
 	{
-		SelectedQuickSlot = SlotIndex;
-		UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d selected on '%s'."), SlotIndex, *GetName());
+		return;
 	}
+
+	if (bInventoryOpen)
+	{
+		FFTInventoryItem InventoryItem;
+		if (Inventory->GetInventoryItemAtIndex(SlotIndex, InventoryItem))
+		{
+			Inventory->SetQuickSlot(SlotIndex, InventoryItem.ItemId);
+		}
+		return;
+	}
+
+	FFTInventoryItem QuickSlotItem;
+	if (Inventory->GetQuickSlotItem(SlotIndex, QuickSlotItem) && QuickSlotItem.Quantity > 0 && QuickSlotItem.ItemDataAsset)
+	{
+		CurrentHeldInventoryItem = QuickSlotItem;
+		EnsureUseAbilityGranted(CurrentHeldInventoryItem.ItemDataAsset->ItemData.UseData.UseAbility);
+		UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d equipped '%s' on '%s'."),
+			SlotIndex, *CurrentHeldInventoryItem.ItemId.ToString(), *GetName());
+	}
+	else
+	{
+		CurrentHeldInventoryItem = FFTInventoryItem();
+	}
+}
+
+void AFTPlayerCharacter::HandleToggleInventoryPressed()
+{
+	SetInventoryOpen(!bInventoryOpen);
+	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory %d"), bInventoryOpen);
+}
+
+
+
+void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen)
+{
+	bInventoryOpen = bNewInventoryOpen;
 }
 
 void AFTPlayerCharacter::ApplyMovementSpeed()
@@ -347,6 +379,27 @@ void AFTPlayerCharacter::HandleDeath()
 {
 	UE_LOG(LogFTPlayer, Log, TEXT("'%s' died (health depleted)."), *GetNameSafe(this));
 	// 사망 후처리(레벨 전환 등)는 GameFlow 연동으로 — 이번 스코프 밖.
+}
+
+UFTInventoryComponent* AFTPlayerCharacter::GetInventoryComponent() const
+{
+	return FindComponentByClass<UFTInventoryComponent>();
+}
+
+bool AFTPlayerCharacter::EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility)
+{
+	if (!AbilitySystemComponent || !UseAbility)
+	{
+		return false;
+	}
+
+	if (AbilitySystemComponent->FindAbilitySpecFromClass(UseAbility))
+	{
+		return true;
+	}
+
+	AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(UseAbility));
+	return AbilitySystemComponent->FindAbilitySpecFromClass(UseAbility) != nullptr;
 }
 
 void AFTPlayerCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
