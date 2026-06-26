@@ -4,6 +4,8 @@
 #include "ProjectFT/Character/FTAICharacterBase.h"
 #include "FTNPCCharacter.generated.h"
 
+class UWidgetComponent;
+
 UCLASS()
 class PROJECTFT_API AFTNPCCharacter : public AFTAICharacterBase
 {
@@ -14,6 +16,9 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|UI")
+	TObjectPtr<UWidgetComponent> ReportGaugeWidgetComponent;
 
 public:
 	virtual void Tick(float DeltaTime) override;

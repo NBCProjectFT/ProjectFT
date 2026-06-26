@@ -287,58 +287,39 @@ void AFTSecurityAIController::DrawSightDebug() const
 		return;
 	}
 
-	const FVector EyeLocation = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 80.0f);
-	const FVector Forward = ControlledPawn->GetActorForwardVector();
-	const float ConeHalfAngleRadians = FMath::DegreesToRadians(SightConfig->PeripheralVisionAngleDegrees);
+	const FVector Origin = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 8.0f);
+	const FVector Forward = ControlledPawn->GetActorForwardVector().GetSafeNormal2D();
+	constexpr int32 SegmentCount = 16;
+	constexpr float LifeTime = 0.05f;
 
-	DrawDebugSphere(
-		GetWorld(),
-		ControlledPawn->GetActorLocation(),
-		SightConfig->SightRadius,
-		32,
-		FColor::Green,
-		false,
-		0.05f,
-		0,
-		1.5f
-	);
+	auto DrawFlatSector = [this, Origin, Forward, SegmentCount, LifeTime](float Radius, float HalfAngleDegrees, FColor Color, float Thickness)
+	{
+		FVector PreviousPoint = Origin;
+		for (int32 SegmentIndex = 0; SegmentIndex <= SegmentCount; ++SegmentIndex)
+		{
+			const float Alpha = static_cast<float>(SegmentIndex) / static_cast<float>(SegmentCount);
+			const float AngleDegrees = FMath::Lerp(-HalfAngleDegrees, HalfAngleDegrees, Alpha);
+			const FVector Direction = Forward.RotateAngleAxis(AngleDegrees, FVector::UpVector);
+			const FVector CurrentPoint = Origin + Direction * Radius;
 
-	DrawDebugSphere(
-		GetWorld(),
-		ControlledPawn->GetActorLocation(),
-		SightConfig->LoseSightRadius,
-		32,
-		FColor::Yellow,
-		false,
-		0.05f,
-		0,
-		1.5f
-	);
+			if (SegmentIndex == 0)
+			{
+				DrawDebugLine(GetWorld(), Origin, CurrentPoint, Color, false, LifeTime, 0, Thickness);
+			}
+			else
+			{
+				DrawDebugLine(GetWorld(), PreviousPoint, CurrentPoint, Color, false, LifeTime, 0, Thickness);
+			}
 
-	DrawDebugSphere(
-		GetWorld(),
-		ControlledPawn->GetActorLocation(),
-		AttackRange,
-		24,
-		FColor::Red,
-		false,
-		0.05f,
-		0,
-		2.5f
-	);
+			if (SegmentIndex == SegmentCount)
+			{
+				DrawDebugLine(GetWorld(), Origin, CurrentPoint, Color, false, LifeTime, 0, Thickness);
+			}
 
-	DrawDebugCone(
-		GetWorld(),
-		EyeLocation,
-		Forward,
-		SightConfig->SightRadius,
-		ConeHalfAngleRadians,
-		ConeHalfAngleRadians,
-		24,
-		FColor::Cyan,
-		false,
-		0.05f,
-		0,
-		2.0f
-	);
+			PreviousPoint = CurrentPoint;
+		}
+	};
+
+	DrawFlatSector(SightConfig->SightRadius, SightConfig->PeripheralVisionAngleDegrees, FColor::Magenta, 1.5f);
+	DrawFlatSector(AttackRange, SightConfig->PeripheralVisionAngleDegrees, FColor::Red, 2.5f);
 }
