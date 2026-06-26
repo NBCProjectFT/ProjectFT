@@ -17,10 +17,19 @@ void UFTInventoryComponent::BeginPlay()
 
 	// GameplayMessageSubsystem 구독 등록
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	MessageListenerHandle = MessageSubsystem.RegisterListener<FFTMessagePayloadStruct>(
+	
+	// 아이템 획득 메시지 리스너
+	PickedUpListenerHandle = MessageSubsystem.RegisterListener<FFTMessagePayloadStruct>(
 		TAG_FT_Event_ItemPickedUp,
 		this,
 		&UFTInventoryComponent::HandleItemPickedUpMessage
+	);
+
+	// 아이템 사용 메시지 리스너
+	ConsumedListenerHandle = MessageSubsystem.RegisterListener<FFTMessagePayloadStruct>(
+		TAG_FT_Event_ItemConsumed,
+		this,
+		&UFTInventoryComponent::HandleItemConsumedMessage
 	);
 
 	UpdateWeight();
@@ -28,11 +37,17 @@ void UFTInventoryComponent::BeginPlay()
 
 void UFTInventoryComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+
 	// 구독 해제 안전 처리
-	if (MessageListenerHandle.IsValid())
+	if (PickedUpListenerHandle.IsValid())
 	{
-		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-		MessageSubsystem.UnregisterListener(MessageListenerHandle);
+		MessageSubsystem.UnregisterListener(PickedUpListenerHandle);
+	}
+
+	if (ConsumedListenerHandle.IsValid())
+	{
+		MessageSubsystem.UnregisterListener(ConsumedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -205,11 +220,11 @@ UFTItemDataAsset* UFTInventoryComponent::FindItemData(FName ItemId) const
 	// [디버깅 로그] 에셋 매니저에 스캔된 모든 FTItemItem 목록 출력
 	TArray<FPrimaryAssetId> IdList;
 	AssetManager.GetPrimaryAssetIdList(FName("FTItemItem"), IdList);
-	UE_LOG(LogFTItem, Warning, TEXT("=== 에셋 매니저 'FTItemItem' 목록 (총: %d개) ==="), IdList.Num());
-	for (const FPrimaryAssetId& Id : IdList)
-	{
-		UE_LOG(LogFTItem, Warning, TEXT("  - 발견된 AssetId: %s (이름: %s)"), *Id.ToString(), *Id.PrimaryAssetName.ToString());
-	}
+	//UE_LOG(LogFTItem, Warning, TEXT("=== 에셋 매니저 'FTItemItem' 목록 (총: %d개) ==="), IdList.Num());
+	//for (const FPrimaryAssetId& Id : IdList)
+	//{
+	//	UE_LOG(LogFTItem, Warning, TEXT("  - 발견된 AssetId: %s (이름: %s)"), *Id.ToString(), *Id.PrimaryAssetName.ToString());
+	//}
 
 	FPrimaryAssetId AssetId = FPrimaryAssetId(FName("FTItemItem"), ItemId);
 	
@@ -227,19 +242,6 @@ UFTItemDataAsset* UFTInventoryComponent::FindItemData(FName ItemId) const
 	}
 	
 	return Cast<UFTItemDataAsset>(AssetObj);
-}
-
-void UFTInventoryComponent::HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
-{
-	AActor* Owner = GetOwner();
-
-	// 메시지 발신 주체 혹은 타겟이 이 컴포넌트의 소유주(플레이어)인지 판별하여 본인 습득물만 추가
-	if (Payload.TargetActor == Owner || Payload.InstigatorActor == Owner ||
-		(Payload.TargetActor == nullptr && Payload.InstigatorActor == nullptr))
-	{
-		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s"), *Payload.ItemId.ToString());
-		AddItem(Payload.ItemId, 1);
-	}
 }
 
 bool UFTInventoryComponent::SetQuickSlot(int32 SlotIndex, FName ItemId)
@@ -329,37 +331,6 @@ bool UFTInventoryComponent::GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& 
 	return true;
 }
 
-bool UFTInventoryComponent::ConsumeQuickSlotItem(int32 SlotIndex, int32 Quantity)
-{
-	if (!QuickSlots.IsValidIndex(SlotIndex))
-	{
-		UE_LOG(LogFTItem, Warning, TEXT("ConsumeQuickSlotItem 호출 실패: 유효하지 않은 슬롯 인덱스 %d"), SlotIndex);
-		return false;
-	}
-
-	FName ItemId = QuickSlots[SlotIndex];
-	if (ItemId.IsNone())
-	{
-		UE_LOG(LogFTItem, Warning, TEXT("ConsumeQuickSlotItem 호출 실패: 퀵슬롯 %d번이 비어 있습니다."), SlotIndex);
-		return false;
-	}
-
-	if (Quantity <= 0)
-	{
-		UE_LOG(LogFTItem, Warning, TEXT("ConsumeQuickSlotItem 호출 실패: 소모할 수량은 1 이상이어야 합니다. (요청 수량: %d)"), Quantity);
-		return false;
-	}
-
-	bool bSuccess = RemoveItem(ItemId, Quantity);
-	if (!bSuccess)
-	{
-		UE_LOG(LogFTItem, Warning, TEXT("ConsumeQuickSlotItem 호출 실패: 퀵슬롯 %d번 아이템 '%s'의 소모 제거 처리에 실패했습니다."), SlotIndex, *ItemId.ToString());
-		return false;
-	}
-
-	return true;
-}
-
 bool UFTInventoryComponent::GetInventoryItemAtIndex(int32 SlotIndex, FFTInventoryItem& OutItem) const
 {
 	if (!Items.IsValidIndex(SlotIndex))
@@ -370,4 +341,31 @@ bool UFTInventoryComponent::GetInventoryItemAtIndex(int32 SlotIndex, FFTInventor
 
 	OutItem = Items[SlotIndex];
 	return true;
+}
+
+void UFTInventoryComponent::HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	AActor* Owner = GetOwner();
+
+	// 메시지 발신 주체 혹은 타겟이 이 컴포넌트의 소유주(플레이어)인지 판별하여 본인 습득물만 추가
+	if (Payload.TargetActor == Owner || Payload.InstigatorActor == Owner ||
+		(Payload.TargetActor == nullptr && Payload.InstigatorActor == nullptr))
+	{
+		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s"), *Payload.ItemId.ToString());
+		AddItem(Payload.ItemId, 1);
+	}
+}
+
+void UFTInventoryComponent::HandleItemConsumedMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	AActor* Owner = GetOwner();
+
+	// 메시지 발신 주체(소모한 액터)가 이 인벤토리의 소유주(플레이어)인지 확인
+	if (Payload.InstigatorActor == Owner)
+	{
+		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 소모 메시지(Event.Item.Consumed)를 수신했습니다. 대상 아이템: %s"), *Payload.ItemId.ToString());
+		
+		// 인벤토리에서 아이템 1개 차감
+		RemoveItem(Payload.ItemId, 1);
+	}
 }
