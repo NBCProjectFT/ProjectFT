@@ -369,3 +369,73 @@ void UFTInventoryComponent::HandleItemConsumedMessage(FGameplayTag Channel, cons
 		RemoveItem(Payload.ItemId, 1);
 	}
 }
+
+TArray<FFTInventoryItem> UFTInventoryComponent::GetItemsByCategory(EFTItemCategoryType Category) const
+{
+	if (Category == EFTItemCategoryType::None)
+	{
+		return Items;
+	}
+
+	TArray<FFTInventoryItem> FilteredItems;
+	for (const FFTInventoryItem& Item : Items)
+	{
+		if (Item.ItemDataAsset && Item.ItemDataAsset->ItemData.CategoryType == Category)
+		{
+			FilteredItems.Add(Item);
+		}
+	}
+	return FilteredItems;
+}
+
+bool UFTInventoryComponent::RemoveItemsByIndices(const TArray<int32>& TargetIndices)
+{
+	if (TargetIndices.Num() == 0) return false;
+
+	// 인덱스 정렬. 큰 인덱스(뒤쪽)부터 차례대로 지워야 앞쪽 인덱스 순서가 꼬이지 않습니다.
+	TArray<int32> SortedIndices = TargetIndices;
+	SortedIndices.Sort([](const int32& A, const int32& B) { return A > B; });
+
+	bool bChanged = false;
+	for (int32 Index : SortedIndices)
+	{
+		if (Items.IsValidIndex(Index))
+		{
+			Items.RemoveAt(Index);
+			bChanged = true;
+		}
+	}
+
+	if (bChanged)
+	{
+		UpdateWeight();
+		OnInventoryChanged.Broadcast();
+	}
+
+	return bChanged;
+}
+
+void UFTInventoryComponent::RequestDropItems(const TArray<int32>& TargetIndices)
+{
+	AActor* Owner = GetOwner();
+	if (!Owner || TargetIndices.Num() == 0) return;
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+
+	for (int32 Index : TargetIndices)
+	{
+		if (Items.IsValidIndex(Index))
+		{
+			const FFTInventoryItem& TargetItem = Items[Index];
+
+			// 드롭할 정보 페이로드 작성
+			FFTMessagePayloadStruct Payload;
+			Payload.InstigatorActor = Owner;
+			Payload.ItemId = TargetItem.ItemId;
+			Payload.Value = static_cast<float>(TargetItem.Quantity); // 수량 전달
+
+			// 드롭 스폰 담당 시스템이 수신할 수 있도록 메시지 발행
+			MessageSubsystem.BroadcastMessage(TAG_FT_Request_DropItem, Payload);
+		}
+	}
+}
