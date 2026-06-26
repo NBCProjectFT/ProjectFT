@@ -1,6 +1,5 @@
 ﻿#include "FTHubQuestBoard.h"
 
-#include "Blueprint/UserWidget.h"
 #include "Engine/DataTable.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -8,13 +7,11 @@
 #include "ProjectFT/Hub/FTHubShop.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
-#include "ProjectFT/UI/HubUI/FTHubQuestTestWidget.h"
 
 AFTHubQuestBoard::AFTHubQuestBoard()
 	: QuestDataTable(nullptr)
 	, HubStorage(nullptr)
 	, HubShop(nullptr)
-	, HubQuestTestWidget(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
 }
@@ -32,93 +29,12 @@ void AFTHubQuestBoard::BeginPlay()
 bool AFTHubQuestBoard::Interact_Implementation(AActor* Interactor)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Hub Quest Board Interacted"));
-
-	OpenQuestWidget(Interactor);
 	return true;
 }
 
 FText AFTHubQuestBoard::GetInteractionPrompt_Implementation() const
 {
 	return FText::FromString(TEXT("퀘스트 게시판 보기"));
-}
-
-void AFTHubQuestBoard::OpenQuestWidget(AActor* Interactor)
-{
-	if (HubQuestTestWidget && HubQuestTestWidget->IsInViewport())
-	{
-		CloseQuestWidget();
-		return;
-	}
-
-	if (!HubQuestTestWidgetClass)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HubQuestTestWidgetClass is not assigned."));
-		return;
-	}
-
-	APlayerController* PlayerController = nullptr;
-
-	if (APawn* InteractorPawn = Cast<APawn>(Interactor))
-	{
-		PlayerController = Cast<APlayerController>(InteractorPawn->GetController());
-	}
-
-	if (!PlayerController)
-	{
-		PlayerController = GetWorld()->GetFirstPlayerController();
-	}
-
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
-
-	if (!HubQuestTestWidget)
-	{
-		HubQuestTestWidget = CreateWidget<UFTHubQuestTestWidget>(
-			PlayerController,
-			HubQuestTestWidgetClass
-		);
-
-		if (!HubQuestTestWidget)
-		{
-			return;
-		}
-	}
-
-	HubQuestTestWidget->InitializeQuestTest(this, PlayerInventory);
-
-	if (!HubQuestTestWidget->IsInViewport())
-	{
-		HubQuestTestWidget->AddToViewport();
-
-		PlayerController->bShowMouseCursor = true;
-
-		FInputModeGameAndUI InputMode;
-		InputMode.SetWidgetToFocus(HubQuestTestWidget->TakeWidget());
-		PlayerController->SetInputMode(InputMode);
-	}
-}
-
-void AFTHubQuestBoard::CloseQuestWidget()
-{
-	if (HubQuestTestWidget && HubQuestTestWidget->IsInViewport())
-	{
-		HubQuestTestWidget->RemoveFromParent();
-	}
-
-	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	PlayerController->bShowMouseCursor = false;
-
-	FInputModeGameOnly InputMode;
-	PlayerController->SetInputMode(InputMode);
 }
 
 bool AFTHubQuestBoard::CanCompleteQuest(const FTQuestStruct& Quest, UFTInventoryComponent* PlayerInventory) const
@@ -147,7 +63,7 @@ bool AFTHubQuestBoard::TryCompleteQuest(FName QuestID, UFTInventoryComponent* Pl
 	{
 		return false;
 	}
-	if (!Quest || !PlayerInventory || !CanCompleteQuest(*Quest, PlayerInventory))
+	if (!Quest || !PlayerInventory || (!ActiveQuestIDs.Contains(QuestID) && !AvailableQuestIDs.Contains(QuestID)) || !CanCompleteQuest(*Quest, PlayerInventory))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Quest Complete Failed: %s"), *QuestID.ToString());
 		return false;
@@ -181,6 +97,7 @@ bool AFTHubQuestBoard::TryCompleteQuest(FName QuestID, UFTInventoryComponent* Pl
 
 	CompletedQuestIDs.Add(QuestID);
 	AvailableQuestIDs.Remove(QuestID);
+	ActiveQuestIDs.Remove(QuestID);
 
 	for (const FName& NextQuestID : Quest->NextQuestIDs)
 	{
@@ -194,6 +111,11 @@ bool AFTHubQuestBoard::TryCompleteQuest(FName QuestID, UFTInventoryComponent* Pl
 
 void AFTHubQuestBoard::GetQuestList(TArray<FTQuestStruct>& OutQuests) const
 {
+	GetQuestListByState(EFTQuestStateType::Available, OutQuests);
+}
+
+void AFTHubQuestBoard::GetQuestListByState(EFTQuestStateType QuestState, TArray<FTQuestStruct>& OutQuests) const
+{
 	OutQuests.Reset();
 
 	if (!QuestDataTable)
@@ -202,11 +124,31 @@ void AFTHubQuestBoard::GetQuestList(TArray<FTQuestStruct>& OutQuests) const
 		return;
 	}
 
-	for (const FName& QuestID : AvailableQuestIDs)
+	const TSet<FName>* SourceQuestIDs = nullptr;
+
+	if (QuestState == EFTQuestStateType::Available)
+	{
+		SourceQuestIDs = &AvailableQuestIDs;
+	}
+	else if (QuestState == EFTQuestStateType::Active)
+	{
+		SourceQuestIDs = &ActiveQuestIDs;
+	}
+	else if (QuestState == EFTQuestStateType::Completed)
+	{
+		SourceQuestIDs = &CompletedQuestIDs;
+	}
+
+	if (!SourceQuestIDs)
+	{
+		return;
+	}
+
+	for (const FName& QuestID : *SourceQuestIDs)
 	{
 		const FTQuestStruct* Quest = QuestDataTable->FindRow<FTQuestStruct>(
 			QuestID,
-			TEXT("GetQuestList")
+			TEXT("GetQuestListByState")
 		);
 
 		if (Quest)
@@ -237,6 +179,24 @@ bool AFTHubQuestBoard::IsQuestAvailable(FName QuestID) const
 	return AvailableQuestIDs.Contains(QuestID);
 }
 
+bool AFTHubQuestBoard::AcceptQuest(FName QuestID)
+{
+	if (!AvailableQuestIDs.Contains(QuestID) || CompletedQuestIDs.Contains(QuestID))
+	{
+		return false;
+	}
+
+	AvailableQuestIDs.Remove(QuestID);
+	ActiveQuestIDs.Add(QuestID);
+	UE_LOG(LogTemp, Warning, TEXT("Quest Accepted: %s"), *QuestID.ToString());
+	return true;
+}
+
+bool AFTHubQuestBoard::IsQuestActive(FName QuestID) const
+{
+	return ActiveQuestIDs.Contains(QuestID);
+}
+
 bool AFTHubQuestBoard::IsQuestCompleted(FName QuestID) const
 {
 	return CompletedQuestIDs.Contains(QuestID);
@@ -247,6 +207,11 @@ EFTQuestStateType AFTHubQuestBoard::GetQuestState(FName QuestID) const
 	if (CompletedQuestIDs.Contains(QuestID))
 	{
 		return EFTQuestStateType::Completed;
+	}
+
+	if (ActiveQuestIDs.Contains(QuestID))
+	{
+		return EFTQuestStateType::Active;
 	}
 
 	if (AvailableQuestIDs.Contains(QuestID))
@@ -265,6 +230,11 @@ void AFTHubQuestBoard::UnlockQuest(FName QuestID)
 	}
 
 	if (CompletedQuestIDs.Contains(QuestID))
+	{
+		return;
+	}
+
+	if (ActiveQuestIDs.Contains(QuestID))
 	{
 		return;
 	}
