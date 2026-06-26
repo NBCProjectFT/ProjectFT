@@ -68,6 +68,15 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	const TArray<FFTInventoryItem>& GetItems() const { return Items; }
+
+	/**
+	 * @brief 인벤토리의 특정 슬롯 인덱스에 보관된 아이템 정보를 조회합니다.
+	 * @param SlotIndex : 조회할 인벤토리 슬롯 인덱스
+	 * @param OutItem : 반환받을 아이템 정보
+	 * @return 해당 슬롯 인덱스가 유효하고 아이템이 존재하면 true
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	bool GetInventoryItemAtIndex(int32 SlotIndex, FFTInventoryItem& OutItem) const;
 	
 	/**
 	 * @brief 현재 인벤토리에 보관된 아이템들의 총 무게를 반환합니다.
@@ -109,14 +118,6 @@ public:
 	 */
 	const UFTItemDataAsset* GetItemPtr(FName ItemId) const;
 
-protected:
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	/** @brief 인벤토리에 보관된 모든 아이템들의 무게를 합산하여 실시간 갱신합니다. */
-	void UpdateWeight();
-
-public:
 	/**
 	 * @brief ItemId를 통해 메타데이터 에셋을 검색하는 전역 헬퍼 함수
 	 * @param ItemId : 검색할 아이템의 ID
@@ -124,6 +125,40 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	UFTItemDataAsset* FindItemData(FName ItemId) const;
+
+	/**
+	 * @brief 특정 퀵슬롯에 아이템을 지정합니다. 일반(Common) 아이템은 등록이 제한됩니다.
+	 * @param SlotIndex : 대상 퀵슬롯 인덱스 (0 ~ 5)
+	 * @param ItemId : 등록할 아이템 ID
+	 * @return 등록 성공 여부 (일반 아이템이거나 인덱스가 벗어나면 false)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "FT|Inventory|QuickSlot")
+	bool SetQuickSlot(int32 SlotIndex, FName ItemId);
+
+	/**
+	 * @brief N번 퀵슬롯에 지정된 아이템 상세 정보를 조회합니다.
+	 * @param SlotIndex : 조회할 퀵슬롯 인덱스 (0 ~ 5)
+	 * @param OutItem : 반환받을 아이템 정보 구조체
+	 * @return 슬롯에 아이템이 등록되어 있으면 true (인벤토리에 없을 경우 수량은 0)
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory|QuickSlot")
+	bool GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& OutItem) const;
+
+	/**
+	 * @brief N번 퀵슬롯에 저장된 아이템을 소모합니다.
+	 * @param SlotIndex : 소모할 퀵슬롯 인덱스 (0 ~ 5)
+	 * @param Quantity : 소모할 수량
+	 * @return 소모 성공 여부 (소지량 부족 등)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "FT|Inventory|QuickSlot")
+	bool ConsumeQuickSlotItem(int32 SlotIndex, int32 Quantity = 1);
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	/** @brief 인벤토리에 보관된 모든 아이템들의 무게를 합산하여 실시간 갱신합니다. */
+	void UpdateWeight();
 
 protected:
 	/**
@@ -137,6 +172,10 @@ protected:
 	/** @brief 인벤토리에 들어 있는 실제 아이템 리스트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Inventory")
 	TArray<FFTInventoryItem> Items;
+
+	/** @brief 퀵슬롯 6칸에 저장될 아이템 ID 목록 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Inventory|QuickSlot")
+	TArray<FName> QuickSlots;
 
 	/** @brief 최대 소지 가능 무게 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Inventory|Capacity")
