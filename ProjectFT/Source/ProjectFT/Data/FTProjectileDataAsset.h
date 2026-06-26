@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "FTItemDataAsset.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
-#include "ProjectFT/Struct/FTProjectileAttackStruct.h"
+#include "ProjectFT/Struct/FTProjectileActionStruct.h"
 #include "FTProjectileDataAsset.generated.h"
 
 // 투사체 공격용 아이템 데이터 에셋
@@ -16,5 +16,5 @@ class PROJECTFT_API UFTProjectileDataAsset : public UFTItemDataAsset
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile Data")
-	FFTProjectileAttackStruct ProjectileAttackData;
+	FFTProjectileActionStruct ProjectileAttackData;
 };

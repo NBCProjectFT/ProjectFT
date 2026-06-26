@@ -200,7 +200,7 @@ void UFTEquipmentComponent::EquipItem(UFTItemDataAsset* ItemData)
 	// ItemData에서 장착 소켓 이름을 결정합니다.
 	//
 	// 현재 ResolveAttachSocketName() 로직:
-	// - UFTMeleeDataAsset이면 MeleeAttackData.AttachSocketName 사용
+	// - UFTMeleeDataAsset이면 MeleeActionData.AttachSocketName 사용
 	// - 없으면 FallbackAttachSocketName 사용
 	const FName AttachSocketName = ResolveAttachSocketName(ItemData);
 
@@ -275,7 +275,7 @@ bool UFTEquipmentComponent::TryAttack()
 	// ItemData 안의 UseData에서 사용할 Ability 클래스를 가져옵니다.
 	//
 	// 예:
-	// - GA_MeleeAttack
+	// - GA_MeleeAction
 	// - GA_HitscanFire
 	// - GA_ProjectileFire
 	const TSubclassOf<UFTGameplayAbility> UseAbility = ItemData->ItemData.UseData.UseAbility;
@@ -391,13 +391,13 @@ FName UFTEquipmentComponent::ResolveAttachSocketName(const UFTItemDataAsset* Ite
 	//
 	// 현재 구조:
 	// UFTMeleeDataAsset
-	// └─ MeleeAttackData
+	// └─ MeleeActionData
 	//    └─ AttachSocketName
 	if (const UFTMeleeDataAsset* MeleeDataAsset = Cast<UFTMeleeDataAsset>(ItemData))
 	{
-		if (!MeleeDataAsset->MeleeAttackData.AttachSocketName.IsNone())
+		if (!MeleeDataAsset->MeleeActionData.AttachSocketName.IsNone())
 		{
-			return MeleeDataAsset->MeleeAttackData.AttachSocketName;
+			return MeleeDataAsset->MeleeActionData.AttachSocketName;
 		}
 	}
 

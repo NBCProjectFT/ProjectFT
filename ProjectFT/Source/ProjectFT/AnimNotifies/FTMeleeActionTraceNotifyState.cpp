@@ -1,5 +1,5 @@
 
-#include "FTMeleeAttackTraceNotifyState.h"
+#include "FTMeleeActionTraceNotifyState.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -10,7 +10,7 @@
 #include "Abilities/GameplayAbilityTypes.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 
-void UFTMeleeAttackTraceNotifyState::NotifyBegin(
+void UFTMeleeActionTraceNotifyState::NotifyBegin(
 	USkeletalMeshComponent* MeshComp,
 	UAnimSequenceBase* Animation,
 	float TotalDuration,
@@ -24,7 +24,7 @@ void UFTMeleeAttackTraceNotifyState::NotifyBegin(
 	TraceAndSendHitEvent(MeshComp);
 }
 
-void UFTMeleeAttackTraceNotifyState::NotifyTick(
+void UFTMeleeActionTraceNotifyState::NotifyTick(
 	USkeletalMeshComponent* MeshComp,
 	UAnimSequenceBase* Animation,
 	float FrameDeltaTime,
@@ -35,7 +35,7 @@ void UFTMeleeAttackTraceNotifyState::NotifyTick(
 	TraceAndSendHitEvent(MeshComp);
 }
 
-void UFTMeleeAttackTraceNotifyState::NotifyEnd(
+void UFTMeleeActionTraceNotifyState::NotifyEnd(
 	USkeletalMeshComponent* MeshComp,
 	UAnimSequenceBase* Animation,
 	const FAnimNotifyEventReference& EventReference)
@@ -45,7 +45,7 @@ void UFTMeleeAttackTraceNotifyState::NotifyEnd(
 	SendTraceEndEvent(MeshComp);
 }
 
-UMeshComponent* UFTMeleeAttackTraceNotifyState::ResolveTraceMesh(const USkeletalMeshComponent* MeshComp) const
+UMeshComponent* UFTMeleeActionTraceNotifyState::ResolveTraceMesh(const USkeletalMeshComponent* MeshComp) const
 {
 	if (!MeshComp) return nullptr;
 
@@ -91,7 +91,7 @@ UMeshComponent* UFTMeleeAttackTraceNotifyState::ResolveTraceMesh(const USkeletal
 	return nullptr;
 }
 
-bool UFTMeleeAttackTraceNotifyState::BuildTraceCapsule(
+bool UFTMeleeActionTraceNotifyState::BuildTraceCapsule(
 	const UMeshComponent* TraceMesh,
 	FVector& OutStart,
 	FVector& OutEnd,
@@ -128,7 +128,7 @@ bool UFTMeleeAttackTraceNotifyState::BuildTraceCapsule(
 	return true;
 }
 
-void UFTMeleeAttackTraceNotifyState::SendTraceBeginEvent(USkeletalMeshComponent* MeshComp) const
+void UFTMeleeActionTraceNotifyState::SendTraceBeginEvent(USkeletalMeshComponent* MeshComp) const
 {
 	if (!MeshComp) return;
 	AActor* OwnerActor = MeshComp->GetOwner();
@@ -142,7 +142,7 @@ void UFTMeleeAttackTraceNotifyState::SendTraceBeginEvent(USkeletalMeshComponent*
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(OwnerActor, TAG_FT_Event_Melee_Begin, EventData);
 }
 
-void UFTMeleeAttackTraceNotifyState::SendTraceEndEvent(USkeletalMeshComponent* MeshComp) const
+void UFTMeleeActionTraceNotifyState::SendTraceEndEvent(USkeletalMeshComponent* MeshComp) const
 {
 	if (!MeshComp)
 	{
@@ -167,7 +167,7 @@ void UFTMeleeAttackTraceNotifyState::SendTraceEndEvent(USkeletalMeshComponent* M
 	);
 }
 
-void UFTMeleeAttackTraceNotifyState::TraceAndSendHitEvent(USkeletalMeshComponent* MeshComp) const
+void UFTMeleeActionTraceNotifyState::TraceAndSendHitEvent(USkeletalMeshComponent* MeshComp) const
 {
 	if (!MeshComp)
 	{

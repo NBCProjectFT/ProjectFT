@@ -1,6 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "FTGA_MeleeAttack.h"
+#include "FTGA_MeleeAction.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
@@ -10,7 +10,7 @@
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
 
-UFTGA_MeleeAttack::UFTGA_MeleeAttack()
+UFTGA_MeleeAction::UFTGA_MeleeAction()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
@@ -20,7 +20,7 @@ UFTGA_MeleeAttack::UFTGA_MeleeAttack()
 	AbilityTriggers.Add(Trigger);
 }
 
-void UFTGA_MeleeAttack::ActivateAbility(
+void UFTGA_MeleeAction::ActivateAbility(
 	const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo,
@@ -42,7 +42,7 @@ void UFTGA_MeleeAttack::ActivateAbility(
 		return;
 	}
 
-	const FFTMeleeAttackStruct* MeleeData = GetMeleeAttackData();
+	const FFTMeleeActionStruct* MeleeData = GetMeleeActionData();
 
 	if (!MeleeData)
 	{
@@ -75,7 +75,7 @@ void UFTGA_MeleeAttack::ActivateAbility(
 	{
 		BeginEventTask->EventReceived.AddDynamic(
 			this,
-			&UFTGA_MeleeAttack::HandleMeleeBeginEvent
+			&UFTGA_MeleeAction::HandleMeleeBeginEvent
 		);
 		BeginEventTask->ReadyForActivation();
 	}
@@ -93,7 +93,7 @@ void UFTGA_MeleeAttack::ActivateAbility(
 	{
 		HitEventTask->EventReceived.AddDynamic(
 			this,
-			&UFTGA_MeleeAttack::HandleMeleeHitEvent
+			&UFTGA_MeleeAction::HandleMeleeHitEvent
 		);
 		HitEventTask->ReadyForActivation();
 	}
@@ -111,14 +111,14 @@ void UFTGA_MeleeAttack::ActivateAbility(
 	{
 		EndEventTask->EventReceived.AddDynamic(
 			this,
-			&UFTGA_MeleeAttack::HandleMeleeEndEvent
+			&UFTGA_MeleeAction::HandleMeleeEndEvent
 		);
 		EndEventTask->ReadyForActivation();
 	}
 
 	UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
-		TEXT("MeleeAttackMontage"),
+		TEXT("MeleeActionMontage"),
 		MeleeData->AttackMontage,
 		1.0f
 		);
@@ -129,20 +129,20 @@ void UFTGA_MeleeAttack::ActivateAbility(
 		return;
 	}
 	
-	MontageTask->OnCompleted.AddDynamic(this, &UFTGA_MeleeAttack::HandleMontageCompleted);
-	MontageTask->OnInterrupted.AddDynamic(this, &UFTGA_MeleeAttack::HandleMontageInterrupted);
-	MontageTask->OnCancelled.AddDynamic(this, &UFTGA_MeleeAttack::HandleMontageInterrupted);
+	MontageTask->OnCompleted.AddDynamic(this, &UFTGA_MeleeAction::HandleMontageCompleted);
+	MontageTask->OnInterrupted.AddDynamic(this, &UFTGA_MeleeAction::HandleMontageInterrupted);
+	MontageTask->OnCancelled.AddDynamic(this, &UFTGA_MeleeAction::HandleMontageInterrupted);
 
 	MontageTask->ReadyForActivation();
 }
 
-void UFTGA_MeleeAttack::HandleMeleeBeginEvent(FGameplayEventData Payload)
+void UFTGA_MeleeAction::HandleMeleeBeginEvent(FGameplayEventData Payload)
 {
 	HitActors.Reset();
 	bMeleeTraceActive = true;
 }
 
-void UFTGA_MeleeAttack::HandleMeleeHitEvent(FGameplayEventData Payload)
+void UFTGA_MeleeAction::HandleMeleeHitEvent(FGameplayEventData Payload)
 {
 	
 	if (!bMeleeTraceActive)
@@ -183,23 +183,23 @@ void UFTGA_MeleeAttack::HandleMeleeHitEvent(FGameplayEventData Payload)
 	);
 }
 
-void UFTGA_MeleeAttack::HandleMeleeEndEvent(FGameplayEventData Payload)
+void UFTGA_MeleeAction::HandleMeleeEndEvent(FGameplayEventData Payload)
 {
 	bMeleeTraceActive = false;
 }
 
 
-void UFTGA_MeleeAttack::HandleMontageCompleted()
+void UFTGA_MeleeAction::HandleMontageCompleted()
 {
 	EndMeleeAbility(false);
 }
 
-void UFTGA_MeleeAttack::HandleMontageInterrupted()
+void UFTGA_MeleeAction::HandleMontageInterrupted()
 {
 	EndMeleeAbility(true);
 }
 
-void UFTGA_MeleeAttack::EndMeleeAbility(bool bWasCancelled)
+void UFTGA_MeleeAction::EndMeleeAbility(bool bWasCancelled)
 {
 	
 	bMeleeTraceActive = false;
@@ -215,7 +215,7 @@ void UFTGA_MeleeAttack::EndMeleeAbility(bool bWasCancelled)
 	);
 }
 
-const FFTMeleeAttackStruct* UFTGA_MeleeAttack::GetMeleeAttackData() const
+const FFTMeleeActionStruct* UFTGA_MeleeAction::GetMeleeActionData() const
 {
-	return ActiveMeleeData ? &ActiveMeleeData->MeleeAttackData : nullptr;
+	return ActiveMeleeData ? &ActiveMeleeData->MeleeActionData : nullptr;
 }

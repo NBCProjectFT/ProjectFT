@@ -3,12 +3,12 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "FTMeleeAttackTraceNotifyState.generated.h"
+#include "FTMeleeActionTraceNotifyState.generated.h"
 
 class UMeshComponent;
 
 UCLASS(meta = (DisplayName = "FT Melee Attack Trace"))
-class PROJECTFT_API UFTMeleeAttackTraceNotifyState : public UAnimNotifyState
+class PROJECTFT_API UFTMeleeActionTraceNotifyState : public UAnimNotifyState
 {
 	GENERATED_BODY()
 
