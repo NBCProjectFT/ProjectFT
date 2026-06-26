@@ -2,32 +2,38 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "FTHubShopWidget.generated.h"
+#include "FTHubShopPanelWidget.generated.h"
 
 class AFTHubShop;
 class UButton;
 class UFTInventoryComponent;
-class UFTShopItemListObject;
-class UListView;
+class UFTItemTileListObject;
 class UTextBlock;
+class UTileView;
 
 UCLASS()
-class PROJECTFT_API UFTHubShopWidget : public UUserWidget
+class PROJECTFT_API UFTHubShopPanelWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Shop")
-	void InitializeShopWidget(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory);
+	void InitializeShopPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
 
 	UPROPERTY(meta = (BindWidget))
-	UListView* LV_ShopItems;
+	UTileView* TV_ShopItems;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTileView* TV_PlayerItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemName;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemDescription;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemPrice;
@@ -39,24 +45,34 @@ protected:
 	UButton* BTN_Buy;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_Sell;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Refresh;
 
-	UPROPERTY(meta = (BindWidget))
-	UButton* BTN_Close;
-
 private:
+	enum class EShopSelectionSourceType : uint8
+	{
+		None,
+		Shop,
+		Player
+	};
+
 	void RefreshShopItems();
+	void RefreshPlayerItems();
+	void RefreshAllItems();
 	void UpdateSelectedItemDetails();
 	void HandleShopItemClicked(UObject* Item);
+	void HandlePlayerItemClicked(UObject* Item);
 
 	UFUNCTION()
 	void HandleBuyClicked();
 
 	UFUNCTION()
-	void HandleRefreshClicked();
+	void HandleSellClicked();
 
 	UFUNCTION()
-	void HandleCloseClicked();
+	void HandleRefreshClicked();
 
 	UPROPERTY(Transient)
 	AFTHubShop* HubShop;
@@ -65,5 +81,10 @@ private:
 	UFTInventoryComponent* PlayerInventory;
 
 	UPROPERTY(Transient)
-	UFTShopItemListObject* SelectedShopItem;
+	UFTItemTileListObject* SelectedShopItem;
+
+	UPROPERTY(Transient)
+	UFTItemTileListObject* SelectedPlayerItem;
+
+	EShopSelectionSourceType SelectedSource = EShopSelectionSourceType::None;
 };

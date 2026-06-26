@@ -4,10 +4,10 @@
 #include "GameFramework/Actor.h"
 #include "ProjectFT/Interface/FTInteractable.h"
 #include "ProjectFT/Struct/FTShopItemStruct.h"
+#include "ProjectFT/Struct/FTTradePostStruct.h"
 #include "FTHubShop.generated.h"
 
 class UFTInventoryComponent;
-class UFTHubShopWidget;
 
 UCLASS()
 class PROJECTFT_API AFTHubShop : public AActor, public IFTInteractable
@@ -27,6 +27,24 @@ public:
 	bool BuyItem(FName ItemID, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "Shop")
+	bool SellItemToShop(FName ItemID, int32 Count, UFTInventoryComponent* PlayerInventory);
+
+	UFUNCTION(BlueprintPure, Category = "Shop")
+	int32 GetShopSellPrice(FName ItemID) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Market")
+	bool BuyMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory);
+
+	UFUNCTION(BlueprintCallable, Category = "Market")
+	bool SellMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory);
+
+	UFUNCTION(BlueprintCallable, Category = "Market")
+	void GetMarketBuyPosts(TArray<FTTradePostStruct>& OutPosts) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Market")
+	void GetMarketSellPosts(TArray<FTTradePostStruct>& OutPosts) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Shop")
 	void UnlockShopItem(FName ItemID);
 
 	UFUNCTION(BlueprintPure, Category = "Shop")
@@ -38,20 +56,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Shop")
 	void GetShopItems(TArray<FTShopItemStruct>& OutShopItems) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Shop|UI")
-	void CloseShopWidget();
-
 protected:
 	virtual void BeginPlay() override;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Shop|UI")
-	TSubclassOf<UFTHubShopWidget> HubShopWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop")
 	TArray<FTShopItemStruct> FixedShopItems;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop")
 	TArray<FTShopItemStruct> RandomItemPool;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Market")
+	TArray<FTTradePostStruct> MarketBuyPosts;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Market")
+	TArray<FTTradePostStruct> MarketSellPosts;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop")
 	int32 RandomSlotCount = 6;
@@ -63,11 +81,8 @@ protected:
 	TSet<FName> UnlockedShopItemIDs;
 
 private:
-	void OpenShopWidget(AActor* Interactor);
 	const FTShopItemStruct* FindCurrentShopItem(FName ItemID) const;
-	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
+	const FTTradePostStruct* FindMarketBuyPost(FName PostID) const;
+	const FTTradePostStruct* FindMarketSellPost(FName PostID) const;
 	void PrintShopItems() const;
-
-	UPROPERTY(Transient)
-	UFTHubShopWidget* HubShopWidget;
 };
