@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "ProjectFT/Character/FTCharacterBase.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 #include "FTPlayerCharacter.generated.h"
 
@@ -12,6 +13,7 @@ class UCameraComponent;
 class UFTInteractionComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
+class UFTGameplayAbility;
 struct FOnAttributeChangeData;
 
 // GAS 배선(ASC/공용 속성셋/IAbilitySystemInterface/사망 훅)은 AFTCharacterBase가 제공한다.
@@ -41,7 +43,17 @@ public:
 	virtual void HandleSkillCheckPressed() override;
 	virtual void HandleUseItemPressed() override;
 	virtual void HandleSelectQuickSlot(int32 SlotIndex) override;
+	virtual void HandleToggleInventoryPressed() override;
 	//~ End IFTInputInterface
+
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	bool IsInventoryOpen() const { return bInventoryOpen; }
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
+	void SetInventoryOpen(bool bNewInventoryOpen);
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item")
+	const FFTInventoryItem& GetCurrentHeldInventoryItem() const { return CurrentHeldInventoryItem; }
 
 protected:
 	// Called when the game starts or when spawned
@@ -67,14 +79,12 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UFTPlayerAttributeSet> PlayerAttributeSet;
         
-	// [Mock] 퀵슬롯 — 각 슬롯에 아이템 데이터 에셋(UFTItemDataAsset)을 지정한다. 사용 시 그 아이템의 UseData가 동작을 결정.
-	// 실제 인벤토리/장비가 붙기 전까지 '선택 키'로 고르고 '사용 키'로 사용하는 임시 슬롯이다.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
-	TArray<TObjectPtr<UFTItemDataAsset>> MockQuickSlots;
-        
-	// [Mock] 현재 선택된 퀵슬롯 인덱스. 추후 '손에 든 아이템'으로 대체된다.
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item|Mock", meta = (AllowPrivateAccess = "true"))
-	int32 SelectedQuickSlot = 0;
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Inventory", meta = (AllowPrivateAccess = "true"))
+	bool bInventoryOpen = false;
+
+	// 현재 플레이어가 손에 들고 있는 실질적인 아이템. 사용 입력은 이 아이템의 UseData를 기준으로 처리한다.
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item", meta = (AllowPrivateAccess = "true"))
+	FFTInventoryItem CurrentHeldInventoryItem;
         
 	// 초당 스태미나 소진하는 양.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
@@ -116,6 +126,10 @@ private:
 	
 	// 체력이 0에 도달했을 때 호출(베이스의 OnOutOfHealth 통지). 플레이어 사망 처리.
 	virtual void HandleDeath() override;
+
+	UFTInventoryComponent* GetInventoryComponent() const;
+
+	bool EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility);
     
 	// 현재 카메라 보정량(CrouchCameraOffsetZ)을 카메라 상대 위치에 반영한다.
 	void UpdateCrouchCameraOffset();
