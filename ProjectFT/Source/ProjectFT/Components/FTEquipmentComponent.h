@@ -207,7 +207,7 @@ private:
 	 *
 	 * 현재 로직:
 	 * - ItemData가 UFTMeleeDataAsset이면
-	 *   MeleeAttackData.AttachSocketName을 우선 사용합니다.
+	 *   MeleeActionData.AttachSocketName을 우선 사용합니다.
 	 * - 값이 비어 있거나 근접 데이터가 아니면
 	 *   FallbackAttachSocketName을 사용합니다.
 	 */

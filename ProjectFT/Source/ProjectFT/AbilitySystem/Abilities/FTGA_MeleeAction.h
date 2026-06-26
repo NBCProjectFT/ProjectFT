@@ -2,22 +2,22 @@
 
 #include "CoreMinimal.h"
 #include "FTGA_ItemAbility.h"
-#include "FTGA_MeleeAttack.generated.h"
+#include "FTGA_MeleeAction.generated.h"
 
 class UFTItemDataAsset;
 class UFTMeleeDataAsset;
 class UAbilityTask_PlayMontageAndWait;
 class UAbilityTask_WaitGameplayEvent;
 class USkeletalMeshComponent;
-struct FFTMeleeAttackStruct;
+struct FFTMeleeActionStruct;
 
 UCLASS()
-class PROJECTFT_API UFTGA_MeleeAttack : public UFTGA_ItemAbility
+class PROJECTFT_API UFTGA_MeleeAction : public UFTGA_ItemAbility
 {
 	GENERATED_BODY()
 
 public:
-	UFTGA_MeleeAttack();
+	UFTGA_MeleeAction();
 
 	virtual void ActivateAbility(
 		const FGameplayAbilitySpecHandle Handle,
@@ -45,7 +45,7 @@ private:
 
 	void EndMeleeAbility(bool bWasCancelled);
 
-	const FFTMeleeAttackStruct* GetMeleeAttackData() const;
+	const FFTMeleeActionStruct* GetMeleeActionData() const;
 
 	UPROPERTY()
 	TSet<TObjectPtr<AActor>> HitActors;

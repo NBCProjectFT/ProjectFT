@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FTMeleeAttackStruct.generated.h"
+#include "FTMeleeActionStruct.generated.h"
 
 class UAnimMontage;
 
@@ -9,7 +9,7 @@ class UAnimMontage;
 // 데미지 GE와 SetByCaller 값은 부모 ItemData.UseData를 그대로 사용하고,
 // 이 구조체는 몽타주와 타격 캡슐 정보만 담당한다.
 USTRUCT(BlueprintType)
-struct PROJECTFT_API FFTMeleeAttackStruct
+struct PROJECTFT_API FFTMeleeActionStruct
 {
 	GENERATED_BODY()
 

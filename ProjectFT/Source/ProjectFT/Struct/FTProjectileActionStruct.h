@@ -1,13 +1,13 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "FTProjectileAttackStruct.generated.h"
+#include "FTProjectileActionStruct.generated.h"
 
 class UAnimMontage;
 class UFTItemDataAsset;
 
 USTRUCT(BlueprintType)
-struct PROJECTFT_API FFTProjectileAttackStruct
+struct PROJECTFT_API FFTProjectileActionStruct
 {
 	GENERATED_BODY()
 
