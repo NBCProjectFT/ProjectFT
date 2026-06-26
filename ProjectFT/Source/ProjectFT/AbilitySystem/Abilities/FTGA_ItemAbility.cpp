@@ -6,6 +6,7 @@
 
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 
 UFTGA_ItemAbility::UFTGA_ItemAbility()
@@ -22,6 +23,7 @@ const UFTItemDataAsset* UFTGA_ItemAbility::CacheActiveItem(const FGameplayEventD
 	if (ItemAsset)
 	{
 		ActiveUseData = ItemAsset->ItemData.UseData;
+		ActiveItemId = ItemAsset->ItemData.ItemId;
 	}
 	return ItemAsset;
 }
@@ -79,7 +81,19 @@ void UFTGA_ItemAbility::ApplyCooldown(const FGameplayAbilitySpecHandle Handle, c
 
 void UFTGA_ItemAbility::OnItemConsumed()
 {
-	// 기본 구현 없음. 인벤토리 차감/사용 연출은 후속 작업에서 추가한다.
+	// 사용한 아이템을 소유자(아바타)의 인벤토리에서 1개 차감한다. 식별자/인벤토리가 없으면 무시.
+	// 인벤토리는 플레이어 폰에 부착된다(허브 시스템의 FindPlayerInventory와 동일하게 아바타에서 찾는다).
+	if (ActiveItemId.IsNone())
+	{
+		return;
+	}
+
+	const AActor* AvatarActor = GetAvatarActorFromActorInfo();
+	UFTInventoryComponent* Inventory = AvatarActor ? AvatarActor->FindComponentByClass<UFTInventoryComponent>() : nullptr;
+	if (Inventory)
+	{
+		Inventory->RemoveItem(ActiveItemId, 1);
+	}
 }
 
 FGameplayTag UFTGA_ItemAbility::ResolveCooldownTag(const FTItemUseStruct& UseData)
