@@ -40,9 +40,24 @@ int32 UFTItemTileListObject::GetPrice() const
 	return Price;
 }
 
+float UFTItemTileListObject::GetTotalWeight() const
+{
+	return UnitWeight * Count;
+}
+
 bool UFTItemTileListObject::IsLocked() const
 {
 	return bLocked;
+}
+
+bool UFTItemTileListObject::IsChecked() const
+{
+	return bChecked;
+}
+
+void UFTItemTileListObject::SetChecked(const bool bInChecked)
+{
+	bChecked = bInChecked;
 }
 
 const FText& UFTItemTileListObject::GetDisplayName() const
@@ -91,4 +106,5 @@ void UFTItemTileListObject::LoadItemData()
 		: ItemDataAsset->ItemData.ItemName;
 	Description = ItemDataAsset->ItemData.ItemDescription;
 	ItemIcon = ItemDataAsset->ItemData.ItemIcon;
+	UnitWeight = FMath::Max(0.0f, ItemDataAsset->ItemData.Weight);
 }
