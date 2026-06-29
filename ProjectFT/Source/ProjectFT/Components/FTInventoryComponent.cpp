@@ -392,7 +392,7 @@ bool UFTInventoryComponent::RemoveItemsByIndices(const TArray<int32>& TargetIndi
 {
 	if (TargetIndices.Num() == 0) return false;
 
-	// 인덱스 정렬. 큰 인덱스(뒤쪽)부터 차례대로 지워야 앞쪽 인덱스 순서가 꼬이지 않습니다.
+	// 인덱스 정렬. 큰 인덱스(뒤쪽)부터 차례대로 지워야 앞쪽 인덱스 순서가 꼬이지 않는다.
 	TArray<int32> SortedIndices = TargetIndices;
 	SortedIndices.Sort([](const int32& A, const int32& B) { return A > B; });
 
