@@ -6,6 +6,7 @@
 #include "GameplayTagContainer.h"
 #include "ProjectFT/Character/FTCharacterBase.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Enum/FTWeaponStanceType.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 #include "FTPlayerCharacter.generated.h"
 
@@ -56,6 +57,15 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item")
 	const FFTInventoryItem& GetCurrentHeldInventoryItem() const { return CurrentHeldInventoryItem; }
+
+	// 현재 손에 든 아이템의 스탠스(없으면 Unarmed). AnimBP의 Blend Poses by Enum 분기용.
+	UFUNCTION(BlueprintPure, Category = "FT|Item")
+	EFTWeaponStanceType GetHeldWeaponStance() const;
+
+	// 채널형 상호작용(LootShelf 게이지 채우기 등)을 진행 중이면 true. AnimBP 모션 전환 분기용.
+	// (꾹 누르고 있는 동안만 true — 키를 떼면 채널이 멈춰 false. 진행도/대상은 InteractionComponent에서 폴링.)
+	UFUNCTION(BlueprintPure, Category = "FT|Interaction")
+	bool IsChannelingInteraction() const;
 
 protected:
 	// Called when the game starts or when spawned

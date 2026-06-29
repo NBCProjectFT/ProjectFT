@@ -320,6 +320,19 @@ void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen)
 	bInventoryOpen = bNewInventoryOpen;
 }
 
+bool AFTPlayerCharacter::IsChannelingInteraction() const
+{
+	// 채널 상태의 단일 출처는 InteractionComponent다(여기선 AnimBP가 폰에서 바로 읽도록 중계만 한다).
+	return InteractionComponent && InteractionComponent->IsChanneling();
+}
+
+EFTWeaponStanceType AFTPlayerCharacter::GetHeldWeaponStance() const
+{
+	// 스탠스의 단일 출처는 손에 든 아이템 데이터다. 든 게 없으면 맨손.
+	const UFTItemDataAsset* Item = CurrentHeldInventoryItem.ItemDataAsset.Get();
+	return Item ? Item->ItemData.WeaponStance : EFTWeaponStanceType::Unarmed;
+}
+
 void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem)
 {
 	// 같은 아이템(ItemId 동일)이면 비주얼 액터를 다시 스폰하지 않는다.
