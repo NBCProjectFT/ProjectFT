@@ -37,6 +37,8 @@ public:
 
 	//아이콘 만들 때 카메라 위치 조절용 변수
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") FRotator IconMeshRotation = FRotator(0.0f, -35.0f, 0.0f);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") FVector IconMeshLocationOffset = FVector::ZeroVector;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") FVector IconCameraTargetOffset = FVector::ZeroVector;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") float IconCameraDistanceMultiplier = 2.8f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") float IconFOV = 28.0f;
 
