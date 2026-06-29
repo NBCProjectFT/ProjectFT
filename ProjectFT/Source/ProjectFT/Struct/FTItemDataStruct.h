@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "ProjectFT/Enum/FTItemCategoryType.h"
+#include "ProjectFT/Enum/FTWeaponStanceType.h"
 #include "ProjectFT/Struct/FTItemUseStruct.h"
 #include "FTItemDataStruct.generated.h"
 
@@ -28,6 +29,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	EFTItemCategoryType CategoryType = EFTItemCategoryType::None;
+
+	// 이 아이템을 손에 들었을 때 AnimBP가 쓸 Idle/로코모션 스탠스. 무기가 아니면 Unarmed로 둔다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Animation")
+	EFTWeaponStanceType WeaponStance = EFTWeaponStanceType::Unarmed;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	TSoftObjectPtr<UTexture2D> ItemIcon;
