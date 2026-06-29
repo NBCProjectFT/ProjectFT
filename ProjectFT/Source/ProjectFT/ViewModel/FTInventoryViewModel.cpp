@@ -105,7 +105,7 @@ void UFTInventoryViewModel::SetItemSelection(int32 SlotIndex, bool bIsSelected)
 	UFTInventoryComponent* Inventory = LinkedInventory.Get();
 	if (!Inventory) return;
 
-	// 1. 현재 카테고리 필터링이 씌워진 아이템 배열 획득
+	// 1. 현재 카테고리 필터링이 씌워진 아이템 배열
 	TArray<FFTInventoryItem> FilteredItems = Inventory->GetItemsByCategory(CurrentCategory);
 	if (!FilteredItems.IsValidIndex(SlotIndex)) return;
 
