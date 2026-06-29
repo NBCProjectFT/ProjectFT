@@ -54,13 +54,22 @@ void UFTGA_Taser::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const
 	// → 부위 정밀 판정 가능(Hit.BoneName). 월드/스태틱은 기본 Block이라 벽도 막는다.
 	FCollisionQueryParams Params(FName(TEXT("FTTaser")), /*bTraceComplex=*/false, Avatar);
 	const bool bHit = GetWorld() && GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, TraceEnd, ECC_GameTraceChannel1, Params);
+	if (UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		FGameplayCueParameters CueParams;
+		CueParams.Location     = ViewLocation;          // 발사 연출을 트레이스 시작 지점(시야 원점)에서 낸다.
+		CueParams.Normal       = ViewRotation.Vector(); // 발사 방향도 트레이스 방향과 일치시킨다(Avatar 정면이 아닌 시야 기준).
+		CueParams.Instigator   = Avatar;
+		CueParams.EffectCauser = Avatar;
+		SourceASC->ExecuteGameplayCue(TAG_FT_GameplayCue_Taser_Start, CueParams);
+	}
 
 	
 	//여기서부터 효과 적용하는 코드입니다.
 	if (bHit && Hit.GetActor())
 	{
 		// 첫 적중 대상에게 아이템 데이터의 효과(들)를 적용(베이스 헬퍼).
-		const FGameplayAbilityTargetDataHandle TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromHitResult(Hit);
+		const FGameplayAbilityTargetDataHandle TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Hit.GetActor());
 		ApplyUseEffects(Handle, ActorInfo, ActivationInfo, &TargetData);
 		UE_LOG(LogTemp, Log, TEXT("[Taser] hit %s — applied %d effect(s)."), *Hit.GetActor()->GetName(), ActiveUseData.UseEffects.Num());
 
@@ -75,6 +84,7 @@ void UFTGA_Taser::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const
 			CueParams.EffectCauser = Hit.GetActor();
 			SourceASC->ExecuteGameplayCue(TAG_FT_GameplayCue_Taser_Hit, CueParams);
 		}
+		
 	}
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, /*bReplicateEndAbility=*/true, /*bWasCancelled=*/false);
