@@ -18,9 +18,14 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UseTaser, "Event.UseTaser");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Stun, "State.Debuff.Stun");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_StunDuration, "Data.StunDuration");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Hit, "GameplayCue.Taser.Hit");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Start, "GameplayCue.Taser.Start");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Stun, "GameplayCue.State.Stun");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowItem, "Event.ThrowItem");
+
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_Begin, "Event.Melee.Begin");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_End, "Event.Melee.End");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_Hit, "Event.Melee.Hit");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Damage, "Data.Damage");
 

@@ -42,12 +42,18 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_StunDuration);
 // 테이저 적중 연출 GameplayCue. C++가 임팩트 지점에서 ExecuteGameplayCue로 발동하고, 비주얼은 GC_TaserHit Notify(BP)가 담당한다.
 // (GameplayCue.* 루트여야 GameplayCueManager가 Notify로 라우팅한다.)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_Taser_Hit);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_Taser_Start);
 
 // 스턴 상태 '지속' 연출 GameplayCue. 스턴 태그가 붙어있는 동안 캐릭터 ASC에 Add/Remove(베이스가 관리), 비주얼은 GC_Stun Notify(BP, 루핑)가 담당.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Stun);
 
 // 던지기(전용 GA) — 사용 이벤트 트리거.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ThrowItem);
+
+// 근접공격(전용 GA)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_Begin);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_End);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_Hit);
 
 // GAS data and state tags
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Damage);

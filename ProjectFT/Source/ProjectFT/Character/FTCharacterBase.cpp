@@ -106,19 +106,8 @@ void AFTCharacterBase::OnStunTagChanged(const FGameplayTag CallbackTag, int32 Ne
 		}
 	}
 
-	// 스턴 '지속' 연출(GameplayCue): 시작 시 추가, 해제 시 제거 → 스턴 태그 수명과 묶인다. 비주얼은 GC_Stun Notify(BP, 루핑)가 담당.
-	if (AbilitySystemComponent)
-	{
-		if (bStunned)
-		{
-			AbilitySystemComponent->AddGameplayCue(TAG_FT_GameplayCue_State_Stun);
-		}
-		else
-		{
-			AbilitySystemComponent->RemoveGameplayCue(TAG_FT_GameplayCue_State_Stun);
-		}
-	}
-
+	// 스턴 '지속' 연출(GameplayCue)은 GE_Stun의 GameplayCues에 GameplayCue.State.Stun을 달아
+	// GE 수명과 함께 자동 발동/제거된다(여기서 직접 Add/Remove하지 않는다 — 중복 발동 방지).
 	OnStunStateChanged(bStunned);
 }
 
