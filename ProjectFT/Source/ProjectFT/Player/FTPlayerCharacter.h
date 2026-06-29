@@ -10,10 +10,12 @@
 #include "FTPlayerCharacter.generated.h"
 
 class UCameraComponent;
+class USpringArmComponent;
 class UFTInteractionComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
+class AFTItemActor;
 struct FOnAttributeChangeData;
 
 // GAS 배선(ASC/공용 속성셋/IAbilitySystemInterface/사망 훅)은 AFTCharacterBase가 제공한다.
@@ -58,7 +60,10 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
+
+	// 손에 든 아이템 액터는 메시에 어태치된 상태라 액터 파괴 시 자동 정리되지 않으므로 여기서 제거한다.
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	//~ Begin ACharacter
 	// 앉기/일어서기로 캡슐 높이가 바뀔 때 카메라가 순간이동하지 않도록 보간한다.
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
@@ -68,8 +73,13 @@ protected:
 	// 점프 대신 traversal(vault/hurdle/mantle)을 먼저 시도한다. 소비했으면 true. (확장 지점, 현재 false)
 	virtual bool TryStartTraversal();
     
+	// 3인칭 카메라 붐(스프링암): 캡슐에 붙어 컨트롤러 회전을 따라 돌고, 벽에 가리면 카메라를 앞으로 당겨 클리핑을 막는다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Camera", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UCameraComponent> FirstPersonCamera;
+	TObjectPtr<USpringArmComponent> CameraBoom;
+
+	// 붐 끝에 매달린 추적 카메라. 회전은 붐(bUsePawnControlRotation)이 담당한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Camera", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraComponent> FollowCamera;
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
@@ -83,8 +93,17 @@ protected:
 	bool bInventoryOpen = false;
 
 	// 현재 플레이어가 손에 들고 있는 실질적인 아이템. 사용 입력은 이 아이템의 UseData를 기준으로 처리한다.
+	// 직접 대입하지 말고 SetCurrentHeldInventoryItem()으로만 바꾼다(비주얼 액터 동기화를 위해).
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item", meta = (AllowPrivateAccess = "true"))
 	FFTInventoryItem CurrentHeldInventoryItem;
+
+	// 손에 든 아이템 비주얼로 스폰할 액터 클래스. 기본은 AFTItemActor.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<AFTItemActor> HeldItemActorClass;
+
+	// 아이템 데이터에서 어태치 소켓을 못 찾았을 때 쓸 폴백 소켓 이름.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Item", meta = (AllowPrivateAccess = "true"))
+	FName HeldItemFallbackSocketName = TEXT("MeleeHandGrip_R");
         
 	// 초당 스태미나 소진하는 양.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
@@ -130,6 +149,15 @@ private:
 	UFTInventoryComponent* GetInventoryComponent() const;
 
 	bool EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility);
+
+	// 손에 든 아이템 변경의 단일 진입점. 같은 ItemId면 비주얼을 유지하고, 달라질 때만 액터를 교체한다.
+	void SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem);
+
+	// CurrentHeldInventoryItem에 맞춰 손의 아이템 액터를 스폰/어태치하거나(없으면) 제거한다.
+	void RefreshHeldItemActor();
+
+	// 아이템 타입별 데이터 에셋의 AttachSocketName을 우선 사용하고, 없으면 폴백 소켓을 돌려준다.
+	FName ResolveHeldItemAttachSocket(const UFTItemDataAsset* ItemData) const;
     
 	// 현재 카메라 보정량(CrouchCameraOffsetZ)을 카메라 상대 위치에 반영한다.
 	void UpdateCrouchCameraOffset();
@@ -149,9 +177,13 @@ private:
 	// 마지막 스태미나 사용 후 경과 시간(회복 지연 판정용).
 	float TimeSinceStaminaUse = 0.0f;
     
-	// 서 있을 때의 카메라 기본 상대 위치. 앉기 보간의 기준점.
-	FVector DefaultCameraRelativeLocation = FVector(0.0f, 0.0f, 70.0f);
+	// 서 있을 때의 카메라 붐 기본 상대 위치. 앉기 보간의 기준점.
+	FVector DefaultBoomRelativeLocation = FVector(0.0f, 0.0f, 70.0f);
     
 	// 캡슐 높이 변화로 생긴 카메라 Z 보정량. 매 프레임 0으로 보간된다.
 	float CrouchCameraOffsetZ = 0.0f;
+
+	// 현재 손에 어태치된 아이템 비주얼 액터. 들고 있지 않으면 nullptr.
+	UPROPERTY(Transient)
+	TObjectPtr<AFTItemActor> HeldItemActor = nullptr;
     };

@@ -128,7 +128,13 @@ AActor* UFTInteractionComponent::TraceForInteractable() const
 		return nullptr;
 	}
 
-	const FVector TraceEnd = ViewLocation + ViewDirection * InteractionDistance;
+	const AActor* Owner = GetOwner();
+	const FVector OwnerLocation = Owner ? Owner->GetActorLocation() : ViewLocation;
+
+	// 3인칭: 카메라가 캐릭터 뒤에 있으므로, 카메라→몸 거리만큼 트레이스를 더 뻗어
+	// '몸 기준' 도달 거리(InteractionDistance)를 확보한다. 카메라가 벽에 당겨져도(bDoCollisionTest) 자동 보정된다.
+	const float CameraToOwner = FVector::Dist(ViewLocation, OwnerLocation);
+	const FVector TraceEnd = ViewLocation + ViewDirection * (CameraToOwner + InteractionDistance);
 
 	// 자기 자신(소유 폰)은 트레이스에서 제외한다.
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(FTInteractionTrace), false, GetOwner());
@@ -136,22 +142,23 @@ AActor* UFTInteractionComponent::TraceForInteractable() const
 	FHitResult Hit;
 	const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, TraceEnd, InteractionChannel, Params);
 
+	// 조준선(카메라 ray)에 맞은 액터가 상호작용 가능하고, 그 지점이 '캐릭터 몸' 기준 도달 거리 안일 때만 포커스로 본다.
+	// (카메라 기준이 아니라 몸 기준이라, 바라보기만 하고 멀리 떨어진 대상은 제외된다.)
+	AActor* HitActor = bHit ? Hit.GetActor() : nullptr;
+	const bool bInteractable = HitActor
+		&& (HitActor->Implements<UFTInteractable>() || HitActor->FindComponentByClass<UFTChanneledInteractionComponent>());
+	const bool bInReach = bHit
+		&& FVector::DistSquared(OwnerLocation, Hit.ImpactPoint) <= FMath::Square(InteractionDistance);
+	const bool bAccepted = bInteractable && bInReach;
+
 	if (bDebugDrawTrace)
 	{
-		DrawDebugLine(GetWorld(), ViewLocation, TraceEnd, bHit ? FColor::Green : FColor::Red, false, -1.0f, 0, 1.0f);
+		DrawDebugLine(GetWorld(), ViewLocation, TraceEnd, bAccepted ? FColor::Green : FColor::Red, false, -1.0f, 0, 1.0f);
+		// 몸 기준 도달 범위(InteractionDistance)를 구체로 표시한다.
+		DrawDebugSphere(GetWorld(), OwnerLocation, InteractionDistance, 16, FColor::Cyan, false, -1.0f, 0, 1.0f);
 	}
 
-	if (bHit)
-	{
-		AActor* HitActor = Hit.GetActor();
-		// IFTInteractable(즉시 상호작용/프롬프트 제공) 또는 채널형 컴포넌트를 가진 액터를 포커스 대상으로 본다.
-		if (HitActor && (HitActor->Implements<UFTInteractable>() || HitActor->FindComponentByClass<UFTChanneledInteractionComponent>()))
-		{
-			return HitActor;
-		}
-	}
-
-	return nullptr;
+	return bAccepted ? HitActor : nullptr;
 }
 
 bool UFTInteractionComponent::GetViewPoint(FVector& OutLocation, FVector& OutDirection) const
