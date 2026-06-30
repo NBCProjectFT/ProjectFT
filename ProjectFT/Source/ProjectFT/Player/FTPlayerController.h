@@ -88,6 +88,7 @@ private:
 	void OnInteractCompleted(const FInputActionValue& Value);
 	void OnSkillCheckStarted(const FInputActionValue& Value);
 	void OnUseItemStarted(const FInputActionValue& Value);
+	void OnUseItemCompleted(const FInputActionValue& Value);
 	void OnQuickSlot1Started(const FInputActionValue& Value);
 	void OnQuickSlot2Started(const FInputActionValue& Value);
 	void OnQuickSlot3Started(const FInputActionValue& Value);
