@@ -4,11 +4,13 @@
 #include "CoreMinimal.h"
 #include "AIController.h"
 #include "Perception/AIPerceptionTypes.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "FTNPCAIController.generated.h"
 
 class UAIPerceptionComponent;
 class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
+struct FFTMessagePayloadStruct;
 UCLASS()
 class PROJECTFT_API AFTNPCAIController : public AAIController
 {
@@ -19,6 +21,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
@@ -44,6 +47,12 @@ public:
 	bool bIsTargetStealing = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Target")
+	bool bIsTargetActivelyStealing = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Target")
+	bool bCanStartReportFlow = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Target")
 	float TargetDistance = 0.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
@@ -65,6 +74,9 @@ public:
 	float ReportDuration = 3.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	float ReportDecayDuration = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ReportAmount = 10.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
@@ -84,6 +96,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bReportCancelled = false;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	bool bObservedShelfDamaged = false;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Report")
 	void EnterSuspicious();
@@ -103,14 +118,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|NPC|Target")
 	bool CanStartReportFlow() const;
 
+
 private:
 	float ReportElapsedTime = 0.0f;
 	int32 LastLoggedReportPercent = -1;
+	int32 LastLoggedReportDecayPercent = 101;
 	float LastObservedStealingTime = -FLT_MAX;
 	bool bLastLoggedHasSeenTarget = false;
 	bool bLastLoggedIsTargetStealing = false;
 	bool bLastLoggedCanStartReportFlow = false;
-
+	
+	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
+	void OnShelfDamaged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;
 	bool IsTargetStealing(const AActor* Actor) const;

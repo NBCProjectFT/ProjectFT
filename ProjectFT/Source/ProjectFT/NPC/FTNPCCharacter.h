@@ -1,11 +1,13 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "FTNPCCharacter.generated.h"
 
+class UWidgetComponent;
+
 UCLASS()
-class PROJECTFT_API AFTNPCCharacter : public ACharacter
+class PROJECTFT_API AFTNPCCharacter : public AFTAICharacterBase
 {
 	GENERATED_BODY()
 
@@ -14,6 +16,9 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|UI")
+	TObjectPtr<UWidgetComponent> ReportGaugeWidgetComponent;
 
 public:
 	virtual void Tick(float DeltaTime) override;

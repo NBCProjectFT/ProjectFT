@@ -1,18 +1,18 @@
 ﻿
 #include "FTSecurityCharacter.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
+#include "Components/CapsuleComponent.h"
+#include "TimerManager.h"
 
 AFTSecurityCharacter::AFTSecurityCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
-	GetCharacterMovement()->MaxWalkSpeed = 300.f;
 }
 
 void AFTSecurityCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	DefaultPawnCollisionResponse = GetCapsuleComponent()->GetCollisionResponseToChannel(ECC_Pawn);
 }
 
 void AFTSecurityCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -22,5 +22,36 @@ void AFTSecurityCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 void AFTSecurityCharacter::SetMoveSpeed(float NewSpeed)
 {
-	GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
+	Super::SetMoveSpeed(NewSpeed);
+}
+
+void AFTSecurityCharacter::IgnorePawnCollisionForDuration(float Duration)
+{
+	SetPawnCollisionIgnored(true);
+	GetWorldTimerManager().ClearTimer(PawnCollisionRestoreTimerHandle);
+
+	if (Duration > 0.0f)
+	{
+		GetWorldTimerManager().SetTimer(
+			PawnCollisionRestoreTimerHandle,
+			this,
+			&ThisClass::RestorePawnCollision,
+			Duration,
+			false
+		);
+	}
+}
+
+void AFTSecurityCharacter::SetPawnCollisionIgnored(bool bIgnored)
+{
+	GetCapsuleComponent()->SetCollisionResponseToChannel(
+		ECC_Pawn,
+		bIgnored ? ECR_Ignore : DefaultPawnCollisionResponse
+	);
+}
+
+void AFTSecurityCharacter::RestorePawnCollision()
+{
+	GetWorldTimerManager().ClearTimer(PawnCollisionRestoreTimerHandle);
+	SetPawnCollisionIgnored(false);
 }

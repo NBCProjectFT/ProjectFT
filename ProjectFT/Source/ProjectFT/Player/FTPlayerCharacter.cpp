@@ -17,6 +17,7 @@
 #include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Components/FTTraversalComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
@@ -62,6 +63,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	// 상호작용 컴포넌트.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
+
+	// 트레이스 기반 파쿠르 컴포넌트(필요 시 MotionWarpingComponent를 런타임에 스스로 추가한다).
+	TraversalComponent = CreateDefaultSubobject<UFTTraversalComponent>(TEXT("TraversalComponent"));
 
 	// GAS: 플레이어 전용 속성셋만 여기서 생성한다(ASC·공용 AttributeSet은 베이스 AFTCharacterBase가 생성).
 	// 캐릭터 서브오브젝트라 베이스의 ASC가 자동 등록한다.
@@ -626,5 +630,12 @@ void AFTPlayerCharacter::UpdateCrouchCameraOffset()
 
 bool AFTPlayerCharacter::TryStartTraversal()
 {
-	return false;
+	// 지상에서만, 그리고 이미 트래버설 중이 아닐 때만 시도한다. 컴포넌트가 장애물을 못 찾으면 false → 일반 점프.
+	const UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!TraversalComponent || TraversalComponent->IsTraversing() || !Movement || !Movement->IsMovingOnGround())
+	{
+		return false;
+	}
+
+	return TraversalComponent->TryTraversal();
 }
