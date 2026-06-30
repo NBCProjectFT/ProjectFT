@@ -191,3 +191,8 @@ float UFTInventoryViewModel::GetWeightPercent() const
 	if (MaxWeight <= 0.0f) return 0.0f;
 	return FMath::Clamp(CurrentWeight / MaxWeight, 0.0f, 1.0f);
 }
+
+bool UFTInventoryViewModel::IsIndexSelected(int32 SlotIndex) const
+{
+	return SelectedIndices.Contains(SlotIndex);
+}
