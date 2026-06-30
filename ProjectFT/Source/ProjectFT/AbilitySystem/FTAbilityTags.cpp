@@ -25,6 +25,9 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowItem, "Event.ThrowItem");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_Begin, "Event.Melee.Begin");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_End, "Event.Melee.End");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_Hit, "Event.Melee.Hit");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowRelease, "Event.Throw.Release");
+
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_TargetHit, "Event.TargetHit");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Damage, "Data.Damage");
 

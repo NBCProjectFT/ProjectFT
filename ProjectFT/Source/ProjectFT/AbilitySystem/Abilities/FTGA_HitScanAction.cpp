@@ -57,27 +57,31 @@ void UFTGA_HitScanAction::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 
 	if (HitScanData->AttackMontage)
 	{
-		UAbilityTask_PlayMontageAndWait* MontageTask =
-			UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
-				this,
-				TEXT("HitScanActionMontage"),
-				HitScanData->AttackMontage,
-				1.0f
-			);
-
-		
-		if (!MontageTask)
+		// UAbilityTask_PlayMontageAndWait* MontageTask =
+		// 	UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		// 		this,
+		// 		TEXT("HitScanActionMontage"),
+		// 		HitScanData->AttackMontage,
+		// 		1.0f
+		// 	);
+		//
+		//
+		// if (!MontageTask)
+		// {
+		// 	EndHitScanAbility(true);
+		// 	return;
+		// }
+		//
+		// MontageTask->OnCompleted.AddDynamic(this, &UFTGA_HitScanAction::HandleMontageCompleted);
+		// MontageTask->OnInterrupted.AddDynamic(this, &UFTGA_HitScanAction::HandleMontageInterrupted);
+		// MontageTask->OnCancelled.AddDynamic(this, &UFTGA_HitScanAction::HandleMontageInterrupted);
+		//
+		// MontageTask->ReadyForActivation();
+		// return;
+		if (UAnimInstance* AnimInstance = ActorInfo->GetAnimInstance())
 		{
-			EndHitScanAbility(true);
-			return;
+			AnimInstance->Montage_Play(HitScanData->AttackMontage, 1.0f);
 		}
-
-		MontageTask->OnCompleted.AddDynamic(this, &UFTGA_HitScanAction::HandleMontageCompleted);
-		MontageTask->OnInterrupted.AddDynamic(this, &UFTGA_HitScanAction::HandleMontageInterrupted);
-		MontageTask->OnCancelled.AddDynamic(this, &UFTGA_HitScanAction::HandleMontageInterrupted);
-
-		MontageTask->ReadyForActivation();
-		return;
 	}
 
 	EndHitScanAbility(false);

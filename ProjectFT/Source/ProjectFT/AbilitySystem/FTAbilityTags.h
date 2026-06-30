@@ -54,6 +54,12 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_Begin);
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_End);
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Melee_Hit);
 
+// 투사체 Hit(전용 GA)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_TargetHit);
+
+// 던지기 애님 노티파이용(전용 GA)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ThrowRelease);
+
 // GAS data and state tags
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Damage);
 
