@@ -43,6 +43,11 @@ void UFTReportGaugeComponent::OnReportCompleted(FGameplayTag Channel, const FFTN
 
 void UFTReportGaugeComponent::OnReportStarted(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
 {
+	if (Payload.ReporterActor)
+	{
+		SecurityCalledReporters.Remove(TObjectKey<AActor>(Payload.ReporterActor));
+	}
+
 	SetReporterGauge(Payload, 0.0f);
 }
 

@@ -6,6 +6,7 @@
 #include "FTNPCReportGaugeWidget.generated.h"
 
 class UProgressBar;
+class UImage;
 struct FFTNPCReportPayloadStruct;
 
 UCLASS()
@@ -23,6 +24,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UProgressBar> ReportProgressBar;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> ReportIconImage;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bHideWhenEmpty = true;
 
@@ -34,4 +38,5 @@ private:
 
 	void OnReportGaugeChanged(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void UpdateReportProgress(float ReportProgress);
+	void SetReportCompleted(bool bCompleted);
 };

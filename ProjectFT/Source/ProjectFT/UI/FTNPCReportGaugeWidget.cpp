@@ -1,5 +1,6 @@
 #include "FTNPCReportGaugeWidget.h"
 
+#include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
@@ -9,6 +10,7 @@ void UFTNPCReportGaugeWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	UpdateReportProgress(0.0f);
+	SetReportCompleted(false);
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	ReportGaugeChangedListenerHandle = MessageSubsystem.RegisterListener(
@@ -47,11 +49,24 @@ void UFTNPCReportGaugeWidget::OnReportGaugeChanged(FGameplayTag Channel, const F
 void UFTNPCReportGaugeWidget::UpdateReportProgress(float ReportProgress)
 {
 	const float ClampedReportProgress = FMath::Clamp(ReportProgress, 0.0f, 1.0f);
+	const bool bReportCompleted = ClampedReportProgress >= 1.0f;
+
+	SetReportCompleted(bReportCompleted);
 
 	if (ReportProgressBar)
 	{
 		ReportProgressBar->SetPercent(ClampedReportProgress);
-		ReportProgressBar->SetVisibility(!bHideWhenEmpty || ClampedReportProgress > 0.0f
+		ReportProgressBar->SetVisibility(!bReportCompleted && (!bHideWhenEmpty || ClampedReportProgress > 0.0f)
+			? ESlateVisibility::HitTestInvisible
+			: ESlateVisibility::Collapsed);
+	}
+}
+
+void UFTNPCReportGaugeWidget::SetReportCompleted(bool bCompleted)
+{
+	if (ReportIconImage)
+	{
+		ReportIconImage->SetVisibility(bCompleted
 			? ESlateVisibility::HitTestInvisible
 			: ESlateVisibility::Collapsed);
 	}
