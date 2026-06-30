@@ -480,10 +480,12 @@ void AFTProjectileActor::SendTargetHitEvent(AActor* TargetActor)
 		return;
 	}
 
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(SourceActor);
+
 	FGameplayEffectContextHandle ContextHandle;
 
-	if (UAbilitySystemComponent* SourceASC =
-		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(SourceActor))
+	if (SourceASC)
 	{
 		ContextHandle = SourceASC->MakeEffectContext();
 		ContextHandle.AddInstigator(SourceActor, this);
@@ -498,11 +500,21 @@ void AFTProjectileActor::SendTargetHitEvent(AActor* TargetActor)
 	EventData.OptionalObject2 = this;
 	EventData.ContextHandle = ContextHandle;
 
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
-		SourceActor,
-		TAG_FT_Event_TargetHit,
-		EventData
-	);
+	if (!SourceASC)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ProjectileDebug] TargetHit event skipped: SourceASC is null. Source=%s Target=%s ProjectileData=%s"),
+			*GetNameSafe(SourceActor),
+			*GetNameSafe(TargetActor),
+			*GetNameSafe(ProjectileActorData));
+		return;
+	}
+
+	const int32 ActivatedAbilityCount = SourceASC->HandleGameplayEvent(TAG_FT_Event_TargetHit, &EventData);
+	UE_LOG(LogTemp, Warning, TEXT("[ProjectileDebug] TargetHit event sent. ActivatedAbilities=%d Source=%s Target=%s ProjectileData=%s"),
+		ActivatedAbilityCount,
+		*GetNameSafe(SourceActor),
+		*GetNameSafe(TargetActor),
+		*GetNameSafe(ProjectileActorData));
 }
 
 bool AFTProjectileActor::IsValidDirectHitTarget(AActor* TargetActor) const

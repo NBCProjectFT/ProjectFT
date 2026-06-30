@@ -25,8 +25,10 @@
 
 UFTGA_LauncherAction::UFTGA_LauncherAction()
 {
+	// 발사기 데이터와 Projectile 데이터 캐시를 인스턴스에 보관한다.
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
+	// 발사기는 아이템 사용 입력(Event.UseItem)으로 즉시 발사된다.
 	FAbilityTriggerData Trigger;
 	Trigger.TriggerTag = TAG_FT_Event_UseItem;
 	Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
@@ -41,10 +43,12 @@ void UFTGA_LauncherAction::ActivateAbility(
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	// 사용한 아이템을 발사기 DataAsset으로 캐싱한다.
 	const UFTItemDataAsset* ItemAsset = CacheActiveItem(TriggerEventData);
 	ActiveItemData = const_cast<UFTItemDataAsset*>(ItemAsset);
 	ActiveLauncherData = Cast<UFTLauncherDataAsset>(ActiveItemData);
 
+	// 이 Ability는 UFTLauncherDataAsset 전용이다.
 	if (!ActiveItemData || !ActiveLauncherData)
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("LauncherAction failed: invalid launcher item data."));
@@ -56,6 +60,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 		ActiveLauncherData->LauncherActionData.ProjectileItemData
 	);
 
+	// Launcher DataAsset은 실제 스폰될 ProjectileActorDataAsset을 참조해야 한다.
 	if (!ProjectileActorData)
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("LauncherAction failed: ProjectileItemData is not UFTProjectileActorDataAsset."));
@@ -63,6 +68,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
+	// ProjectileActor가 충돌 후 TargetHit 이벤트를 보냈을 때 받을 Ability를 미리 부여한다.
 	if (!EnsureProjectileAbilityGranted())
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("LauncherAction failed: EnsureProjectileAbilityGranted failed."));
@@ -70,6 +76,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 	
+	// 발사기 설정과 투사체 설정을 모두 확인한 뒤에 실제 발사 단계로 넘어간다.
 	const FFTLauncherActionStruct* LauncherData = GetLauncherActionData();
 	const FFTProjectileActorStruct* ProjectileData = GetProjectileActorData();
 
@@ -95,7 +102,8 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
-	// 탄환으로 사용할 ProjectileActorDataAsset의 ItemId
+	// 탄환으로 사용할 ProjectileActorDataAsset의 ItemId.
+	// Launcher 자체 아이템이 아니라 ProjectileActorDataAsset 아이템 수량을 탄약처럼 검사한다.
 	const FName ProjectileItemId = ProjectileActorData->ItemData.ItemId;
 	
 	if (ProjectileItemId.IsNone())
@@ -105,7 +113,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
-	// 인벤토리에 탄환 수량이 있는지 확인
+	// 인벤토리에 탄환 수량이 있는지 확인한다.
 	UFTInventoryComponent* InventoryComponent =
 		Avatar->FindComponentByClass<UFTInventoryComponent>();
 
@@ -132,7 +140,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
-	// 발사 성공여부
+	// 실제 ProjectileActor 스폰/초기화가 성공해야 탄약을 소모한다.
 	const bool bFired = FireProjectile();
 	
 	if (!bFired)
@@ -142,7 +150,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
-	// 발사 성공 후 탄환 아이템 1개 차감
+	// 발사 성공 후 탄환 아이템 1개 차감 메시지를 보낸다.
 	FFTMessagePayloadStruct Payload;
 	Payload.InstigatorActor = Avatar;
 	Payload.ItemId = ProjectileItemId;
@@ -165,6 +173,7 @@ void UFTGA_LauncherAction::ActivateAbility(
 
 bool UFTGA_LauncherAction::FireProjectile()
 {
+	// ActiveLauncherData/ProjectileActorData에서 발사에 필요한 설정을 꺼낸다.
 	const FFTLauncherActionStruct* LauncherData = GetLauncherActionData();
 	const FFTProjectileActorStruct* ProjectileData = GetProjectileActorData();
 
@@ -185,7 +194,7 @@ bool UFTGA_LauncherAction::FireProjectile()
 		return false;
 	}
 
-	// 1. 카메라 / 컨트롤러 기준 발사 방향 구하기
+	// 1. 카메라/컨트롤러 기준 발사 방향을 구한다.
 	FVector ViewLocation = Avatar->GetActorLocation();
 	FRotator ViewRotation = Avatar->GetActorRotation();
 
@@ -208,7 +217,8 @@ bool UFTGA_LauncherAction::FireProjectile()
 	FVector SpawnLocation = ViewLocation;
 	FRotator SpawnRotation = ViewRotation;
 
-	// 2. 장착된 발사기 Mesh에서 Muzzle 소켓 찾기
+	// 2. 장착된 발사기 Mesh에서 Muzzle 소켓을 찾는다.
+	//    소켓을 찾지 못하면 카메라 위치에서 발사하는 fallback을 쓴다.
 	if (UMeshComponent* LauncherMesh = ResolveLauncherMesh(Avatar, LauncherData->MuzzleSocketName))
 	{
 		SpawnLocation = LauncherMesh->GetSocketLocation(LauncherData->MuzzleSocketName);
@@ -217,7 +227,7 @@ bool UFTGA_LauncherAction::FireProjectile()
 
 	const FVector FireDirection = SpawnRotation.Vector().GetSafeNormal();
 
-	// 3. ProjectileActor 스폰
+	// 3. ProjectileActor를 스폰한다. 실제 비행/충돌 설정은 ProjectileActorDataAsset이 담당한다.
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Avatar;
 	SpawnParams.Instigator = Cast<APawn>(Avatar);
@@ -237,7 +247,7 @@ bool UFTGA_LauncherAction::FireProjectile()
 		return false;
 	}
 
-	// 4. ProjectileActor에 ProjectileActorDataAsset 자체를 전달
+	// 4. ProjectileActor에 ProjectileActorDataAsset 자체를 전달해 메시/속도/충돌/GE 적용 정보를 초기화한다.
 	Projectile->InitializeProjectile(
 		ProjectileActorData,
 		FireDirection,
@@ -249,6 +259,7 @@ bool UFTGA_LauncherAction::FireProjectile()
 
 bool UFTGA_LauncherAction::EnsureProjectileAbilityGranted()
 {
+	// 투사체가 맞았을 때 실행될 ProjectileAction은 ProjectileActorDataAsset의 UseAbility에 들어 있다.
 	if (!ProjectileActorData)
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("EnsureProjectileAbilityGranted failed: ProjectileActorData is null."));
@@ -272,6 +283,7 @@ bool UFTGA_LauncherAction::EnsureProjectileAbilityGranted()
 		return false;
 	}
 
+	// 이미 같은 Ability 클래스가 있으면 다시 부여하지 않는다.
 	for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 	{
 		if (!AbilitySpec.Ability)
@@ -290,6 +302,7 @@ bool UFTGA_LauncherAction::EnsureProjectileAbilityGranted()
 		return true;
 	}
 
+	// ProjectileActorData를 SourceObject로 넣어두면 나중에 어떤 투사체 Ability인지 추적하기 쉽다.
 	FGameplayAbilitySpec AbilitySpec(
 		ProjectileAbilityClass,
 		1,
@@ -305,9 +318,9 @@ bool UFTGA_LauncherAction::EnsureProjectileAbilityGranted()
 	return true;
 }
 
-// 어빌리티 종료
 void UFTGA_LauncherAction::EndLauncherAbility(bool bWasCancelled)
 {
+	// 발사기 어빌리티는 한 번 발사하고 끝나는 구조라 종료 시 캐시를 비운다.
 	ActiveItemData = nullptr;
 	ActiveLauncherData = nullptr;
 	ProjectileActorData = nullptr;
@@ -321,7 +334,6 @@ void UFTGA_LauncherAction::EndLauncherAbility(bool bWasCancelled)
 	);
 }
 
-// FFTLauncherActionStruct
 const FFTLauncherActionStruct* UFTGA_LauncherAction::GetLauncherActionData() const
 {
 	return ActiveLauncherData ? &ActiveLauncherData->LauncherActionData : nullptr;
@@ -339,6 +351,7 @@ UMeshComponent* UFTGA_LauncherAction::ResolveLauncherMesh(AActor* Avatar, FName 
 		return nullptr;
 	}
 
+	// 발사기는 캐릭터에 붙어 있는 별도 Actor라고 보고, AttachedActor 안의 Mesh에서 소켓을 찾는다.
 	TArray<AActor*> AttachedActors;
 	Avatar->GetAttachedActors(AttachedActors);
 

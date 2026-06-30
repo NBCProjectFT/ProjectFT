@@ -21,6 +21,7 @@
 
 UFTGA_ThrowItemAction::UFTGA_ThrowItemAction()
 {
+	// 입력 Released 대기, 몽타주 Notify 대기, HeldProjectile 상태를 인스턴스에 보관한다.
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
 	// 조준(활성) 중 소유자에게 상태 태그를 부여(ActivationOwnedTags) → "아이템 동작 진행 중?" 가드 질의에 쓰인다.
@@ -34,6 +35,7 @@ UFTGA_ThrowItemAction::UFTGA_ThrowItemAction()
 		SetAssetTags(AssetTags);
 	}
 	
+	// 투척 아이템도 일반 아이템 사용 입력(Event.UseItem)으로 시작한다.
 	FAbilityTriggerData UseTrigger;
 	UseTrigger.TriggerTag = TAG_FT_Event_UseItem;
 	UseTrigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
@@ -49,10 +51,12 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	// Payload.OptionalObject에 들어온 아이템을 Throw DataAsset으로 캐싱한다.
 	const UFTItemDataAsset* ItemAsset = CacheActiveItem(TriggerEventData);
 	ActiveItemData = const_cast<UFTItemDataAsset*>(ItemAsset);
 	ActiveThrowData = Cast<UFTThrowDataAsset>(ActiveItemData);
 
+	// 이 Ability는 UFTThrowDataAsset 전용이다.
 	if (!ActiveItemData || !ActiveThrowData)
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: invalid throw item data."));
@@ -60,6 +64,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 		return;
 	}
 
+	// Throw DataAsset은 실제로 손에 들고 발사할 ProjectileActorDataAsset을 참조한다.
 	ProjectileActorData = ActiveThrowData->ThrowActorData.ProjectileItemData;
 
 	if (!ProjectileActorData)
@@ -72,6 +77,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 	const FFTThrowActorStruct* ThrowData = GetThrowActorData();
 	const FFTProjectileActorStruct* ProjectileData = GetProjectileActorData();
 
+	// ThrowData는 준비/투척 몽타주와 손 소켓, ProjectileData는 실제 스폰 클래스/비행 설정을 제공한다.
 	if (!ThrowData || !ProjectileData)
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: throw or projectile data is null."));
@@ -86,6 +92,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 		return;
 	}
 
+	// 발사체가 충돌했을 때 TargetHit 이벤트를 처리할 ProjectileAction 어빌리티를 보장한다.
 	if (!EnsureProjectileAbilityGranted())
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: EnsureProjectileAbilityGranted failed."));
@@ -93,6 +100,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 		return;
 	}
 
+	// 첫 발동 단계: 투사체를 손에 들고, 입력 Released를 기다리는 준비 상태로 들어간다.
 	if (!bIsHoldingProjectile)
 	{
 		if (!StartHoldingProjectile())
@@ -102,6 +110,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 			return;
 		}
 
+		// 준비 몽타주는 선택 사항이다. 없어도 손에 들고 Released 대기는 가능하다.
 		if (ThrowData->PrepareMontage)
 		{
 			if (UAnimInstance* AnimInstance = ActorInfo ? ActorInfo->GetAnimInstance() : nullptr)
@@ -110,6 +119,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 			}
 		}
 
+		// 사용 입력을 놓을 때까지 Ability를 유지한다.
 		if (!WaitForUseReleased())
 		{
 			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: WaitForUseReleased failed."));
@@ -119,6 +129,7 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 		return;
 	}
 
+	// 이미 손에 든 상태에서 다시 들어온 경우에는 바로 Released 처리 경로로 보낸다.
 	HandleUseReleasedEvent(FGameplayEventData());
 }
 
@@ -129,6 +140,7 @@ void UFTGA_ThrowItemAction::EndAbility(
 	bool bReplicateEndAbility,
 	bool bWasCancelled)
 {
+	// 외부 CancelAbilities 등 어떤 경로로 끝나도 손에 붙은 임시 투사체는 남기지 않는다.
 	if (HeldProjectile)
 	{
 		ClearHeldProjectile();
@@ -146,6 +158,7 @@ void UFTGA_ThrowItemAction::EndAbility(
 
 void UFTGA_ThrowItemAction::HandleUseReleasedEvent(FGameplayEventData Payload)
 {
+	// 입력을 놓았으니 준비 상태에서 실제 투척 단계로 넘어간다.
 	const FFTThrowActorStruct* ThrowData = GetThrowActorData();
 	if (!ThrowData)
 	{
@@ -155,6 +168,7 @@ void UFTGA_ThrowItemAction::HandleUseReleasedEvent(FGameplayEventData Payload)
 
 	if (ThrowData->ThrowMontage)
 	{
+		// ThrowMontage가 있으면 Notify가 실제 발사 프레임을 알려줄 때까지 기다린다.
 		if (!WaitForThrowRelease())
 		{
 			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: WaitForThrowRelease failed."));
@@ -202,12 +216,12 @@ void UFTGA_ThrowItemAction::HandleUseReleasedEvent(FGameplayEventData Payload)
 
 void UFTGA_ThrowItemAction::HandleThrowReleaseEvent(FGameplayEventData Payload)
 {
+	// 몽타주 Notify가 실제 손을 놓는 프레임을 알려준 상태다.
 	bWaitingForThrowRelease = false;
 	ActiveThrowMontage = nullptr;
 
 	if (!ReleaseHeldProjectile())
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: notify ReleaseHeldProjectile failed."));
 		EndThrowAbility(true);
 		return;
 	}
@@ -217,20 +231,18 @@ void UFTGA_ThrowItemAction::HandleThrowReleaseEvent(FGameplayEventData Payload)
 
 void UFTGA_ThrowItemAction::HandleThrowMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
+	// Notify가 오기 전에 몽타주가 끝났다면 투척 타이밍을 놓친 것이므로 취소 처리한다.
 	if (!bWaitingForThrowRelease || Montage != ActiveThrowMontage)
 	{
 		return;
 	}
-
-	UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction cancelled: ThrowRelease notify was not received. Montage=%s Interrupted=%d"),
-		*GetNameSafe(Montage),
-		bInterrupted ? 1 : 0);
 
 	EndThrowAbility(true);
 }
 
 bool UFTGA_ThrowItemAction::StartHoldingProjectile()
 {
+	// 준비 상태에서 손에 보여줄 ProjectileActor를 만든다.
 	const FFTThrowActorStruct* ThrowData = GetThrowActorData();
 	const FFTProjectileActorStruct* ProjectileData = GetProjectileActorData();
 
@@ -251,6 +263,7 @@ bool UFTGA_ThrowItemAction::StartHoldingProjectile()
 		return false;
 	}
 
+	// 손에 붙일 Mesh는 캐릭터 본체 또는 장착 액터 중 AttachSocketName을 가진 Mesh다.
 	UMeshComponent* AttachMesh = ResolveAttachMesh(Avatar, ThrowData->AttachSocketName);
 	if (!AttachMesh)
 	{
@@ -264,6 +277,7 @@ bool UFTGA_ThrowItemAction::StartHoldingProjectile()
 		ERelativeTransformSpace::RTS_World
 	);
 
+	// 손에 붙일 비주얼이므로 충돌 때문에 스폰 실패하지 않게 AlwaysSpawn을 사용한다.
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Avatar;
 	SpawnParams.Instigator = Cast<APawn>(Avatar);
@@ -281,11 +295,13 @@ bool UFTGA_ThrowItemAction::StartHoldingProjectile()
 		return false;
 	}
 
+	// Held 상태에서는 충돌/움직임을 꺼두고 외형만 보이게 초기화한다.
 	HeldProjectile->InitializeHeldProjectile(
 		ProjectileActorData,
 		Avatar
 	);
 
+	// 소켓 위치/회전에 스냅하되 스케일은 부모 소켓 스케일을 강제로 따라가지 않는다.
 	HeldProjectile->AttachToComponent(
 		AttachMesh,
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
@@ -299,6 +315,7 @@ bool UFTGA_ThrowItemAction::StartHoldingProjectile()
 
 bool UFTGA_ThrowItemAction::WaitForUseReleased()
 {
+	// PlayerCharacter::HandleUseItemReleased가 보내는 Event.UseReleased를 한 번만 기다린다.
 	UAbilityTask_WaitGameplayEvent* ReleaseTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 			this,
@@ -320,6 +337,7 @@ bool UFTGA_ThrowItemAction::WaitForUseReleased()
 
 bool UFTGA_ThrowItemAction::WaitForThrowRelease()
 {
+	// UFTThrowReleaseAnimNotify가 보내는 Event.ThrowRelease를 한 번만 기다린다.
 	UAbilityTask_WaitGameplayEvent* ThrowReleaseTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 			this,
@@ -341,6 +359,7 @@ bool UFTGA_ThrowItemAction::WaitForThrowRelease()
 
 bool UFTGA_ThrowItemAction::ReleaseHeldProjectile()
 {
+	// 실제 발사 단계. 여기서 비용/쿨다운을 커밋하고 아이템 소비를 알린다.
 	if (!HeldProjectile || !ProjectileActorData)
 	{
 		return false;
@@ -360,12 +379,14 @@ bool UFTGA_ThrowItemAction::ReleaseHeldProjectile()
 
 	const FVector ThrowDirection = GetViewDirection();
 
+	// 손 소켓에서 분리한 뒤 현재 월드 위치를 유지한 채 ProjectileMovement를 시작한다.
 	HeldProjectile->DetachFromActor(
 		FDetachmentTransformRules::KeepWorldTransform
 	);
 
 	HeldProjectile->ReleaseProjectile(ThrowDirection);
 
+	// 인벤토리 차감은 메시지를 통해 InventoryComponent가 처리한다.
 	OnItemConsumed();
 
 	HeldProjectile = nullptr;
@@ -378,6 +399,7 @@ bool UFTGA_ThrowItemAction::ReleaseHeldProjectile()
 
 bool UFTGA_ThrowItemAction::EnsureProjectileAbilityGranted()
 {
+	// 투사체 충돌 후 실행될 ProjectileAction은 ProjectileActorDataAsset의 UseAbility에 들어 있다.
 	if (!ProjectileActorData)
 	{
 		return false;
@@ -392,13 +414,19 @@ bool UFTGA_ThrowItemAction::EnsureProjectileAbilityGranted()
 		return false;
 	}
 
+	UE_LOG(LogFTItem, Warning, TEXT("[ProjectileDebug] EnsureProjectileAbilityGranted. ProjectileData=%s Ability=%s"),
+		*GetNameSafe(ProjectileActorData),
+		*GetNameSafe(ProjectileAbilityClass.Get()));
+
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
 
 	if (!ASC)
 	{
+		UE_LOG(LogFTItem, Warning, TEXT("[ProjectileDebug] EnsureProjectileAbilityGranted failed: ASC is null."));
 		return false;
 	}
 
+	// 같은 Ability 클래스가 이미 있으면 중복 부여하지 않는다.
 	for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 	{
 		if (!AbilitySpec.Ability)
@@ -408,6 +436,8 @@ bool UFTGA_ThrowItemAction::EnsureProjectileAbilityGranted()
 
 		if (AbilitySpec.Ability->GetClass() == ProjectileAbilityClass)
 		{
+			UE_LOG(LogFTItem, Warning, TEXT("[ProjectileDebug] Projectile ability already granted. Ability=%s"),
+				*GetNameSafe(ProjectileAbilityClass.Get()));
 			return true;
 		}
 	}
@@ -417,6 +447,7 @@ bool UFTGA_ThrowItemAction::EnsureProjectileAbilityGranted()
 		return true;
 	}
 
+	// ProjectileActorData를 SourceObject로 넣어 어떤 투사체용 Ability인지 추적 가능하게 한다.
 	FGameplayAbilitySpec AbilitySpec(
 		ProjectileAbilityClass,
 		1,
@@ -426,11 +457,16 @@ bool UFTGA_ThrowItemAction::EnsureProjectileAbilityGranted()
 
 	ASC->GiveAbility(AbilitySpec);
 
+	UE_LOG(LogFTItem, Warning, TEXT("[ProjectileDebug] Projectile ability granted now. Ability=%s SourceObject=%s"),
+		*GetNameSafe(ProjectileAbilityClass.Get()),
+		*GetNameSafe(ProjectileActorData));
+
 	return true;
 }
 
 void UFTGA_ThrowItemAction::EndThrowAbility(bool bWasCancelled)
 {
+	// 취소 종료라면 아직 손에 붙어 있는 ProjectileActor를 제거한다.
 	if (bWasCancelled && HeldProjectile)
 	{
 		ClearHeldProjectile();
@@ -438,6 +474,7 @@ void UFTGA_ThrowItemAction::EndThrowAbility(bool bWasCancelled)
 
 	if (!bIsHoldingProjectile)
 	{
+		// 손에 든 상태가 아니라면 다음 발동을 위해 활성 데이터 캐시를 비운다.
 		ActiveItemData = nullptr;
 		ActiveThrowData = nullptr;
 		ProjectileActorData = nullptr;
@@ -454,6 +491,7 @@ void UFTGA_ThrowItemAction::EndThrowAbility(bool bWasCancelled)
 
 void UFTGA_ThrowItemAction::ClearHeldProjectile()
 {
+	// 준비 중 취소되었거나 강제 종료되었을 때 손에 남은 임시 액터를 제거한다.
 	if (HeldProjectile)
 	{
 		HeldProjectile->Destroy();
@@ -480,6 +518,7 @@ UMeshComponent* UFTGA_ThrowItemAction::ResolveAttachMesh(AActor* Avatar, FName R
 		return nullptr;
 	}
 
+	// 먼저 캐릭터 본체 Mesh에서 손 소켓을 찾는다.
 	TArray<UMeshComponent*> AvatarMeshes;
 	Avatar->GetComponents<UMeshComponent>(AvatarMeshes);
 
@@ -491,6 +530,7 @@ UMeshComponent* UFTGA_ThrowItemAction::ResolveAttachMesh(AActor* Avatar, FName R
 		}
 	}
 
+	// 없으면 캐릭터에 붙어 있는 장착 액터들의 Mesh에서 찾는다.
 	TArray<AActor*> AttachedActors;
 	Avatar->GetAttachedActors(AttachedActors);
 
@@ -518,6 +558,7 @@ UMeshComponent* UFTGA_ThrowItemAction::ResolveAttachMesh(AActor* Avatar, FName R
 
 FVector UFTGA_ThrowItemAction::GetViewDirection() const
 {
+	// 플레이어가 바라보는 방향을 투척 방향으로 사용한다. 컨트롤러가 없으면 Actor Eyes 방향으로 fallback한다.
 	AActor* Avatar = GetAvatarActorFromActorInfo();
 	if (!Avatar)
 	{
