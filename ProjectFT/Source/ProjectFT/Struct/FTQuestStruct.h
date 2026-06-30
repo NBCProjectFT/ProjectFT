@@ -26,5 +26,8 @@ struct PROJECTFT_API FTQuestStruct : public FTableRowBase
 	TArray<FTCraftIngredientStruct> RewardItems;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FName> UnlockedShopItemIDs;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FName> NextQuestIDs;
 };

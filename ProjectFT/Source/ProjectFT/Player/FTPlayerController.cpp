@@ -5,6 +5,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "InputCoreTypes.h"
 #include "InputMappingContext.h"
 
 #include "ProjectFT/Core/FTLogChannels.h"
@@ -85,12 +86,9 @@ void AFTPlayerController::SetupInputComponent()
 
 	if (UseItemAction)
 	{
+		// Started = 누른 순간(즉시 발동/조준 시작), Completed = 손 뗀 순간(충전형 투척 발동).
 		EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Started, this, &AFTPlayerController::OnUseItemStarted);
-	}
-
-	if (InventoryAction)
-	{
-		EnhancedInput->BindAction(InventoryAction, ETriggerEvent::Started, this, &AFTPlayerController::OnInventoryStarted);
+		EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Completed, this, &AFTPlayerController::OnUseItemCompleted);
 	}
 
 	if (QuickSlot1Action)
@@ -107,6 +105,29 @@ void AFTPlayerController::SetupInputComponent()
 	{
 		EnhancedInput->BindAction(QuickSlot3Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot3Started);
 	}
+
+	if (QuickSlot4Action)
+	{
+		EnhancedInput->BindAction(QuickSlot4Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot4Started);
+	}
+
+	if (QuickSlot5Action)
+	{
+		EnhancedInput->BindAction(QuickSlot5Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot5Started);
+	}
+
+	if (QuickSlot6Action)
+	{
+		EnhancedInput->BindAction(QuickSlot6Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot6Started);
+	}
+
+#if !UE_BUILD_SHIPPING
+	// [Temp/Debug] IA 에셋/IMC 매핑이 아직 없어도 테이저를 바로 쏴보기 위한 하드코딩 키. T = 퀵슬롯0 선택 후 사용.
+	if (InputComponent)
+	{
+		InputComponent->BindKey(EKeys::T, IE_Pressed, this, &AFTPlayerController::OnDebugUseQuickSlot0);
+	}
+#endif
 }
 
 void AFTPlayerController::OnPossess(APawn* InPawn)
@@ -228,11 +249,11 @@ void AFTPlayerController::OnUseItemStarted(const FInputActionValue& Value)
 	}
 }
 
-void AFTPlayerController::OnInventoryStarted(const FInputActionValue& Value)
+void AFTPlayerController::OnUseItemCompleted(const FInputActionValue& Value)
 {
 	if (CachedLocomotionInput)
 	{
-		CachedLocomotionInput->HandleInventoryPressed();
+		CachedLocomotionInput->HandleUseItemReleased();
 	}
 }
 
@@ -257,5 +278,47 @@ void AFTPlayerController::OnQuickSlot3Started(const FInputActionValue& Value)
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleSelectQuickSlot(2);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot4Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(3);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot5Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(4);
+	}
+}
+
+void AFTPlayerController::OnQuickSlot6Started(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(5);
+	}
+}
+
+void AFTPlayerController::OnDebugUseQuickSlot0()
+{
+	// [Temp/Debug] 퀵슬롯0을 선택한 뒤 사용한다.
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleSelectQuickSlot(0);
+		CachedLocomotionInput->HandleUseItemPressed();
+	}
+}
+
+void AFTPlayerController::ToggleInventoryStarted(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleToggleInventoryPressed();
 	}
 }

@@ -14,12 +14,6 @@
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
-#include "NativeGameplayTags.h"
-#include "GameFramework/GameplayMessageSubsystem.h"
-#include "../Struct/FTDamageTextPayloadStruct.h"
-
-UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Received, "Event.Damage.Received");
-UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Dealt, "Event.Damage.Dealt");
 
 AFTLootShelf::AFTLootShelf()
 {
@@ -49,9 +43,6 @@ void AFTLootShelf::BeginPlay()
 	{
 		ChanneledInteraction->OnCompleted.AddDynamic(this, &AFTLootShelf::HandleStealCompleted);
 	}
-	
-	FTimerHandle T;
-	GetWorldTimerManager().SetTimer(T, this, &AFTLootShelf::TestCode, 1.0f, true);
 }
 
 FText AFTLootShelf::GetInteractionPrompt_Implementation() const
@@ -66,11 +57,30 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 	if (bHasBeenLooted) return ActualDamage;
 
 	Health -= DamageAmount;
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+
+	// 1. 데미지를 입을 때마다 '파괴 중(Damaged)' 메시지 브로드캐스트
+	FFTMessagePayloadStruct DamagedPayload;
+	DamagedPayload.InstigatorActor = DamageCauser;
+	DamagedPayload.TargetActor = this;
+	DamagedPayload.Value = Health;
+
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ShelfDamaged, DamagedPayload);
+
+	// 2. 체력이 0 이하가 되어 파괴되었을 때 '파괴 완료(Destroyed)' 메시지 브로드캐스트
 	if (Health <= 0.0f)
 	{
 		bHasBeenLooted = true;
-		UE_LOG(LogFTItem, Log, TEXT("LootShelf '%s' destroyed! Dropping items..."), *GetName());
+		UE_LOG(LogFTItem, Log, TEXT("매대 '%s'가 파괴되었습니다! 아이템이 드랍됩니다..."), *GetName());
 		
+		FFTMessagePayloadStruct DestroyedPayload;
+		DestroyedPayload.InstigatorActor = DamageCauser;
+		DestroyedPayload.TargetActor = this;
+		DestroyedPayload.Value = 0.0f;
+
+		MessageSubsystem.BroadcastMessage(TAG_FT_Event_ShelfDestroyed, DestroyedPayload);
+
 		DropItemsOnFloor();
 		Destroy();
 	}
@@ -84,7 +94,7 @@ void AFTLootShelf::HandleStealCompleted()
 	bHasBeenLooted = true;
 
 	UE_LOG(LogFTPlayer, Log, TEXT("LootShelf '%s' 훔치기 완료. 인벤토리에 아이템을 추가합니다."), *GetName());
-	
+
 	GiveStealReward();
 
 	if (bDestroyOnComplete)
@@ -131,14 +141,4 @@ void AFTLootShelf::DropItemsOnFloor()
 			NewItem->UpdateAppearance();
 		}
 	}
-}
-
-void AFTLootShelf::TestCode()
-{
-	FFTDamageTextPayloadStruct Payload;
-	Payload.Damage = 100.f;
-	Payload.HitLocation = GetActorLocation();
-	
-	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	MessageSubsystem.BroadcastMessage(TAG_FT_Event_Damage_Dealt, Payload);
 }
