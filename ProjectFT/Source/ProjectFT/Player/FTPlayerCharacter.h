@@ -45,6 +45,7 @@ public:
 	virtual void HandleInteractReleased() override;
 	virtual void HandleSkillCheckPressed() override;
 	virtual void HandleUseItemPressed() override;
+	virtual void HandleUseItemReleased() override;
 	virtual void HandleSelectQuickSlot(int32 SlotIndex) override;
 	virtual void HandleToggleInventoryPressed() override;
 	//~ End IFTInputInterface
@@ -159,6 +160,11 @@ private:
 	UFTInventoryComponent* GetInventoryComponent() const;
 
 	bool EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility);
+
+	// 활성 중인 아이템 사용 어빌리티를 AssetTag(MatchTag) 기준으로 취소한다. 취소되면 효과/쿨다운은 적용되지 않는다.
+	// CancelAbilities는 ActivationOwnedTags가 아니라 AssetTags를 매칭함에 주의 — 이동 시엔 .Channeled(조준형 투척은 유지),
+	// 퀵슬롯 전환 시엔 부모 Ability.ItemUse로 종류 불문 취소.
+	void CancelItemUseAbilities(FGameplayTag MatchTag);
 
 	// 손에 든 아이템 변경의 단일 진입점. 같은 ItemId면 비주얼을 유지하고, 달라질 때만 액터를 교체한다.
 	void SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem);
