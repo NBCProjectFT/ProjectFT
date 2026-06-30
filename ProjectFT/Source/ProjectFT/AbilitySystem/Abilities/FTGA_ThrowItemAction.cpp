@@ -2,7 +2,9 @@
 
 #include "AbilitySystemComponent.h"
 #include "Abilities/GameplayAbility.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "Components/MeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Controller.h"
@@ -21,15 +23,22 @@ UFTGA_ThrowItemAction::UFTGA_ThrowItemAction()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
+	// 조준(활성) 중 소유자에게 상태 태그를 부여(ActivationOwnedTags) → "아이템 동작 진행 중?" 가드 질의에 쓰인다.
+	ActivationOwnedTags.AddTag(TAG_FT_State_UsingItem);
+
+	// 식별 AssetTag(조준형). CancelAbilities는 AssetTags를 매칭한다. .Aimed는 이동 취소(.Channeled) 대상이 아니라
+	// "달리며 던지기"가 가능하고, 퀵슬롯 전환 시엔 부모 Ability.ItemUse 질의에 걸려 취소된다.
+	{
+		FGameplayTagContainer AssetTags;
+		AssetTags.AddTag(TAG_FT_Ability_ItemUse_Aimed);
+		SetAssetTags(AssetTags);
+	}
+	
 	FAbilityTriggerData UseTrigger;
 	UseTrigger.TriggerTag = TAG_FT_Event_UseItem;
 	UseTrigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
 	AbilityTriggers.Add(UseTrigger);
 
-	FAbilityTriggerData ReleaseTrigger;
-	ReleaseTrigger.TriggerTag = TAG_FT_Event_ThrowRelease;
-	ReleaseTrigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
-	AbilityTriggers.Add(ReleaseTrigger);
 }
 
 void UFTGA_ThrowItemAction::ActivateAbility(
@@ -39,20 +48,6 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 	const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	if (TriggerEventData &&
-		TriggerEventData->EventTag.MatchesTagExact(TAG_FT_Event_ThrowRelease))
-	{
-		if (!ReleaseHeldProjectile())
-		{
-			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: ReleaseHeldProjectile failed."));
-			EndThrowAbility(true);
-			return;
-		}
-
-		EndThrowAbility(false);
-		return;
-	}
 
 	const UFTItemDataAsset* ItemAsset = CacheActiveItem(TriggerEventData);
 	ActiveItemData = const_cast<UFTItemDataAsset*>(ItemAsset);
@@ -115,32 +110,123 @@ void UFTGA_ThrowItemAction::ActivateAbility(
 			}
 		}
 
-		// 들고 있는 상태는 유지하고, 어빌리티 실행만 종료한다.
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		if (!WaitForUseReleased())
+		{
+			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: WaitForUseReleased failed."));
+			EndThrowAbility(true);
+		}
+
+		return;
+	}
+
+	HandleUseReleasedEvent(FGameplayEventData());
+}
+
+void UFTGA_ThrowItemAction::EndAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	bool bReplicateEndAbility,
+	bool bWasCancelled)
+{
+	if (HeldProjectile)
+	{
+		ClearHeldProjectile();
+	}
+
+	ActiveItemData = nullptr;
+	ActiveThrowData = nullptr;
+	ProjectileActorData = nullptr;
+	ActiveThrowMontage = nullptr;
+	bIsHoldingProjectile = false;
+	bWaitingForThrowRelease = false;
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void UFTGA_ThrowItemAction::HandleUseReleasedEvent(FGameplayEventData Payload)
+{
+	const FFTThrowActorStruct* ThrowData = GetThrowActorData();
+	if (!ThrowData)
+	{
+		EndThrowAbility(true);
 		return;
 	}
 
 	if (ThrowData->ThrowMontage)
 	{
-		if (UAnimInstance* AnimInstance = ActorInfo ? ActorInfo->GetAnimInstance() : nullptr)
+		if (!WaitForThrowRelease())
 		{
-			AnimInstance->Montage_Play(ThrowData->ThrowMontage, 1.0f);
+			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: WaitForThrowRelease failed."));
+			EndThrowAbility(true);
+			return;
 		}
 
-		// 실제 발사는 AnimNotify(TAG_FT_Event_ThrowRelease)에서 처리한다.
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		ActiveThrowMontage = ThrowData->ThrowMontage;
+		bWaitingForThrowRelease = true;
+
+		UAnimInstance* AnimInstance = CurrentActorInfo ? CurrentActorInfo->GetAnimInstance() : nullptr;
+		if (!AnimInstance)
+		{
+			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: AnimInstance is null."));
+			EndThrowAbility(true);
+			return;
+		}
+
+		const float MontageLength = AnimInstance->Montage_Play(ThrowData->ThrowMontage, 1.0f);
+		if (MontageLength <= 0.0f)
+		{
+			UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: ThrowMontage did not play. Montage=%s"),
+				*GetNameSafe(ThrowData->ThrowMontage));
+			EndThrowAbility(true);
+			return;
+		}
+
+		FOnMontageEnded EndDelegate;
+		EndDelegate.BindUObject(this, &UFTGA_ThrowItemAction::HandleThrowMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(EndDelegate, ThrowData->ThrowMontage);
+
 		return;
 	}
 
-	// ThrowMontage가 없으면 디버그용으로 즉시 던진다.
+	// ThrowMontage가 없으면 디버그용으로 마우스를 뗀 순간 바로 던진다.
 	if (!ReleaseHeldProjectile())
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: immediate ReleaseHeldProjectile failed."));
+		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: released ReleaseHeldProjectile failed."));
 		EndThrowAbility(true);
 		return;
 	}
 
 	EndThrowAbility(false);
+}
+
+void UFTGA_ThrowItemAction::HandleThrowReleaseEvent(FGameplayEventData Payload)
+{
+	bWaitingForThrowRelease = false;
+	ActiveThrowMontage = nullptr;
+
+	if (!ReleaseHeldProjectile())
+	{
+		UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction failed: notify ReleaseHeldProjectile failed."));
+		EndThrowAbility(true);
+		return;
+	}
+
+	EndThrowAbility(false);
+}
+
+void UFTGA_ThrowItemAction::HandleThrowMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (!bWaitingForThrowRelease || Montage != ActiveThrowMontage)
+	{
+		return;
+	}
+
+	UE_LOG(LogFTItem, Warning, TEXT("ThrowItemAction cancelled: ThrowRelease notify was not received. Montage=%s Interrupted=%d"),
+		*GetNameSafe(Montage),
+		bInterrupted ? 1 : 0);
+
+	EndThrowAbility(true);
 }
 
 bool UFTGA_ThrowItemAction::StartHoldingProjectile()
@@ -211,6 +297,48 @@ bool UFTGA_ThrowItemAction::StartHoldingProjectile()
 	return true;
 }
 
+bool UFTGA_ThrowItemAction::WaitForUseReleased()
+{
+	UAbilityTask_WaitGameplayEvent* ReleaseTask =
+		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+			this,
+			TAG_FT_Event_UseReleased,
+			nullptr,
+			true,
+			true
+		);
+
+	if (!ReleaseTask)
+	{
+		return false;
+	}
+
+	ReleaseTask->EventReceived.AddDynamic(this, &UFTGA_ThrowItemAction::HandleUseReleasedEvent);
+	ReleaseTask->ReadyForActivation();
+	return true;
+}
+
+bool UFTGA_ThrowItemAction::WaitForThrowRelease()
+{
+	UAbilityTask_WaitGameplayEvent* ThrowReleaseTask =
+		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+			this,
+			TAG_FT_Event_ThrowRelease,
+			nullptr,
+			true,
+			true
+		);
+
+	if (!ThrowReleaseTask)
+	{
+		return false;
+	}
+
+	ThrowReleaseTask->EventReceived.AddDynamic(this, &UFTGA_ThrowItemAction::HandleThrowReleaseEvent);
+	ThrowReleaseTask->ReadyForActivation();
+	return true;
+}
+
 bool UFTGA_ThrowItemAction::ReleaseHeldProjectile()
 {
 	if (!HeldProjectile || !ProjectileActorData)
@@ -242,6 +370,8 @@ bool UFTGA_ThrowItemAction::ReleaseHeldProjectile()
 
 	HeldProjectile = nullptr;
 	bIsHoldingProjectile = false;
+	bWaitingForThrowRelease = false;
+	ActiveThrowMontage = nullptr;
 
 	return true;
 }
@@ -303,9 +433,7 @@ void UFTGA_ThrowItemAction::EndThrowAbility(bool bWasCancelled)
 {
 	if (bWasCancelled && HeldProjectile)
 	{
-		HeldProjectile->Destroy();
-		HeldProjectile = nullptr;
-		bIsHoldingProjectile = false;
+		ClearHeldProjectile();
 	}
 
 	if (!bIsHoldingProjectile)
@@ -322,6 +450,17 @@ void UFTGA_ThrowItemAction::EndThrowAbility(bool bWasCancelled)
 		true,
 		bWasCancelled
 	);
+}
+
+void UFTGA_ThrowItemAction::ClearHeldProjectile()
+{
+	if (HeldProjectile)
+	{
+		HeldProjectile->Destroy();
+		HeldProjectile = nullptr;
+	}
+
+	bIsHoldingProjectile = false;
 }
 
 const FFTThrowActorStruct* UFTGA_ThrowItemAction::GetThrowActorData() const

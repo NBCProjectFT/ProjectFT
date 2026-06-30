@@ -9,9 +9,11 @@ class UFTThrowDataAsset;
 class UFTProjectileActorDataAsset;
 class AFTProjectileActor;
 class UMeshComponent;
+class UAnimMontage;
 
 struct FFTThrowActorStruct;
 struct FFTProjectileActorStruct;
+struct FGameplayEventData;
 
 UCLASS()
 class PROJECTFT_API UFTGA_ThrowItemAction : public UFTGA_ItemAbility
@@ -28,6 +30,14 @@ public:
 		const FGameplayEventData* TriggerEventData
 	) override;
 
+	virtual void EndAbility(
+		const FGameplayAbilitySpecHandle Handle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo,
+		bool bReplicateEndAbility,
+		bool bWasCancelled
+	) override;
+
 private:
 	bool StartHoldingProjectile();
 	bool ReleaseHeldProjectile();
@@ -35,6 +45,19 @@ private:
 	bool EnsureProjectileAbilityGranted();
 
 	void EndThrowAbility(bool bWasCancelled);
+
+	bool WaitForUseReleased();
+	bool WaitForThrowRelease();
+
+	UFUNCTION()
+	void HandleUseReleasedEvent(FGameplayEventData Payload);
+
+	UFUNCTION()
+	void HandleThrowReleaseEvent(FGameplayEventData Payload);
+
+	void HandleThrowMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	void ClearHeldProjectile();
 	
 	const FFTThrowActorStruct* GetThrowActorData() const;
 	const FFTProjectileActorStruct* GetProjectileActorData() const;
@@ -58,7 +81,13 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AFTProjectileActor> HeldProjectile = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActiveThrowMontage = nullptr;
 	
 	UPROPERTY(Transient)
 	bool bIsHoldingProjectile = false;
+
+	UPROPERTY(Transient)
+	bool bWaitingForThrowRelease = false;
 };
