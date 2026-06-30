@@ -56,6 +56,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "FT|Inventory")
 	FFTOnViewModelChanged OnViewModelChanged;
 
+	/** @brief 연동된 인벤토리 컴포넌트 반환 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	UFTInventoryComponent* GetLinkedInventory() const { return LinkedInventory.Get(); }
+
 public:
 	/** @brief 뷰모델 데이터를 인벤토리 컴포넌트의 실제 최신값으로 강제 동기화 */
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
