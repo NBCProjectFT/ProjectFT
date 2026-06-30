@@ -46,6 +46,7 @@ protected:
 	// [아이템 획득 방법 2] 파괴 시 바닥에 아이템을 뿌리는 함수 (액터 스폰)
 	void DropItemsOnFloor();
 
+	void TestCode();
 protected:
 	// 진열대 메시(루트). 상호작용 트레이스(Visibility)에 잡히도록 콜리전이 있어야 한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Shelf", meta = (AllowPrivateAccess = "true"))

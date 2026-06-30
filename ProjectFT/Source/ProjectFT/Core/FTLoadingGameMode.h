@@ -1,0 +1,30 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/GameModeBase.h"
+#include "FTLoadingGameMode.generated.h"
+
+class UFTLoadingWidget;
+
+UCLASS()
+class PROJECTFT_API AFTLoadingGameMode : public AGameModeBase
+{
+	GENERATED_BODY()
+
+public:
+	AFTLoadingGameMode();
+
+	virtual void StartPlay() override;
+
+private:
+	void CreateLoadingWidget();
+	void HandleLoadProgress(const FString& AssetName, int32 CompletedCount, int32 TotalCount);
+	void HandlePreloadCompleted();
+
+private:
+	UPROPERTY(EditDefaultsOnly, Category = "FT|Loading")
+	FName MainLevelName;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTLoadingWidget> LoadingWidget;
+};
