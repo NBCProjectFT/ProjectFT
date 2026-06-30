@@ -8,9 +8,17 @@
 
 UFTGA_UseItem::UFTGA_UseItem()
 {
-	// 시전(활성) 중 소유자에게 상태 태그를 부여 → 시전 중 이동하면 캐릭터가 이 태그로 어빌리티를 취소한다.
+	// 시전(활성) 중 소유자에게 상태 태그를 부여(ActivationOwnedTags) → "아이템 동작 진행 중?" 가드 질의에 쓰인다.
 	ActivationOwnedTags.AddTag(TAG_FT_State_UsingItem);
-	
+
+	// 식별 AssetTag(시전형). CancelAbilities는 AssetTags를 매칭하므로 취소 대상은 이 태그로 잡힌다.
+	// 이동 시(.Channeled) + 퀵슬롯 전환 시(부모 Ability.ItemUse) 모두 취소된다.
+	{
+		FGameplayTagContainer AssetTags;
+		AssetTags.AddTag(TAG_FT_Ability_ItemUse_Channeled);
+		SetAssetTags(AssetTags);
+	}
+
 	// 아이템 사용 입력이 보내는 GameplayEvent(Event.UseItem)로 발동된다(페이로드 = 대상 UFTItemDataAsset).
 	FAbilityTriggerData Trigger;
 	Trigger.TriggerTag = TAG_FT_Event_UseItem;

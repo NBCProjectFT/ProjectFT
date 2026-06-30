@@ -21,7 +21,7 @@
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
-#include "ProjectFT/Data/FTProjectileDataAsset.h"
+#include "ProjectFT/Data/FTLauncherDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 
 // Sets default values
@@ -132,15 +132,12 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 		return;
 	}
 
-	// 아이템 시전 중 이동하면 시전을 취소한다(채널링 중단). 취소 시 효과/쿨다운은 적용되지 않는다.
-	if (AbilitySystemComponent && !MoveValue.IsNearlyZero()
-		&& AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_UsingItem))
+	// 이동하면 "시전형(.Channeled)" 아이템 동작만 취소한다(채널링 중단). 조준형 투척(.Aimed)은 달리며도 유지된다.
+	if (!MoveValue.IsNearlyZero())
 	{
-		FGameplayTagContainer CancelTags;
-		CancelTags.AddTag(TAG_FT_State_UsingItem);
-		AbilitySystemComponent->CancelAbilities(&CancelTags);
+		CancelItemUseAbilities(TAG_FT_Ability_ItemUse_Channeled);
 	}
-	
+
 	// UE 표준 컨벤션: MoveValue.Y = 전방, MoveValue.X = 우측. 축 구성은 IMC에서 맞춘다.
 	const FRotator YawRotation(0.0f, GetControlRotation().Yaw, 0.0f);
 	const FRotationMatrix YawMatrix(YawRotation);
@@ -275,8 +272,40 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
 }
 
+void AFTPlayerCharacter::HandleUseItemReleased()
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	// 손을 뗀 순간을 제네릭 이벤트로 알린다. 충전형(투척) 어빌리티가 활성 중이면 이걸 받아 실제 발동한다.
+	// 즉시형 아이템은 이미 종료돼 있어 무해한 no-op이다(이 태그는 트리거 태그가 아니라 어떤 어빌리티도 새로 발동시키지 않는다).
+	FGameplayEventData Payload;
+	Payload.EventTag = TAG_FT_Event_UseReleased;
+	Payload.Instigator = this;
+	Payload.Target = this;
+	AbilitySystemComponent->HandleGameplayEvent(TAG_FT_Event_UseReleased, &Payload);
+}
+
+void AFTPlayerCharacter::CancelItemUseAbilities(FGameplayTag MatchTag)
+{
+	// State.UsingItem(ActivationOwnedTags)으로 "아이템 동작이 진행 중인가"를 값싸게 가드한 뒤,
+	// 실제 취소는 MatchTag(AssetTag) 매칭으로 한다(CancelAbilities는 AssetTags를 본다).
+	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_UsingItem))
+	{
+		FGameplayTagContainer CancelTags;
+		CancelTags.AddTag(MatchTag);
+		AbilitySystemComponent->CancelAbilities(&CancelTags);
+	}
+}
+
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 {
+	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
+	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
+	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
+
 	UFTInventoryComponent* Inventory = GetInventoryComponent();
 	if (!Inventory)
 	{
@@ -434,11 +463,20 @@ FName AFTPlayerCharacter::ResolveHeldItemAttachSocket(const UFTItemDataAsset* It
 			return HitScanData->HitScanActionData.AttachSocketName;
 		}
 	}
-	else if (const UFTProjectileDataAsset* ProjectileData = Cast<UFTProjectileDataAsset>(ItemData))
+	
+	// else if (const UFTProjectileDataAsset* ProjectileData = Cast<UFTProjectileDataAsset>(ItemData))
+	// {
+	// 	if (!ProjectileData->ProjectileAttackData.AttachSocketName.IsNone())
+	// 	{
+	// 		return ProjectileData->ProjectileAttackData.AttachSocketName;
+	// 	}
+	// }
+	
+	else if (const UFTLauncherDataAsset* LauncherData = Cast<UFTLauncherDataAsset>(ItemData))
 	{
-		if (!ProjectileData->ProjectileAttackData.AttachSocketName.IsNone())
+		if (!LauncherData->LauncherActionData.AttachSocketName.IsNone())
 		{
-			return ProjectileData->ProjectileAttackData.AttachSocketName;
+			return LauncherData->LauncherActionData.AttachSocketName;
 		}
 	}
 

@@ -6,37 +6,44 @@
 class UAnimMontage;
 class UFTItemDataAsset;
 
+/**
+ * 예전 ProjectileAction 데이터 구조다.
+ *
+ * 현재 실제 투사체 스폰/충돌/폭발 설정은 FFTProjectileActorStruct와
+ * UFTProjectileActorDataAsset 쪽에서 주로 처리한다.
+ * 이 구조체를 참조하는 기존 에셋이 있을 수 있으므로 필드는 유지한다.
+ */
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FFTProjectileActionStruct
 {
 	GENERATED_BODY()
 
 public:
-	// 공격 때 재생할 몽타주다.
+	// Projectile 액션에서 재생할 몽타주.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Animation")
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
 
-	// 어태치될 소켓의 이름
+	// 아이템을 손에 장착할 때 사용할 소켓 이름.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Attach")
 	FName AttachSocketName = TEXT("MeleeHandGrip_R");
 
-	// Projectile로 사용 될 아이템 데이터 에셋
+	// Projectile로 사용할 아이템 데이터 에셋.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ActorData")
 	TObjectPtr<UFTItemDataAsset> ItemData;
 
-	// Projectile에 전달할 속도
+	// Projectile에 전달할 초기 속도.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ProjectileData")
 	float ProjectileSpeed = 3000.0f;
 
-	// 데미지를 가하는 상태의 최소속도
+	// 효과를 적용할 수 있는 최소 속도.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ProjectileData")
 	float MinDamageSpeed = 1000.f;
 
-	// 다른적에게 튕겨져서 닿으면 추가로 데미지를 가하는지
+	// true면 한 대상에게 한 번만 효과를 적용한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ProjectileData")
 	bool bDamageOnlyOnce = true;
 
-	// 적에게 닿은 후 Destroy되는지
+	// true면 충돌 후 ProjectileActor를 제거한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|ProjectileData")
 	bool bDestroyOnImpact = false;
 };
