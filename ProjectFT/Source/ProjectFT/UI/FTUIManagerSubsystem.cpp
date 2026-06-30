@@ -30,7 +30,6 @@ void UFTUIManagerSubsystem::ShowInventory()
 {
 	if (InventoryWidget && InventoryWidget->IsInViewport())
 	{
-		InventoryWidget->PlayOpenPaper();
 		return;
 	}
 
@@ -62,11 +61,10 @@ void UFTUIManagerSubsystem::ShowInventory()
 			return;
 		}
 
-		InventoryWidget->SetPaperMaterial(GameData->PaperFlutterMaterial.LoadSynchronous());
+		// InventoryWidget->SetPaperMaterial(GameData->PaperFlutterMaterial.LoadSynchronous());
 	}
 
 	InventoryWidget->AddToViewport(20);
-	InventoryWidget->PlayOpenPaper();
 
 	FInputModeGameAndUI InputMode;
 	InputMode.SetWidgetToFocus(InventoryWidget->TakeWidget());
