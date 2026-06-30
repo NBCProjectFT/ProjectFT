@@ -86,7 +86,9 @@ void AFTPlayerController::SetupInputComponent()
 
 	if (UseItemAction)
 	{
+		// Started = 누른 순간(즉시 발동/조준 시작), Completed = 손 뗀 순간(충전형 투척 발동).
 		EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Started, this, &AFTPlayerController::OnUseItemStarted);
+		EnhancedInput->BindAction(UseItemAction, ETriggerEvent::Completed, this, &AFTPlayerController::OnUseItemCompleted);
 	}
 
 	if (QuickSlot1Action)
@@ -244,6 +246,14 @@ void AFTPlayerController::OnUseItemStarted(const FInputActionValue& Value)
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleUseItemPressed();
+	}
+}
+
+void AFTPlayerController::OnUseItemCompleted(const FInputActionValue& Value)
+{
+	if (CachedLocomotionInput)
+	{
+		CachedLocomotionInput->HandleUseItemReleased();
 	}
 }
 

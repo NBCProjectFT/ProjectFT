@@ -5,8 +5,10 @@
 #include "AbilitySystemComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 
 #include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_ItemAbility.h"
@@ -17,6 +19,10 @@
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Data/FTMeleeDataAsset.h"
+#include "ProjectFT/Data/FTHitScanDataAsset.h"
+#include "ProjectFT/Data/FTProjectileDataAsset.h"
+#include "ProjectFT/Item/FTItemActor.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -26,7 +32,7 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	GetCapsuleComponent()->InitCapsuleSize(35.0f, 90.0f);
 
-	// 시점(컨트롤러 회전)에 본체 yaw를 맞춘다(FPS 프로토타입).
+	// 조준형(스트레이프) TPS: 본체 yaw를 컨트롤러(카메라) 회전에 맞춘다. 좌우 입력 시 옆으로 스트레이프.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
@@ -39,16 +45,20 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 		Movement->MaxWalkSpeedCrouched = 300.0f;
 	}
 
-	// 1인칭 카메라: 눈높이에 붙이고 컨트롤러 회전(pitch/yaw)을 직접 따르게 한다.
-	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-	FirstPersonCamera->SetupAttachment(GetCapsuleComponent());
-	FirstPersonCamera->SetRelativeLocation(FVector(0.0f, 0.0f, 70.0f));
-	FirstPersonCamera->bUsePawnControlRotation = true;
+	// 3인칭 카메라 붐: 캡슐 상단(머리 높이) 피벗에서 컨트롤러 회전(pitch/yaw)을 따라 돌고, 뒤로 일정 거리 빠진다.
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetupAttachment(GetCapsuleComponent());
+	CameraBoom->SetRelativeLocation(FVector(0.0f, 0.0f, 70.0f));
+	CameraBoom->TargetArmLength = 300.0f;
+	CameraBoom->bUsePawnControlRotation = true;   // 붐이 컨트롤러 회전을 따른다.
+	CameraBoom->bDoCollisionTest = true;          // 벽에 가리면 카메라를 앞으로 당겨 클리핑 방지.
+	// 조준형(스트레이프) TPS용 오버숄더 오프셋. 에디터(BP)에서 조절 가능.
+	CameraBoom->SocketOffset = FVector(0.0f, 50.0f, 0.0f);
 
-	if (USkeletalMeshComponent* CharacterMesh = GetMesh())
-	{
-		CharacterMesh->SetOwnerNoSee(true);
-	}
+	// 붐 끝의 추적 카메라. 회전은 붐이 담당하므로 카메라 자체는 폰 회전을 따르지 않는다.
+	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	FollowCamera->bUsePawnControlRotation = false;
 
 	// 상호작용 컴포넌트.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
@@ -56,6 +66,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	// GAS: 플레이어 전용 속성셋만 여기서 생성한다(ASC·공용 AttributeSet은 베이스 AFTCharacterBase가 생성).
 	// 캐릭터 서브오브젝트라 베이스의 ASC가 자동 등록한다.
 	PlayerAttributeSet = CreateDefaultSubobject<UFTPlayerAttributeSet>(TEXT("PlayerAttributeSet"));
+
+	// 손에 든 아이템 비주얼의 기본 스폰 클래스. 필요하면 BP에서 파생 클래스로 교체한다.
+	HeldItemActorClass = AFTItemActor::StaticClass();
 }
 
 // Called when the game starts or when spawned
@@ -77,11 +90,23 @@ void AFTPlayerCharacter::BeginPlay()
 
 	// 사망 통지(OnOutOfHealth → HandleDeath)와 초기 ApplyMovementSpeed 호출은 베이스가 Super에서 처리한다(플레이어 override 실행).
 
-	// 서 있을 때의 카메라 상대 위치를 앉기 보간의 기준점으로 캐시한다.
-	if (FirstPersonCamera)
+	// 서 있을 때의 카메라 붐 상대 위치를 앉기 보간의 기준점으로 캐시한다.
+	if (CameraBoom)
 	{
-		DefaultCameraRelativeLocation = FirstPersonCamera->GetRelativeLocation();
+		DefaultBoomRelativeLocation = CameraBoom->GetRelativeLocation();
 	}
+}
+
+void AFTPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 손에 어태치된 아이템 액터는 캐릭터 파괴 시 자동으로 정리되지 않으므로 직접 제거한다.
+	if (HeldItemActor)
+	{
+		HeldItemActor->Destroy();
+		HeldItemActor = nullptr;
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void AFTPlayerCharacter::Tick(float DeltaSeconds)
@@ -107,15 +132,12 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 		return;
 	}
 
-	// 아이템 시전 중 이동하면 시전을 취소한다(채널링 중단). 취소 시 효과/쿨다운은 적용되지 않는다.
-	if (AbilitySystemComponent && !MoveValue.IsNearlyZero()
-		&& AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_UsingItem))
+	// 이동하면 "시전형(.Channeled)" 아이템 동작만 취소한다(채널링 중단). 조준형 투척(.Aimed)은 달리며도 유지된다.
+	if (!MoveValue.IsNearlyZero())
 	{
-		FGameplayTagContainer CancelTags;
-		CancelTags.AddTag(TAG_FT_State_UsingItem);
-		AbilitySystemComponent->CancelAbilities(&CancelTags);
+		CancelItemUseAbilities(TAG_FT_Ability_ItemUse_Channeled);
 	}
-	
+
 	// UE 표준 컨벤션: MoveValue.Y = 전방, MoveValue.X = 우측. 축 구성은 IMC에서 맞춘다.
 	const FRotator YawRotation(0.0f, GetControlRotation().Yaw, 0.0f);
 	const FRotationMatrix YawMatrix(YawRotation);
@@ -214,7 +236,7 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 	if (!Inventory || CurrentHeldInventoryItem.ItemId.IsNone()
 		|| Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
 	{
-		CurrentHeldInventoryItem = FFTInventoryItem();
+		SetCurrentHeldInventoryItem(FFTInventoryItem());
 		return;
 	}
 
@@ -250,8 +272,40 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
 }
 
+void AFTPlayerCharacter::HandleUseItemReleased()
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	// 손을 뗀 순간을 제네릭 이벤트로 알린다. 충전형(투척) 어빌리티가 활성 중이면 이걸 받아 실제 발동한다.
+	// 즉시형 아이템은 이미 종료돼 있어 무해한 no-op이다(이 태그는 트리거 태그가 아니라 어떤 어빌리티도 새로 발동시키지 않는다).
+	FGameplayEventData Payload;
+	Payload.EventTag = TAG_FT_Event_UseReleased;
+	Payload.Instigator = this;
+	Payload.Target = this;
+	AbilitySystemComponent->HandleGameplayEvent(TAG_FT_Event_UseReleased, &Payload);
+}
+
+void AFTPlayerCharacter::CancelItemUseAbilities(FGameplayTag MatchTag)
+{
+	// State.UsingItem(ActivationOwnedTags)으로 "아이템 동작이 진행 중인가"를 값싸게 가드한 뒤,
+	// 실제 취소는 MatchTag(AssetTag) 매칭으로 한다(CancelAbilities는 AssetTags를 본다).
+	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_UsingItem))
+	{
+		FGameplayTagContainer CancelTags;
+		CancelTags.AddTag(MatchTag);
+		AbilitySystemComponent->CancelAbilities(&CancelTags);
+	}
+}
+
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 {
+	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
+	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
+	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
+
 	UFTInventoryComponent* Inventory = GetInventoryComponent();
 	if (!Inventory)
 	{
@@ -271,14 +325,14 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	FFTInventoryItem QuickSlotItem;
 	if (Inventory->GetQuickSlotItem(SlotIndex, QuickSlotItem) && QuickSlotItem.Quantity > 0 && QuickSlotItem.ItemDataAsset)
 	{
-		CurrentHeldInventoryItem = QuickSlotItem;
+		SetCurrentHeldInventoryItem(QuickSlotItem);
 		EnsureUseAbilityGranted(CurrentHeldInventoryItem.ItemDataAsset->ItemData.UseData.UseAbility);
 		UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d equipped '%s' on '%s'."),
 			SlotIndex, *CurrentHeldInventoryItem.ItemId.ToString(), *GetName());
 	}
 	else
 	{
-		CurrentHeldInventoryItem = FFTInventoryItem();
+		SetCurrentHeldInventoryItem(FFTInventoryItem());
 	}
 }
 
@@ -293,6 +347,132 @@ void AFTPlayerCharacter::HandleToggleInventoryPressed()
 void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen)
 {
 	bInventoryOpen = bNewInventoryOpen;
+}
+
+bool AFTPlayerCharacter::IsChannelingInteraction() const
+{
+	// 채널 상태의 단일 출처는 InteractionComponent다(여기선 AnimBP가 폰에서 바로 읽도록 중계만 한다).
+	return InteractionComponent && InteractionComponent->IsChanneling();
+}
+
+EFTWeaponStanceType AFTPlayerCharacter::GetHeldWeaponStance() const
+{
+	// 스탠스의 단일 출처는 손에 든 아이템 데이터다. 든 게 없으면 맨손.
+	const UFTItemDataAsset* Item = CurrentHeldInventoryItem.ItemDataAsset.Get();
+	return Item ? Item->ItemData.WeaponStance : EFTWeaponStanceType::Unarmed;
+}
+
+void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem)
+{
+	// 같은 아이템(ItemId 동일)이면 비주얼 액터를 다시 스폰하지 않는다.
+	// 같은 퀵슬롯을 반복해서 누를 때 Destroy→Respawn으로 깜빡이거나 진행 중인 연출이 끊기는 것을 막는다.
+	// 수량/데이터 포인터는 갱신될 수 있으므로 값 자체는 덮어쓴다.
+	const bool bHeldItemChanged = (CurrentHeldInventoryItem.ItemId != NewHeldItem.ItemId);
+	CurrentHeldInventoryItem = NewHeldItem;
+
+	if (bHeldItemChanged)
+	{
+		RefreshHeldItemActor();
+	}
+}
+
+void AFTPlayerCharacter::RefreshHeldItemActor()
+{
+	// 교체/해제 공통: 이전에 들고 있던 액터는 항상 먼저 제거한다.
+	if (HeldItemActor)
+	{
+		HeldItemActor->Destroy();
+		HeldItemActor = nullptr;
+	}
+
+	UFTItemDataAsset* ItemData = CurrentHeldInventoryItem.ItemDataAsset.Get();
+	UWorld* World = GetWorld();
+	USkeletalMeshComponent* OwnerMesh = GetMesh();
+
+	// 들 아이템이 없거나(빈 슬롯/해제) 스폰 조건이 안 되면 손을 비운 상태로 둔다.
+	if (CurrentHeldInventoryItem.ItemId.IsNone() || !ItemData || !World || !OwnerMesh || !HeldItemActorClass)
+	{
+		return;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	// 손에 붙일 비주얼이라 충돌로 스폰이 실패하면 안 된다.
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	HeldItemActor = World->SpawnActor<AFTItemActor>(HeldItemActorClass, GetActorTransform(), SpawnParams);
+	if (!HeldItemActor)
+	{
+		return;
+	}
+
+	// 데이터 주입 후 외형 갱신.
+	HeldItemActor->ItemData = ItemData;
+	HeldItemActor->UpdateAppearance();
+
+	// 손에 든 인스턴스는 월드 픽업이 아니므로 물리/충돌/오버랩을 끈다.
+	// (AFTItemActor는 기본적으로 물리 시뮬레이션 + 줍기 가능 상태로 생성되므로, 그대로 두면 흔들리거나 자기 손에서 다시 줍힌다.)
+	HeldItemActor->SetActorEnableCollision(false);
+
+	TArray<UPrimitiveComponent*> PrimitiveComponents;
+	HeldItemActor->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+	for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
+	{
+		if (!PrimitiveComponent)
+		{
+			continue;
+		}
+
+		PrimitiveComponent->SetSimulatePhysics(false);
+		PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		PrimitiveComponent->SetGenerateOverlapEvents(false);
+	}
+
+	// 아이템 타입별 데이터에서 어태치 소켓을 결정한다(없으면 폴백).
+	const FName AttachSocketName = ResolveHeldItemAttachSocket(ItemData);
+	if (!AttachSocketName.IsNone() && !OwnerMesh->DoesSocketExist(AttachSocketName))
+	{
+		UE_LOG(LogFTItem, Warning, TEXT("Held item socket '%s' does not exist on mesh '%s'. Attaching to mesh root."),
+			*AttachSocketName.ToString(), *GetNameSafe(OwnerMesh));
+	}
+
+	HeldItemActor->AttachToComponent(
+		OwnerMesh,
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		OwnerMesh->DoesSocketExist(AttachSocketName) ? AttachSocketName : NAME_None);
+
+	UE_LOG(LogFTItem, Verbose, TEXT("Held item actor spawned. Item=%s Socket=%s Actor=%s"),
+		*GetNameSafe(ItemData), *AttachSocketName.ToString(), *GetNameSafe(HeldItemActor));
+}
+
+FName AFTPlayerCharacter::ResolveHeldItemAttachSocket(const UFTItemDataAsset* ItemData) const
+{
+	// 무기 타입별 데이터 에셋이 각자 어태치 소켓을 들고 있으므로 그 값을 우선 사용한다.
+	if (const UFTMeleeDataAsset* MeleeData = Cast<UFTMeleeDataAsset>(ItemData))
+	{
+		if (!MeleeData->MeleeActionData.AttachSocketName.IsNone())
+		{
+			return MeleeData->MeleeActionData.AttachSocketName;
+		}
+	}
+	else if (const UFTHitScanDataAsset* HitScanData = Cast<UFTHitScanDataAsset>(ItemData))
+	{
+		if (!HitScanData->HitScanActionData.AttachSocketName.IsNone())
+		{
+			return HitScanData->HitScanActionData.AttachSocketName;
+		}
+	}
+	else if (const UFTProjectileDataAsset* ProjectileData = Cast<UFTProjectileDataAsset>(ItemData))
+	{
+		if (!ProjectileData->ProjectileAttackData.AttachSocketName.IsNone())
+		{
+			return ProjectileData->ProjectileAttackData.AttachSocketName;
+		}
+	}
+
+	// 타입 미지정이거나 소켓이 비어 있으면 폴백 소켓을 쓴다.
+	return HeldItemFallbackSocketName;
 }
 
 void AFTPlayerCharacter::ApplyMovementSpeed()
@@ -429,9 +609,9 @@ void AFTPlayerCharacter::ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ)
 
 void AFTPlayerCharacter::UpdateCrouchCameraOffset()
 {
-	if (FirstPersonCamera)
+	if (CameraBoom)
 	{
-		FirstPersonCamera->SetRelativeLocation(DefaultCameraRelativeLocation + FVector(0.0f, 0.0f, CrouchCameraOffsetZ));
+		CameraBoom->SetRelativeLocation(DefaultBoomRelativeLocation + FVector(0.0f, 0.0f, CrouchCameraOffsetZ));
 	}
 }
 
