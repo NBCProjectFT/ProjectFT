@@ -13,6 +13,7 @@
 class UCameraComponent;
 class USpringArmComponent;
 class UFTInteractionComponent;
+class UFTTraversalComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
@@ -45,6 +46,7 @@ public:
 	virtual void HandleInteractReleased() override;
 	virtual void HandleSkillCheckPressed() override;
 	virtual void HandleUseItemPressed() override;
+	virtual void HandleUseItemReleased() override;
 	virtual void HandleSelectQuickSlot(int32 SlotIndex) override;
 	virtual void HandleToggleInventoryPressed() override;
 	//~ End IFTInputInterface
@@ -93,6 +95,10 @@ protected:
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
+
+	// 트레이스 기반 파쿠르(Vault/Hurdle/Mantle). 점프 입력 시 TryStartTraversal에서 사용한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Traversal", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTTraversalComponent> TraversalComponent;
     
 	// 플레이어 전용 속성셋(스태미나/이동 배수/손재주). ASC·공용 AttributeSet은 베이스(AFTCharacterBase)가 보유하며,
 	// 이 세트는 캐릭터 서브오브젝트라 베이스의 ASC에 자동 등록된다.
@@ -139,9 +145,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
 	float CrouchCameraInterpSpeed = 10.0f;
 
-	// true면 점프 입력 시 traversal을 먼저 시도한다. (보류)
+	// true면 점프 입력 시 traversal(vault/hurdle/mantle)을 먼저 시도하고, 장애물이 없으면 일반 점프한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Traversal")
-	bool bTryTraversalBeforeJump = false;
+	bool bTryTraversalBeforeJump = true;
 
 private:
 	// MoveSpeed×스프린트/앉기 배수로 MaxWalkSpeed/Crouched를 갱신한다(베이스의 기본 파생을 override).
@@ -159,6 +165,11 @@ private:
 	UFTInventoryComponent* GetInventoryComponent() const;
 
 	bool EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility);
+
+	// 활성 중인 아이템 사용 어빌리티를 AssetTag(MatchTag) 기준으로 취소한다. 취소되면 효과/쿨다운은 적용되지 않는다.
+	// CancelAbilities는 ActivationOwnedTags가 아니라 AssetTags를 매칭함에 주의 — 이동 시엔 .Channeled(조준형 투척은 유지),
+	// 퀵슬롯 전환 시엔 부모 Ability.ItemUse로 종류 불문 취소.
+	void CancelItemUseAbilities(FGameplayTag MatchTag);
 
 	// 손에 든 아이템 변경의 단일 진입점. 같은 ItemId면 비주얼을 유지하고, 달라질 때만 액터를 교체한다.
 	void SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem);
