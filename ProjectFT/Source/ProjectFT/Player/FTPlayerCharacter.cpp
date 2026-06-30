@@ -21,7 +21,7 @@
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
-#include "ProjectFT/Data/FTProjectileDataAsset.h"
+#include "ProjectFT/Data/FTLauncherDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 
 // Sets default values
@@ -463,11 +463,20 @@ FName AFTPlayerCharacter::ResolveHeldItemAttachSocket(const UFTItemDataAsset* It
 			return HitScanData->HitScanActionData.AttachSocketName;
 		}
 	}
-	else if (const UFTProjectileDataAsset* ProjectileData = Cast<UFTProjectileDataAsset>(ItemData))
+	
+	// else if (const UFTProjectileDataAsset* ProjectileData = Cast<UFTProjectileDataAsset>(ItemData))
+	// {
+	// 	if (!ProjectileData->ProjectileAttackData.AttachSocketName.IsNone())
+	// 	{
+	// 		return ProjectileData->ProjectileAttackData.AttachSocketName;
+	// 	}
+	// }
+	
+	else if (const UFTLauncherDataAsset* LauncherData = Cast<UFTLauncherDataAsset>(ItemData))
 	{
-		if (!ProjectileData->ProjectileAttackData.AttachSocketName.IsNone())
+		if (!LauncherData->LauncherActionData.AttachSocketName.IsNone())
 		{
-			return ProjectileData->ProjectileAttackData.AttachSocketName;
+			return LauncherData->LauncherActionData.AttachSocketName;
 		}
 	}
 
