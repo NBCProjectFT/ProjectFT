@@ -101,6 +101,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	bool IsDiscardButtonEnabled() const { return SelectedIndices.Num() > 0; }
 
+	/**
+	 * @brief 특정 슬롯 인덱스가 다중 선택(체크)되어 있는지 확인
+	 * @param SlotIndex : 확인할 인벤토리 슬롯 인덱스
+	 * @return 선택되어 있으면 true
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	bool IsIndexSelected(int32 SlotIndex) const;
+
 	/** @brief 체크 선택된 다중 아이템들을 드롭 및 일괄 파괴 */
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
 	void DiscardSelectedItems();
