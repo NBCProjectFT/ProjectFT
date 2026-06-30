@@ -12,6 +12,7 @@
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
 namespace
 {
@@ -52,7 +53,7 @@ AFTNPCAIController::AFTNPCAIController()
 	//NPC가 플레이어의 도둑질을 인식할 시야각 추가
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
 	SightConfig->SightRadius = 1500.0f;
-	SightConfig->LoseSightRadius = 1800.0f;
+	SightConfig->LoseSightRadius = SightConfig->SightRadius;
 	SightConfig->PeripheralVisionAngleDegrees = 40.0f;
 	SightConfig->SetMaxAge(2.0f);
 	SightConfig->DetectionByAffiliation.bDetectEnemies = true;
@@ -69,10 +70,32 @@ void AFTNPCAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (SightConfig && NPCPerceptionComponent)
+	{
+		SightConfig->LoseSightRadius = SightConfig->SightRadius;
+		NPCPerceptionComponent->RequestStimuliListenerUpdate();
+	}
+
 	if (NPCPerceptionComponent)
 	{
 		NPCPerceptionComponent->OnTargetPerceptionUpdated.AddDynamic(this, &AFTNPCAIController::OnTargetPerceptionUpdated);
 	}
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	ShelfDamagedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_ShelfDamaged,
+		this,
+		&ThisClass::OnShelfDamaged
+	);
+}
+
+void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (ShelfDamagedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfDamagedListenerHandle);
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 
@@ -155,6 +178,7 @@ void AFTNPCAIController::EnterReporting()
 	bReportCompleted = false;
 	bReportCancelled = false;
 	LastLoggedReportPercent = -1;
+	LastLoggedReportDecayPercent = 101;
 
 	UpdateTargetState();
 	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Enter Reporting"));
@@ -184,10 +208,42 @@ bool AFTNPCAIController::TickReporting(float DeltaTime)
 		CancelReport();
 		return false;
 	}
+	
+	if (!bIsTargetActivelyStealing && !bObservedShelfDamaged)
+	{
+		if (CurrentReportProgress > 0.0f)
+		{
+			ReportElapsedTime = FMath::Max(
+				ReportElapsedTime - DeltaTime * (ReportDuration / FMath::Max(ReportDecayDuration, KINDA_SMALL_NUMBER)),
+				0.0f
+			);
+			CurrentReportProgress = FMath::Clamp(ReportElapsedTime / FMath::Max(ReportDuration, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
+			BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, CurrentReportProgress);
+
+			const int32 ReportPercent = FMath::FloorToInt(CurrentReportProgress * 100.0f);
+			if (ReportPercent / 10 < LastLoggedReportDecayPercent / 10)
+			{
+				LastLoggedReportDecayPercent = ReportPercent;
+				UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Decay %d%%"), ReportPercent);
+			}
+		}
+
+		if (CurrentReportProgress <= 0.0f)
+		{
+			CancelReport();
+		}
+
+		return false;
+	}
+	else
+	{
+		
+	}
 
 	ReportElapsedTime += DeltaTime;
 	CurrentReportProgress = FMath::Clamp(ReportElapsedTime / FMath::Max(ReportDuration, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
 	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, CurrentReportProgress);
+	LastLoggedReportDecayPercent = 101;
 
 	const int32 ReportPercent = FMath::FloorToInt(CurrentReportProgress * 100.0f);
 	if (ReportPercent / 10 > LastLoggedReportPercent / 10)
@@ -213,7 +269,11 @@ void AFTNPCAIController::CancelReport()
 	}
 
 	bReportCancelled = true;
+	bObservedShelfDamaged = false;
 	CurrentReportProgress = 0.0f;
+	ReportElapsedTime = 0.0f;
+	LastLoggedReportDecayPercent = 0;
+	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, 0.0f);
 	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Cancelled"));
 }
 
@@ -224,6 +284,8 @@ void AFTNPCAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetStealing = false;
+		bIsTargetActivelyStealing = false;
+		bCanStartReportFlow = false;
 		return;
 	}
 
@@ -233,34 +295,80 @@ void AFTNPCAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetStealing = false;
+		bIsTargetActivelyStealing = false;
+		bCanStartReportFlow = false;
 		return;
 	}
 
 	TargetDistance = FVector::Dist(ControlledPawn->GetActorLocation(), TargetActor->GetActorLocation());
 	bHasSeenTarget = IsTargetCurrentlyVisible();
 
-	const bool bTargetCurrentlyStealing = IsTargetStealing(TargetActor);
-	if (bHasSeenTarget && bTargetCurrentlyStealing)
+	bIsTargetActivelyStealing = IsTargetStealing(TargetActor);
+	if (bHasSeenTarget && bIsTargetActivelyStealing)
 	{
 		LastObservedStealingTime = GetWorld() ? GetWorld()->GetTimeSeconds() : LastObservedStealingTime;
 	}
 
 	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	const bool bRecentlyObservedStealing = CurrentTime - LastObservedStealingTime <= ObservedStealingMemorySeconds;
-	bIsTargetStealing = bTargetCurrentlyStealing || bRecentlyObservedStealing;
+	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
+	bCanStartReportFlow = TargetActor &&
+		((bHasSeenTarget && bIsTargetActivelyStealing) || bObservedShelfDamaged);
 
-	LogReportConditionDebug(bTargetCurrentlyStealing);
+	if (bReportCompleted && !bCanStartReportFlow)
+	{
+		bReportCompleted = false;
+		bReportCancelled = false;
+		ReportElapsedTime = 0.0f;
+		CurrentReportProgress = 0.0f;
+		LastLoggedReportPercent = -1;
+		LastLoggedReportDecayPercent = 101;
+		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Rearmed"));
+	}
+
+	if (bReportCancelled && bCanStartReportFlow)
+	{
+		bReportCancelled = false;
+		ReportElapsedTime = 0.0f;
+		CurrentReportProgress = 0.0f;
+		LastLoggedReportPercent = -1;
+		LastLoggedReportDecayPercent = 101;
+		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Retry Ready"));
+	}
+
+	LogReportConditionDebug(bIsTargetActivelyStealing);
 }
 
 bool AFTNPCAIController::CanStartReportFlow() const
 {
-	return TargetActor && bHasSeenTarget && bIsTargetStealing;
+	return bCanStartReportFlow;
 }
 
 bool AFTNPCAIController::IsPlayerActor(const AActor* Actor) const
 {
 	const APawn* TargetPawn = Cast<APawn>(Actor);
 	return TargetPawn && TargetPawn->IsPlayerControlled();
+}
+
+AActor* AFTNPCAIController::ResolvePlayerActor(AActor* DamageCauser) const
+{
+	AActor* CurrentActor = DamageCauser;
+	for (int32 OwnerDepth = 0; CurrentActor && OwnerDepth < 4; ++OwnerDepth)
+	{
+		if (IsPlayerActor(CurrentActor))
+		{
+			return CurrentActor;
+		}
+
+		if (APawn* InstigatorPawn = CurrentActor->GetInstigator(); IsPlayerActor(InstigatorPawn))
+		{
+			return InstigatorPawn;
+		}
+
+		CurrentActor = CurrentActor->GetOwner();
+	}
+
+	return nullptr;
 }
 
 bool AFTNPCAIController::IsTargetCurrentlyVisible() const
@@ -272,7 +380,7 @@ bool AFTNPCAIController::IsTargetCurrentlyVisible() const
 	}
 
 	const FVector ToTarget = TargetActor->GetActorLocation() - ControlledPawn->GetActorLocation();
-	if (ToTarget.SizeSquared() > FMath::Square(SightConfig->LoseSightRadius))
+	if (ToTarget.SizeSquared() > FMath::Square(SightConfig->SightRadius))
 	{
 		return false;
 	}
@@ -307,10 +415,49 @@ bool AFTNPCAIController::IsTargetStealing(const AActor* Actor) const
 
 bool AFTNPCAIController::ShouldCancelReport() const
 {
-	return !TargetActor ||
-		!bHasSeenTarget ||
-		!bIsTargetStealing ||
-		TargetDistance > ReportCancelDistance;
+	if (!TargetActor)
+	{
+		return true;
+	}
+
+	if (bObservedShelfDamaged)
+	{
+		return false;
+	}
+
+	return !bHasSeenTarget || TargetDistance > ReportCancelDistance;
+}
+
+void AFTNPCAIController::OnShelfDamaged(
+	FGameplayTag Channel,
+	const FFTMessagePayloadStruct& Payload)
+{
+	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
+	AActor* DamagedShelf = Payload.TargetActor;
+
+	if (!IsPlayerActor(SuspectActor) || !DamagedShelf)
+	{
+		return;
+	}
+
+	TargetActor = SuspectActor;
+	UpdateTargetState();
+
+	if (!bHasSeenTarget || !LineOfSightTo(DamagedShelf))
+	{
+		return;
+	}
+
+	bObservedShelfDamaged = true;
+	bCanStartReportFlow = true;
+
+	UE_LOG(
+		LogFTNPC,
+		Log,
+		TEXT("[NPC] Observed shelf damage: Player=%s Shelf=%s"),
+		*GetNameSafe(SuspectActor),
+		*GetNameSafe(DamagedShelf)
+	);
 }
 
 void AFTNPCAIController::CompleteReport()
@@ -321,6 +468,7 @@ void AFTNPCAIController::CompleteReport()
 	}
 
 	bReportCompleted = true;
+	bObservedShelfDamaged = false;
 	CurrentReportProgress = 1.0f;
 
 	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportCompleted, TargetActor, ReportAmount, 1.0f);
@@ -340,65 +488,41 @@ void AFTNPCAIController::DrawSightDebug() const
 		return;
 	}
 
-	const FVector EyeLocation = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 80.0f);
-	const FVector Forward = ControlledPawn->GetActorForwardVector();
-	const float ConeHalfAngleRadians = FMath::DegreesToRadians(SightConfig->PeripheralVisionAngleDegrees);
+	const FVector Origin = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 8.0f);
+	const FVector Forward = ControlledPawn->GetActorForwardVector().GetSafeNormal2D();
+	const float HalfAngleDegrees = SightConfig->PeripheralVisionAngleDegrees;
+	constexpr int32 SegmentCount = 16;
+	constexpr float LifeTime = 0.05f;
+	constexpr float Thickness = 1.5f;
 
-	DrawDebugSphere(
-		GetWorld(),
-		ControlledPawn->GetActorLocation(),
-		SightConfig->SightRadius,
-		32,
-		FColor::Green,
-		false,
-		0.05f,
-		0,
-		1.5f
-	);
+	FVector PreviousPoint = Origin;
+	for (int32 SegmentIndex = 0; SegmentIndex <= SegmentCount; ++SegmentIndex)
+	{
+		const float Alpha = static_cast<float>(SegmentIndex) / static_cast<float>(SegmentCount);
+		const float AngleDegrees = FMath::Lerp(-HalfAngleDegrees, HalfAngleDegrees, Alpha);
+		const FVector Direction = Forward.RotateAngleAxis(AngleDegrees, FVector::UpVector);
+		const FVector CurrentPoint = Origin + Direction * SightConfig->SightRadius;
 
-	DrawDebugSphere(
-		GetWorld(),
-		ControlledPawn->GetActorLocation(),
-		SightConfig->LoseSightRadius,
-		32,
-		FColor::Yellow,
-		false,
-		0.05f,
-		0,
-		1.5f
-	);
+		if (SegmentIndex == 0)
+		{
+			DrawDebugLine(GetWorld(), Origin, CurrentPoint, FColor::Cyan, false, LifeTime, 0, Thickness);
+		}
+		else
+		{
+			DrawDebugLine(GetWorld(), PreviousPoint, CurrentPoint, FColor::Cyan, false, LifeTime, 0, Thickness);
+		}
 
-	DrawDebugSphere(
-		GetWorld(),
-		ControlledPawn->GetActorLocation(),
-		ReportCancelDistance,
-		32,
-		FColor::Orange,
-		false,
-		0.05f,
-		0,
-		2.0f
-	);
+		if (SegmentIndex == SegmentCount)
+		{
+			DrawDebugLine(GetWorld(), Origin, CurrentPoint, FColor::Cyan, false, LifeTime, 0, Thickness);
+		}
 
-	DrawDebugCone(
-		GetWorld(),
-		EyeLocation,
-		Forward,
-		SightConfig->SightRadius,
-		ConeHalfAngleRadians,
-		ConeHalfAngleRadians,
-		24,
-		FColor::Cyan,
-		false,
-		0.05f,
-		0,
-		2.0f
-	);
+		PreviousPoint = CurrentPoint;
+	}
 }
 
 void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 {
-	const bool bCanStartReportFlow = CanStartReportFlow();
 	if (bLastLoggedHasSeenTarget == bHasSeenTarget &&
 		bLastLoggedIsTargetStealing == bIsTargetStealing &&
 		bLastLoggedCanStartReportFlow == bCanStartReportFlow)
@@ -422,4 +546,3 @@ void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 		bCanStartReportFlow ? TEXT("true") : TEXT("false")
 	);
 }
-
