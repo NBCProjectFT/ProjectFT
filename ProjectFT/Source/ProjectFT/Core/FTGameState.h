@@ -6,6 +6,7 @@
 #include "FTGameState.generated.h"
 
 class UFTReportGaugeComponent;
+class UFTSecurityChaseGaugeComponent;
 
 UCLASS()
 class PROJECTFT_API AFTGameState : public AGameStateBase
@@ -26,6 +27,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UFTReportGaugeComponent> ReportGaugeComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	TObjectPtr<UFTSecurityChaseGaugeComponent> SecurityChaseGaugeComponent;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Security")
 	void SetReportGauge(float NewReportGauge);

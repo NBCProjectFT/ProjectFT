@@ -14,6 +14,12 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportProgress, "Event.NPC.ReportProgress
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportCompleted, "Event.NPC.ReportCompleted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseStarted, "Event.Security.ChaseStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityAttackStarted, "Event.Security.AttackStarted");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetSeen, "Event.Security.TargetSeen");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetLost, "Event.Security.TargetLost");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseGaugeChanged, "Event.Security.ChaseGauge.Changed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseEnded, "Event.Security.ChaseEnded");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityDeployed, "Event.Security.Deployed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityReturnedToRoom, "Event.Security.ReturnedToRoom");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_DropItem, "Gameplay.Request.DropItem");
