@@ -16,3 +16,4 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseStarted, "Event.Security.ChaseS
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityAttackStarted, "Event.Security.AttackStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_DropItem, "Gameplay.Request.DropItem");

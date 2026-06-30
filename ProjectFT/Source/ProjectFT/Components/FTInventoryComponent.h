@@ -77,6 +77,18 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
 	bool GetInventoryItemAtIndex(int32 SlotIndex, FFTInventoryItem& OutItem) const;
+
+	/** @brief 상단 카테고리 탭 선택 시 해당하는 타입의 아이템만 필터링하여 반환 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	TArray<FFTInventoryItem> GetItemsByCategory(EFTItemCategoryType Category) const;
+
+	/** @brief 다중 선택된 인덱스들의 아이템 일괄 제거 */
+	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
+	bool RemoveItemsByIndices(const TArray<int32>& TargetIndices);
+
+	/** @brief 인벤토리 아이템을 실제 필드에 드롭해 달라는 런타임 메시지 발행 */
+	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
+	void RequestDropItems(const TArray<int32>& TargetIndices);
 	
 	/**
 	 * @brief 현재 인벤토리에 보관된 아이템들의 총 무게를 반환합니다.
