@@ -10,6 +10,8 @@
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
+#include "GameFramework/Pawn.h"
 
 void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -62,6 +64,29 @@ void UFTUIManagerSubsystem::ShowInventory()
 		}
 
 		// InventoryWidget->SetPaperMaterial(GameData->PaperFlutterMaterial.LoadSynchronous());
+	}
+
+	// 뷰모델을 현재 플레이어의 인벤토리 컴포넌트에 연결한다. 이 연결이 없으면 위젯은 떠도 아이템이 항상 비어 있다
+	// (ViewModel::NotifyChanged가 LinkedInventory 없이 즉시 return하기 때문).
+	if (InventoryViewModel)
+	{
+		UFTInventoryComponent* InventoryComp = nullptr;
+		if (const APawn* Pawn = PlayerController->GetPawn())
+		{
+			InventoryComp = Pawn->FindComponentByClass<UFTInventoryComponent>();
+		}
+
+		if (InventoryComp)
+		{
+			if (InventoryViewModel->GetLinkedInventory() != InventoryComp)
+			{
+				InventoryViewModel->Initialize(InventoryComp); // 델리게이트 바인딩 + 최초 동기화
+			}
+			else
+			{
+				InventoryViewModel->NotifyChanged(); // 이미 연결됨 → 최신값으로 갱신 후 UI 브로드캐스트
+			}
+		}
 	}
 
 	InventoryWidget->AddToViewport(20);

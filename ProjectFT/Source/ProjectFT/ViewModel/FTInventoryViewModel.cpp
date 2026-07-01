@@ -15,10 +15,19 @@ void UFTInventoryViewModel::Initialize(UFTInventoryComponent* InInventoryCompone
 {
 	if (!InInventoryComponent) return;
 
+	// 이전에 다른 인벤토리에 바인딩돼 있었다면 정리(폰 교체/리스폰 시 스테일 콜백 방지)
+	if (UFTInventoryComponent* Prev = LinkedInventory.Get())
+	{
+		if (Prev != InInventoryComponent)
+		{
+			Prev->OnInventoryChanged.RemoveDynamic(this, &UFTInventoryViewModel::NotifyChanged);
+		}
+	}
+
 	LinkedInventory = InInventoryComponent;
 
-	// 인벤토리 변경 시 뷰모델이 감지하여 자동 동기화하도록 델리게이트 바인딩
-	InInventoryComponent->OnInventoryChanged.AddDynamic(this, &UFTInventoryViewModel::NotifyChanged);
+	// 인벤토리 변경 시 뷰모델이 감지하여 자동 동기화하도록 델리게이트 바인딩(중복 바인딩 방지)
+	InInventoryComponent->OnInventoryChanged.AddUniqueDynamic(this, &UFTInventoryViewModel::NotifyChanged);
 
 	// 초기 상태 갱신
 	NotifyChanged();
@@ -98,6 +107,19 @@ void UFTInventoryViewModel::SelectItemDetailAtIndex(int32 SlotIndex)
 {
 	SelectedItemIndex = SlotIndex;
 	NotifyChanged();
+}
+
+bool UFTInventoryViewModel::RegisterSelectedToQuickSlot(int32 SlotIndex)
+{
+	UFTInventoryComponent* Inventory = LinkedInventory.Get();
+	if (!Inventory || SelectedItem.IsNone())
+	{
+		return false;
+	}
+
+	// SlotIndex는 대상 퀵슬롯 번호일 뿐이고, 등록되는 아이템은 현재 UI에서 선택된 것(SelectedItem)이다.
+	// (SetQuickSlot이 미보유/Common 등은 자체적으로 거부하고 OnInventoryChanged를 브로드캐스트해 UI를 갱신한다.)
+	return Inventory->SetQuickSlot(SlotIndex, SelectedItem);
 }
 
 void UFTInventoryViewModel::SetItemSelection(int32 SlotIndex, bool bIsSelected)

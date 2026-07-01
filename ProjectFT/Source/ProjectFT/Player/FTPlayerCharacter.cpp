@@ -25,6 +25,7 @@
 #include "ProjectFT/Data/FTLauncherDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "ProjectFT/ViewModel/FTInventoryViewModel.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -317,15 +318,16 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 		return;
 	}
 
-	// 인벤토리 열림 = 퀵슬롯 편집 모드: 누른 번호(SlotIndex)의 인벤토리 아이템을 같은 번호 퀵슬롯에 등록한다.
+	// 인벤토리 열림 = 퀵슬롯 편집 모드: 누른 번호(SlotIndex)는 "대상 퀵슬롯 번호"일 뿐이고,
+	// 실제로 등록되는 아이템은 인벤토리 N번째가 아니라 현재 UI에서 선택된 아이템(ViewModel->SelectedItem)이다.
 	if (IsInventoryOpen())
 	{
-		FFTInventoryItem InventoryItem;
-		if (Inventory->GetInventoryItemAtIndex(SlotIndex, InventoryItem))
+		const UFTUIManagerSubsystem* UIManager = GetUIManager();
+		if (UFTInventoryViewModel* ViewModel = UIManager ? UIManager->InventoryViewModel : nullptr)
 		{
-			const bool bRegistered = Inventory->SetQuickSlot(SlotIndex, InventoryItem.ItemId);
-			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d register '%s' -> %s."),
-				SlotIndex, *InventoryItem.ItemId.ToString(), bRegistered ? TEXT("OK") : TEXT("rejected"));
+			const bool bRegistered = ViewModel->RegisterSelectedToQuickSlot(SlotIndex);
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d register selected -> %s."),
+				SlotIndex, bRegistered ? TEXT("OK") : TEXT("no selection/rejected"));
 		}
 		return;
 	}
