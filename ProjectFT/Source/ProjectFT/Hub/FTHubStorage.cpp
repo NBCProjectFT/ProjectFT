@@ -10,8 +10,8 @@ AFTHubStorage::AFTHubStorage()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	StorageInventory = CreateDefaultSubobject<UFTInventoryComponent>(TEXT("StorageInventory"));
-	TestStorageItems.Add({ TEXT("SteelScrap"), 6 });
-	TestStorageItems.Add({ TEXT("PlasticScrap"), 7 });
+	TestStorageItems.Add({ TEXT("ID_Healing_Water"), 1 });
+	TestStorageItems.Add({ TEXT("ID_Coin"), 1000 });
 }
 
 void AFTHubStorage::BeginPlay()

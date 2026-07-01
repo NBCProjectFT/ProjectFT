@@ -1,7 +1,11 @@
 #include "FTCraftRecipeEntryWidget.h"
 
+#include "Components/Image.h"
 #include "Components/TextBlock.h"
+#include "Engine/AssetManager.h"
+#include "Engine/Texture2D.h"
 #include "FTCraftRecipeListObject.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 
 void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
@@ -15,6 +19,28 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 	}
 
 	const FTCraftRecipeStruct& Recipe = RecipeObject->GetRecipe();
+	FText RecipeTitle = FText::FromName(Recipe.ResultItemID);
+	const UFTItemDataAsset* ItemDataAsset = nullptr;
+	UAssetManager& AssetManager = UAssetManager::Get();
+	const FPrimaryAssetId AssetID(FName("FTItemItem"), Recipe.ResultItemID);
+	UObject* AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
+	if (!AssetObject)
+	{
+		const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
+		if (AssetPath.IsValid())
+		{
+			AssetObject = AssetPath.TryLoad();
+		}
+	}
+
+	ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
+	if (ItemDataAsset)
+	{
+		RecipeTitle = ItemDataAsset->ItemData.ItemName.IsEmpty()
+			? FText::FromName(Recipe.ResultItemID)
+			: ItemDataAsset->ItemData.ItemName;
+	}
+
 	FString RequiredItems;
 
 	for (const FTCraftIngredientStruct& Ingredient : Recipe.RequiredItems)
@@ -27,16 +53,52 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 		RequiredItems += FString::Printf(TEXT("%s x%d"), *Ingredient.ItemID.ToString(), Ingredient.Count);
 	}
 
-	RecipeNameText->SetText(FText::FromName(Recipe.RecipeID));
-	RequiredItemsText->SetText(FText::FromString(RequiredItems));
-	ResultItemText->SetText(FText::FromString(
-		FString::Printf(TEXT("Result: %s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount)));
+	RecipeNameText->SetText(RecipeTitle);
+	if (IMG_ResultItemIcon && ItemDataAsset)
+	{
+		if (UTexture2D* IconTexture = ItemDataAsset->ItemData.ItemIcon.LoadSynchronous())
+		{
+			IMG_ResultItemIcon->SetBrushFromTexture(IconTexture);
+		}
+	}
+	if (RequiredItemsText)
+	{
+		RequiredItemsText->SetText(FText::FromString(RequiredItems));
+	}
+	if (ResultItemText)
+	{
+		ResultItemText->SetText(Recipe.ResultCount > 1
+			? FText::FromString(FString::Printf(TEXT("x%d"), Recipe.ResultCount))
+			: FText::GetEmpty());
+	}
+	if (TXT_ResultCount)
+	{
+		TXT_ResultCount->SetText(FText::FromString(FString::Printf(TEXT("x%d"), Recipe.ResultCount)));
+	}
+	if (TXT_CraftableState)
+	{
+		TXT_CraftableState->SetText(RecipeObject->CanCraft()
+			? FText::FromString(TEXT("제작가능"))
+			: FText::FromString(TEXT("제작불가")));
+	}
 
 	const FSlateColor TextColor = RecipeObject->CanCraft()
-		? FSlateColor(FLinearColor::White)
+		? FSlateColor(FLinearColor::Black)
 		: FSlateColor(FLinearColor(0.4f, 0.4f, 0.4f, 1.0f));
 
 	RecipeNameText->SetColorAndOpacity(TextColor);
-	RequiredItemsText->SetColorAndOpacity(TextColor);
-	ResultItemText->SetColorAndOpacity(TextColor);
+	if (RequiredItemsText)
+	{
+		RequiredItemsText->SetColorAndOpacity(TextColor);
+	}
+	if (ResultItemText)
+	{
+		ResultItemText->SetColorAndOpacity(TextColor);
+	}
+	if (TXT_CraftableState)
+	{
+		TXT_CraftableState->SetColorAndOpacity(RecipeObject->CanCraft()
+			? FSlateColor(FLinearColor(0.0f, 0.7f, 0.2f, 1.0f))
+			: FSlateColor(FLinearColor(1.0f, 0.4f, 0.1f, 1.0f)));
+	}
 }

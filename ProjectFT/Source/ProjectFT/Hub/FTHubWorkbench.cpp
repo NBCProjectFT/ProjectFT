@@ -15,6 +15,74 @@ AFTHubWorkbench::AFTHubWorkbench()
 	, HubCraftTestWidget(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	auto AddDefaultRecipe = [this](FName RecipeID, TArray<FTCraftIngredientStruct> RequiredItems, FName ResultItemID)
+	{
+		FTCraftRecipeStruct Recipe;
+		Recipe.RecipeID = RecipeID;
+		Recipe.RequiredItems = MoveTemp(RequiredItems);
+		Recipe.ResultItemID = ResultItemID;
+		Recipe.ResultCount = 1;
+		DefaultCraftRecipes.Add(Recipe);
+	};
+
+	AddDefaultRecipe(
+		TEXT("Make_HardBaguette"),
+		{
+			{ TEXT("ID_Healing_Baguette"), 1 },
+			{ TEXT("ID_Common_HairDryer"), 1 }
+		},
+		TEXT("ID_Healing_Baguette"));
+
+	AddDefaultRecipe(
+		TEXT("Make_DryIce"),
+		{
+			{ TEXT("ID_Healing_Ice"), 1 },
+			{ TEXT("ID_Common_HairDryer"), 1 }
+		},
+		TEXT("ID_Common_DryIce"));
+
+	AddDefaultRecipe(
+		TEXT("Make_FrozenTuna"),
+		{
+			{ TEXT("ID_Healing_FreshTuna"), 1 },
+			{ TEXT("ID_Healing_Ice"), 1 },
+			{ TEXT("ID_Healing_Salt"), 1 },
+			{ TEXT("ID_Common_DryIce"), 1 }
+		},
+		TEXT("ID_Healing_FreshTuna"));
+
+	AddDefaultRecipe(
+		TEXT("Make_SoapWater"),
+		{
+			{ TEXT("ID_Healing_Water"), 1 },
+			{ TEXT("ID_Common_Soap"), 1 }
+		},
+		TEXT("ID_Common_SoapWater"));
+
+	AddDefaultRecipe(
+		TEXT("Make_BubbleGun"),
+		{
+			{ TEXT("ID_Common_SoapWater"), 1 },
+			{ TEXT("ID_Weapon_Taser"), 1 }
+		},
+		TEXT("ID_Weapon_ThrowItem"));
+
+	AddDefaultRecipe(
+		TEXT("Make_WaterGun"),
+		{
+			{ TEXT("ID_Weapon_ThrowItem"), 1 },
+			{ TEXT("ID_Healing_Water"), 1 }
+		},
+		TEXT("ID_Weapon_Taser"));
+
+	AddDefaultRecipe(
+		TEXT("Make_ColaMentosBomb"),
+		{
+			{ TEXT("ID_Healing_Cola"), 1 },
+			{ TEXT("ID_Healing_Mentos"), 1 }
+		},
+		TEXT("ID_Weapon_ThrowItem"));
 }
 
 void AFTHubWorkbench::BeginPlay()
@@ -136,6 +204,14 @@ bool AFTHubWorkbench::CanCraftRecipe(const FTCraftRecipeStruct& Recipe, UFTInven
 
 const FTCraftRecipeStruct* AFTHubWorkbench::FindRecipeByID(FName RecipeID) const
 {
+	if (bUseDefaultCraftRecipes)
+	{
+		return DefaultCraftRecipes.FindByPredicate([RecipeID](const FTCraftRecipeStruct& Recipe)
+		{
+			return Recipe.RecipeID == RecipeID;
+		});
+	}
+
 	if (!CraftRecipeDataTable)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("CraftRecipeDataTable is not assigned."));
@@ -196,6 +272,12 @@ void AFTHubWorkbench::CloseCraftWidget()
 void AFTHubWorkbench::GetCraftRecipes(TArray<FTCraftRecipeStruct>& OutRecipes) const
 {
 	OutRecipes.Reset();
+
+	if (bUseDefaultCraftRecipes)
+	{
+		OutRecipes = DefaultCraftRecipes;
+		return;
+	}
 
 	if (!CraftRecipeDataTable)
 	{

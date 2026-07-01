@@ -4,6 +4,8 @@
 #include "Components/ListView.h"
 #include "Components/SpinBox.h"
 #include "Components/TextBlock.h"
+#include "Components/TileView.h"
+#include "FTItemTileListObject.h"
 #include "FTStorageItemListObject.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
@@ -21,16 +23,16 @@ void UFTHubStorageWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (LV_PlayerItems)
+	if (UListView* PlayerItemsView = GetPlayerItemsView())
 	{
-		LV_PlayerItems->OnItemClicked().RemoveAll(this);
-		LV_PlayerItems->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandlePlayerItemClicked);
+		PlayerItemsView->OnItemClicked().RemoveAll(this);
+		PlayerItemsView->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandlePlayerItemClicked);
 	}
 
-	if (LV_StorageItems)
+	if (UListView* StorageItemsView = GetStorageItemsView())
 	{
-		LV_StorageItems->OnItemClicked().RemoveAll(this);
-		LV_StorageItems->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandleStorageItemClicked);
+		StorageItemsView->OnItemClicked().RemoveAll(this);
+		StorageItemsView->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandleStorageItemClicked);
 	}
 
 	if (BTN_Store)
@@ -63,12 +65,13 @@ void UFTHubStorageWidget::RefreshAllItems()
 
 void UFTHubStorageWidget::RefreshPlayerItems()
 {
-	if (!LV_PlayerItems)
+	UListView* PlayerItemsView = GetPlayerItemsView();
+	if (!PlayerItemsView)
 	{
 		return;
 	}
 
-	LV_PlayerItems->ClearListItems();
+	PlayerItemsView->ClearListItems();
 
 	if (!PlayerInventory)
 	{
@@ -77,21 +80,31 @@ void UFTHubStorageWidget::RefreshPlayerItems()
 
 	for (const FFTInventoryItem& InventoryItem : PlayerInventory->GetItems())
 	{
-		UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-		const FTStorageItemStruct StorageItem = { InventoryItem.ItemId, InventoryItem.Quantity };
-		ItemObject->Initialize(StorageItem);
-		LV_PlayerItems->AddItem(ItemObject);
+		if (TV_PlayerItems)
+		{
+			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+			ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity);
+			PlayerItemsView->AddItem(ItemObject);
+		}
+		else
+		{
+			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
+			const FTStorageItemStruct StorageItem = { InventoryItem.ItemId, InventoryItem.Quantity };
+			ItemObject->Initialize(StorageItem);
+			PlayerItemsView->AddItem(ItemObject);
+		}
 	}
 }
 
 void UFTHubStorageWidget::RefreshStorageItems()
 {
-	if (!LV_StorageItems)
+	UListView* StorageItemsView = GetStorageItemsView();
+	if (!StorageItemsView)
 	{
 		return;
 	}
 
-	LV_StorageItems->ClearListItems();
+	StorageItemsView->ClearListItems();
 
 	if (!HubStorage)
 	{
@@ -100,9 +113,18 @@ void UFTHubStorageWidget::RefreshStorageItems()
 
 	for (const FTStorageItemStruct& StorageItem : HubStorage->GetStorageItems())
 	{
-		UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-		ItemObject->Initialize(StorageItem);
-		LV_StorageItems->AddItem(ItemObject);
+		if (TV_StorageItems)
+		{
+			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+			ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
+			StorageItemsView->AddItem(ItemObject);
+		}
+		else
+		{
+			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
+			ItemObject->Initialize(StorageItem);
+			StorageItemsView->AddItem(ItemObject);
+		}
 	}
 }
 
@@ -171,8 +193,26 @@ int32 UFTHubStorageWidget::GetSelectedItemCount() const
 	return 0;
 }
 
+UListView* UFTHubStorageWidget::GetPlayerItemsView() const
+{
+	return TV_PlayerItems ? Cast<UListView>(TV_PlayerItems) : LV_PlayerItems;
+}
+
+UListView* UFTHubStorageWidget::GetStorageItemsView() const
+{
+	return TV_StorageItems ? Cast<UListView>(TV_StorageItems) : LV_StorageItems;
+}
+
 void UFTHubStorageWidget::HandlePlayerItemClicked(UObject* Item)
 {
+	if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item))
+	{
+		SelectedItemID = TileObject->GetItemID();
+		SelectedSource = EStorageTransferSourceType::Player;
+		UpdateTransferControls();
+		return;
+	}
+
 	const UFTStorageItemListObject* ItemObject = Cast<UFTStorageItemListObject>(Item);
 	if (!ItemObject)
 	{
@@ -186,6 +226,14 @@ void UFTHubStorageWidget::HandlePlayerItemClicked(UObject* Item)
 
 void UFTHubStorageWidget::HandleStorageItemClicked(UObject* Item)
 {
+	if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item))
+	{
+		SelectedItemID = TileObject->GetItemID();
+		SelectedSource = EStorageTransferSourceType::Storage;
+		UpdateTransferControls();
+		return;
+	}
+
 	const UFTStorageItemListObject* ItemObject = Cast<UFTStorageItemListObject>(Item);
 	if (!ItemObject)
 	{

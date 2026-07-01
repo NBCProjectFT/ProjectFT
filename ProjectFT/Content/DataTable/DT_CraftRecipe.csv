@@ -1,0 +1,8 @@
+Name,RecipeID,RequiredItems,ResultItemID,ResultCount
+Make_HardBaguette,Make_HardBaguette,"((ItemID=""ID_Healing_Baguette"",Count=1),(ItemID=""ID_Common_HairDryer"",Count=1))",ID_Healing_Baguette,1
+Make_DryIce,Make_DryIce,"((ItemID=""ID_Healing_Ice"",Count=1),(ItemID=""ID_Common_HairDryer"",Count=1))",ID_Common_DryIce,1
+Make_FrozenTuna,Make_FrozenTuna,"((ItemID=""ID_Healing_FreshTuna"",Count=1),(ItemID=""ID_Healing_Ice"",Count=1),(ItemID=""ID_Healing_Salt"",Count=1),(ItemID=""ID_Common_DryIce"",Count=1))",ID_Healing_FreshTuna,1
+Make_SoapWater,Make_SoapWater,"((ItemID=""ID_Healing_Water"",Count=1),(ItemID=""ID_Common_Soap"",Count=1))",ID_Common_SoapWater,1
+Make_BubbleGun,Make_BubbleGun,"((ItemID=""ID_Common_SoapWater"",Count=1),(ItemID=""ID_Weapon_Taser"",Count=1))",ID_Weapon_ThrowItem,1
+Make_WaterGun,Make_WaterGun,"((ItemID=""ID_Weapon_ThrowItem"",Count=1),(ItemID=""ID_Healing_Water"",Count=1))",ID_Weapon_Taser,1
+Make_ColaMentosBomb,Make_ColaMentosBomb,"((ItemID=""ID_Healing_Cola"",Count=1),(ItemID=""ID_Healing_Mentos"",Count=1))",ID_Weapon_ThrowItem,1

@@ -10,6 +10,7 @@ class UFTInventoryComponent;
 class UListView;
 class USpinBox;
 class UTextBlock;
+class UTileView;
 
 UCLASS()
 class PROJECTFT_API UFTHubStorageWidget : public UUserWidget
@@ -26,8 +27,14 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UListView* LV_PlayerItems;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
 	UListView* LV_StorageItems;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTileView* TV_PlayerItems;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTileView* TV_StorageItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItem;
@@ -58,6 +65,8 @@ private:
 	void UpdateTransferControls();
 	int32 GetRequestedCount() const;
 	int32 GetSelectedItemCount() const;
+	UListView* GetPlayerItemsView() const;
+	UListView* GetStorageItemsView() const;
 
 	void HandlePlayerItemClicked(UObject* Item);
 	void HandleStorageItemClicked(UObject* Item);
