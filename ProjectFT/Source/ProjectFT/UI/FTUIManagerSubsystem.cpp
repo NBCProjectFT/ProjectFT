@@ -10,6 +10,7 @@
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+#include "ProjectFT/Player/FTPlayerCharacter.h"
 
 void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -37,6 +38,11 @@ void UFTUIManagerSubsystem::ShowInventory()
 	if (!PlayerController)
 	{
 		return;
+	}
+
+	if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
+	{
+		PlayerChar->SetInventoryOpen(true, false);
 	}
 
 	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
@@ -84,6 +90,11 @@ void UFTUIManagerSubsystem::HideInventory()
 	{
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
+
+		if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
+		{
+			PlayerChar->SetInventoryOpen(false, false);
+		}
 	}
 }
 
