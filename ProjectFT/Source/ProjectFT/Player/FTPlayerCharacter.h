@@ -17,6 +17,7 @@ class UFTTraversalComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
+class UFTUIManagerSubsystem;
 class AFTItemActor;
 struct FOnAttributeChangeData;
 
@@ -51,11 +52,9 @@ public:
 	virtual void HandleToggleInventoryPressed() override;
 	//~ End IFTInputInterface
 
+	// 인벤토리 열림 상태는 UI 서브시스템이 단일 소스로 소유한다. 여기선 게임플레이/AnimBP가 읽기 편하도록 중계만 한다.
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
-	bool IsInventoryOpen() const { return bInventoryOpen; }
-
-	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
-	void SetInventoryOpen(bool bNewInventoryOpen, bool bUpdateUI = true);
+	bool IsInventoryOpen() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item")
 	const FFTInventoryItem& GetCurrentHeldInventoryItem() const { return CurrentHeldInventoryItem; }
@@ -105,9 +104,6 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UFTPlayerAttributeSet> PlayerAttributeSet;
         
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Inventory", meta = (AllowPrivateAccess = "true"))
-	bool bInventoryOpen = false;
-
 	// 현재 플레이어가 손에 들고 있는 실질적인 아이템. 사용 입력은 이 아이템의 UseData를 기준으로 처리한다.
 	// 직접 대입하지 말고 SetCurrentHeldInventoryItem()으로만 바꾼다(비주얼 액터 동기화를 위해).
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item", meta = (AllowPrivateAccess = "true"))
@@ -163,6 +159,9 @@ private:
 	virtual void HandleDeath() override;
 
 	UFTInventoryComponent* GetInventoryComponent() const;
+
+	// 게임 인스턴스에서 UI 매니저 서브시스템을 가져온다(인벤토리 열림 판정/토글 위임용).
+	UFTUIManagerSubsystem* GetUIManager() const;
 
 	bool EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility);
 

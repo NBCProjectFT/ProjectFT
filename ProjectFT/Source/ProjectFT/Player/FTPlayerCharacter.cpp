@@ -317,12 +317,15 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 		return;
 	}
 
-	if (bInventoryOpen)
+	// 인벤토리 열림 = 퀵슬롯 편집 모드: 누른 번호(SlotIndex)의 인벤토리 아이템을 같은 번호 퀵슬롯에 등록한다.
+	if (IsInventoryOpen())
 	{
 		FFTInventoryItem InventoryItem;
 		if (Inventory->GetInventoryItemAtIndex(SlotIndex, InventoryItem))
 		{
-			Inventory->SetQuickSlot(SlotIndex, InventoryItem.ItemId);
+			const bool bRegistered = Inventory->SetQuickSlot(SlotIndex, InventoryItem.ItemId);
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d register '%s' -> %s."),
+				SlotIndex, *InventoryItem.ItemId.ToString(), bRegistered ? TEXT("OK") : TEXT("rejected"));
 		}
 		return;
 	}
@@ -343,38 +346,24 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 
 void AFTPlayerCharacter::HandleToggleInventoryPressed()
 {
-	SetInventoryOpen(!bInventoryOpen);
-	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory %d"), bInventoryOpen);
+	// 열림 상태의 단일 소스는 UI 서브시스템이다. 캐릭터는 토글만 위임하고 상태는 보유하지 않는다.
+	if (UFTUIManagerSubsystem* UIManager = GetUIManager())
+	{
+		UIManager->ToggleInventory();
+	}
+	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory toggled -> %d"), IsInventoryOpen());
 }
 
-
-
-void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen, bool bUpdateUI)
+bool AFTPlayerCharacter::IsInventoryOpen() const
 {
-	if (bInventoryOpen == bNewInventoryOpen)
-	{
-		return;
-	}
+	const UFTUIManagerSubsystem* UIManager = GetUIManager();
+	return UIManager && UIManager->IsInventoryOpen();
+}
 
-	bInventoryOpen = bNewInventoryOpen;
-
-	if (bUpdateUI)
-	{
-		if (UGameInstance* GI = GetGameInstance())
-		{
-			if (UFTUIManagerSubsystem* UIManager = GI->GetSubsystem<UFTUIManagerSubsystem>())
-			{
-				if (bInventoryOpen)
-				{
-					UIManager->ShowInventory();
-				}
-				else
-				{
-					UIManager->HideInventory();
-				}
-			}
-		}
-	}
+UFTUIManagerSubsystem* AFTPlayerCharacter::GetUIManager() const
+{
+	const UGameInstance* GI = GetGameInstance();
+	return GI ? GI->GetSubsystem<UFTUIManagerSubsystem>() : nullptr;
 }
 
 bool AFTPlayerCharacter::IsChannelingInteraction() const

@@ -10,7 +10,6 @@
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
-#include "ProjectFT/Player/FTPlayerCharacter.h"
 
 void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -29,7 +28,7 @@ void UFTUIManagerSubsystem::ShowHUD()
 
 void UFTUIManagerSubsystem::ShowInventory()
 {
-	if (InventoryWidget && InventoryWidget->IsInViewport())
+	if (IsInventoryOpen())
 	{
 		return;
 	}
@@ -38,11 +37,6 @@ void UFTUIManagerSubsystem::ShowInventory()
 	if (!PlayerController)
 	{
 		return;
-	}
-
-	if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
-	{
-		PlayerChar->SetInventoryOpen(true, false);
 	}
 
 	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
@@ -90,23 +84,24 @@ void UFTUIManagerSubsystem::HideInventory()
 	{
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
-
-		if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
-		{
-			PlayerChar->SetInventoryOpen(false, false);
-		}
 	}
 }
 
 void UFTUIManagerSubsystem::ToggleInventory()
 {
-	if (InventoryWidget && InventoryWidget->IsInViewport())
+	if (IsInventoryOpen())
 	{
 		HideInventory();
-		return;
 	}
+	else
+	{
+		ShowInventory();
+	}
+}
 
-	ShowInventory();
+bool UFTUIManagerSubsystem::IsInventoryOpen() const
+{
+	return InventoryWidget && InventoryWidget->IsInViewport();
 }
 
 void UFTUIManagerSubsystem::ShowCrafting()
