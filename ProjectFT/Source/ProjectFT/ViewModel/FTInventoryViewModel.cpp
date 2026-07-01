@@ -89,8 +89,11 @@ void UFTInventoryViewModel::SetCategoryTab(EFTItemCategoryType NewCategory)
 
 	CurrentCategory = NewCategory;
 
-	// 카테고리가 전환되면 현재 체크박스 선택 상태 및 상세 패널 선택 초기화
-	ClearSelection();
+	// 카테고리가 전환되면 우측 상세 패널 선택만 초기화 (다중 체크 박스 상태는 유지)
+	SelectedItemIndex = INDEX_NONE;
+	SelectedItemDetail = FFTInventoryItem();
+	SelectedItem = NAME_None;
+
 	NotifyChanged();
 }
 
@@ -194,5 +197,30 @@ float UFTInventoryViewModel::GetWeightPercent() const
 
 bool UFTInventoryViewModel::IsIndexSelected(int32 SlotIndex) const
 {
-	return SelectedIndices.Contains(SlotIndex);
+	UFTInventoryComponent* Inventory = LinkedInventory.Get();
+	if (!Inventory)
+	{
+		return false;
+	}
+
+	// 1. 현재 카테고리 필터링이 씌워진 아이템 배열
+	TArray<FFTInventoryItem> FilteredItems = Inventory->GetItemsByCategory(CurrentCategory);
+	if (!FilteredItems.IsValidIndex(SlotIndex))
+	{
+		return false;
+	}
+
+	FName TargetId = FilteredItems[SlotIndex].ItemId;
+
+	// 2. 인벤토리 오리지널 전체 배열에서 고유 인덱스를 역추적하여 탐색
+	TArray<FFTInventoryItem> FullItems = Inventory->GetItems();
+	for (int32 i = 0; i < FullItems.Num(); ++i)
+	{
+		if (FullItems[i].ItemId == TargetId)
+		{
+			return SelectedIndices.Contains(i);
+		}
+	}
+
+	return false;
 }

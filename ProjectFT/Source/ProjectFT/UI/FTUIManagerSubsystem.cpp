@@ -45,6 +45,11 @@ void UFTUIManagerSubsystem::ShowInventory()
 		PlayerChar->SetInventoryOpen(true, false);
 	}
 
+	if (InventoryViewModel)
+	{
+		InventoryViewModel->ClearSelection();
+	}
+
 	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
 	if (!GameData)
 	{
@@ -84,6 +89,11 @@ void UFTUIManagerSubsystem::HideInventory()
 	if (InventoryWidget)
 	{
 		InventoryWidget->RemoveFromParent();
+	}
+
+	if (InventoryViewModel)
+	{
+		InventoryViewModel->ClearSelection();
 	}
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
