@@ -55,7 +55,7 @@ public:
 	bool IsInventoryOpen() const { return bInventoryOpen; }
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
-	void SetInventoryOpen(bool bNewInventoryOpen);
+	void SetInventoryOpen(bool bNewInventoryOpen, bool bUpdateUI = true);
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item")
 	const FFTInventoryItem& GetCurrentHeldInventoryItem() const { return CurrentHeldInventoryItem; }

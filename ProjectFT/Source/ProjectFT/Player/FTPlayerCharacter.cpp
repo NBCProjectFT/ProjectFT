@@ -24,6 +24,7 @@
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
 #include "ProjectFT/Data/FTLauncherDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -348,9 +349,32 @@ void AFTPlayerCharacter::HandleToggleInventoryPressed()
 
 
 
-void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen)
+void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen, bool bUpdateUI)
 {
+	if (bInventoryOpen == bNewInventoryOpen)
+	{
+		return;
+	}
+
 	bInventoryOpen = bNewInventoryOpen;
+
+	if (bUpdateUI)
+	{
+		if (UGameInstance* GI = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GI->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				if (bInventoryOpen)
+				{
+					UIManager->ShowInventory();
+				}
+				else
+				{
+					UIManager->HideInventory();
+				}
+			}
+		}
+	}
 }
 
 bool AFTPlayerCharacter::IsChannelingInteraction() const
