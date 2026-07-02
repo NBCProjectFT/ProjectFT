@@ -28,7 +28,16 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 
 	if (TXT_ItemCount)
 	{
-		TXT_ItemCount->SetText(FText::FromString(FString::Printf(TEXT("x%d"), TileObject->GetCount())));
+		TXT_ItemCount->SetText(TileObject->HasOwnedCount()
+			? FText::FromString(FString::Printf(TEXT("%d / %d"), TileObject->GetOwnedCount(), TileObject->GetCount()))
+			: FText::FromString(FString::Printf(TEXT("x%d"), TileObject->GetCount())));
+	}
+
+	if (TXT_ItemOwnedCount)
+	{
+		TXT_ItemOwnedCount->SetText(TileObject->HasOwnedCount()
+			? FText::FromString(FString::Printf(TEXT("%d / %d"), TileObject->GetOwnedCount(), TileObject->GetCount()))
+			: FText::GetEmpty());
 	}
 
 	if (TXT_ItemWeight)
@@ -41,7 +50,7 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 		CHK_ItemSelected->OnCheckStateChanged.RemoveAll(this);
 		CHK_ItemSelected->SetIsChecked(TileObject->IsChecked());
 		CHK_ItemSelected->SetIsEnabled(!bLocked);
-		CHK_ItemSelected->OnCheckStateChanged.AddDynamic(this, &ThisClass::HandleItemCheckStateChanged);
+		CHK_ItemSelected->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 
 	if (TXT_ItemPrice)
@@ -70,30 +79,27 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 	}
 }
 
-FReply UFTItemTileEntryWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+void UFTItemTileEntryWidget::NativeOnItemSelectionChanged(const bool bIsSelected)
 {
-	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton &&
-		CurrentTileObject &&
-		!CurrentTileObject->IsLocked())
+	IUserObjectListEntry::NativeOnItemSelectionChanged(bIsSelected);
+
+	if (CurrentTileObject)
 	{
-		const bool bNewChecked = !CurrentTileObject->IsChecked();
-		CurrentTileObject->SetChecked(bNewChecked);
-
-		if (CHK_ItemSelected)
-		{
-			CHK_ItemSelected->SetIsChecked(bNewChecked);
-		}
-
-		return FReply::Handled();
+		CurrentTileObject->SetChecked(bIsSelected);
 	}
 
+	if (CHK_ItemSelected)
+	{
+		CHK_ItemSelected->OnCheckStateChanged.RemoveAll(this);
+		CHK_ItemSelected->SetIsChecked(bIsSelected);
+	}
+}
+
+FReply UFTItemTileEntryWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
 	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
 
 void UFTItemTileEntryWidget::HandleItemCheckStateChanged(const bool bIsChecked)
 {
-	if (CurrentTileObject)
-	{
-		CurrentTileObject->SetChecked(bIsChecked);
-	}
 }

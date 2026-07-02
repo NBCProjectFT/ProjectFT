@@ -8,6 +8,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 
 #include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
@@ -583,10 +584,19 @@ void AFTPlayerCharacter::UpdateStaminaRegen(float DeltaSeconds)
 	}
 }
 
-void AFTPlayerCharacter::HandleDeath()
+void AFTPlayerCharacter::OnDeath()
 {
 	UE_LOG(LogFTPlayer, Log, TEXT("'%s' died (health depleted)."), *GetNameSafe(this));
-	// 사망 후처리(레벨 전환 등)는 GameFlow 연동으로 — 이번 스코프 밖.
+
+	// 입력 차단: 이동/시점/점프/아이템 등 모든 입력은 컨트롤러의 InputComponent에 바인딩돼 있으므로
+	// 컨트롤러에 대해 DisableInput을 호출해야 한다(BuildInputStack이 컨트롤러의 InputEnabled로 게이트).
+	// 폰에 대한 DisableInput은 이 입력들을 막지 못한다. 이동 정지/능력 취소는 베이스가 이미 처리했다.
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->DisableInput(PC);
+	}
+
+	// 게임오버/리스폰/레벨 전환은 GameFlow 연동으로 — 이번 스코프 밖.
 }
 
 UFTInventoryComponent* AFTPlayerCharacter::GetInventoryComponent() const

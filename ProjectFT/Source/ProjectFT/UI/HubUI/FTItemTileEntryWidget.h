@@ -17,6 +17,7 @@ class PROJECTFT_API UFTItemTileEntryWidget : public UUserWidget, public IUserObj
 
 protected:
 	virtual void NativeOnListItemObjectSet(UObject* ListItemObject) override;
+	virtual void NativeOnItemSelectionChanged(bool bIsSelected) override;
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -27,6 +28,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_ItemCount;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_ItemOwnedCount;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_ItemWeight;

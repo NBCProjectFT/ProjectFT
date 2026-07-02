@@ -39,6 +39,9 @@ protected:
 	UTextBlock* TXT_SelectedItemPrice;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemCount;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemState;
 
 	UPROPERTY(meta = (BindWidget))
@@ -62,8 +65,11 @@ private:
 	void RefreshPlayerItems();
 	void RefreshAllItems();
 	void UpdateSelectedItemDetails();
+	void ClearTileChecks(UTileView* TileView);
 	void HandleShopItemClicked(UObject* Item);
 	void HandlePlayerItemClicked(UObject* Item);
+	void HandleShopItemSelectionChanged(UObject* Item);
+	void HandlePlayerItemSelectionChanged(UObject* Item);
 
 	UFUNCTION()
 	void HandleBuyClicked();
@@ -87,4 +93,5 @@ private:
 	UFTItemTileListObject* SelectedPlayerItem;
 
 	EShopSelectionSourceType SelectedSource = EShopSelectionSourceType::None;
+	bool bUpdatingSelection = false;
 };
