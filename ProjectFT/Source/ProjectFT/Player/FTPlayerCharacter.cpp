@@ -24,6 +24,8 @@
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
 #include "ProjectFT/Data/FTLauncherDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "ProjectFT/ViewModel/FTInventoryViewModel.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -316,12 +318,16 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 		return;
 	}
 
-	if (bInventoryOpen)
+	// 인벤토리 열림 = 퀵슬롯 편집 모드: 누른 번호(SlotIndex)는 "대상 퀵슬롯 번호"일 뿐이고,
+	// 실제로 등록되는 아이템은 인벤토리 N번째가 아니라 현재 UI에서 선택된 아이템(ViewModel->SelectedItem)이다.
+	if (IsInventoryOpen())
 	{
-		FFTInventoryItem InventoryItem;
-		if (Inventory->GetInventoryItemAtIndex(SlotIndex, InventoryItem))
+		const UFTUIManagerSubsystem* UIManager = GetUIManager();
+		if (UFTInventoryViewModel* ViewModel = UIManager ? UIManager->InventoryViewModel : nullptr)
 		{
-			Inventory->SetQuickSlot(SlotIndex, InventoryItem.ItemId);
+			const bool bRegistered = ViewModel->RegisterSelectedToQuickSlot(SlotIndex);
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d register selected -> %s."),
+				SlotIndex, bRegistered ? TEXT("OK") : TEXT("no selection/rejected"));
 		}
 		return;
 	}
@@ -342,15 +348,24 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 
 void AFTPlayerCharacter::HandleToggleInventoryPressed()
 {
-	SetInventoryOpen(!bInventoryOpen);
-	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory %d"), bInventoryOpen);
+	// 열림 상태의 단일 소스는 UI 서브시스템이다. 캐릭터는 토글만 위임하고 상태는 보유하지 않는다.
+	if (UFTUIManagerSubsystem* UIManager = GetUIManager())
+	{
+		UIManager->ToggleInventory();
+	}
+	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory toggled -> %d"), IsInventoryOpen());
 }
 
-
-
-void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen)
+bool AFTPlayerCharacter::IsInventoryOpen() const
 {
-	bInventoryOpen = bNewInventoryOpen;
+	const UFTUIManagerSubsystem* UIManager = GetUIManager();
+	return UIManager && UIManager->IsInventoryOpen();
+}
+
+UFTUIManagerSubsystem* AFTPlayerCharacter::GetUIManager() const
+{
+	const UGameInstance* GI = GetGameInstance();
+	return GI ? GI->GetSubsystem<UFTUIManagerSubsystem>() : nullptr;
 }
 
 bool AFTPlayerCharacter::IsChannelingInteraction() const

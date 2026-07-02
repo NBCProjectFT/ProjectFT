@@ -46,6 +46,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ToggleInventory();
 
+	// 인벤토리 열림 상태의 단일 소스. 위젯이 뷰포트에 붙어 있으면 열린 것으로 본다.
+	UFUNCTION(BlueprintPure, Category = "FT|UI")
+	bool IsInventoryOpen() const;
+
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowCrafting();
 

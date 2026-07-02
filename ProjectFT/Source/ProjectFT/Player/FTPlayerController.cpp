@@ -121,6 +121,11 @@ void AFTPlayerController::SetupInputComponent()
 		EnhancedInput->BindAction(QuickSlot6Action, ETriggerEvent::Started, this, &AFTPlayerController::OnQuickSlot6Started);
 	}
 
+	if (ToggleInventoryAction)
+	{
+		EnhancedInput->BindAction(ToggleInventoryAction, ETriggerEvent::Started, this, &AFTPlayerController::ToggleInventoryStarted);
+	}
+
 #if !UE_BUILD_SHIPPING
 	// [Temp/Debug] IA 에셋/IMC 매핑이 아직 없어도 테이저를 바로 쏴보기 위한 하드코딩 키. T = 퀵슬롯0 선택 후 사용.
 	if (InputComponent)
