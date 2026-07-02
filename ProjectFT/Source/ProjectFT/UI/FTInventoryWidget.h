@@ -22,6 +22,9 @@ protected:
 	UFUNCTION()
 	void HandleViewModelChanged();
 
+private:
+	bool bHasConstructed = false;
+
 public:
 	/**
 	 * @brief 인벤토리 컴포넌트를 전달받아 뷰모델을 설정하고 바인딩을 수행합니다.

@@ -105,6 +105,11 @@ void UFTUIManagerSubsystem::HideInventory()
 		InventoryWidget->RemoveFromParent();
 	}
 
+	if (InventoryViewModel)
+	{
+		InventoryViewModel->ClearSelection();
+	}
+
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
 	{
 		PlayerController->SetInputMode(FInputModeGameOnly());
