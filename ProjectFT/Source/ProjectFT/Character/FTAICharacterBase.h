@@ -30,9 +30,7 @@ public:
 protected:
 	/** 게임 시작 시 초기 체력 및 이동 속도를 적용 */
 	virtual void BeginPlay() override;
-	
-	/** AI가 사망했을 때의 처리 로직 */
-	virtual void HandleDeath() override;
+	virtual void OnDeath() override;
 
 	/** AI의 시작 체력 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|AI|Stat", meta = (ClampMin = "1.0"))

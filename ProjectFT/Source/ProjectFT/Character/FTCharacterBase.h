@@ -32,11 +32,21 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	//~ End IAbilitySystemInterface
 
+	// 사망 처리가 완료된 상태(체력 소진). 사망 연출/AnimBP/AI가 "죽었나?" 판정에 쓴다.
+	UFUNCTION(BlueprintPure, Category = "FT|GAS")
+	bool IsDead() const { return bDead; }
+
 protected:
 	virtual void BeginPlay() override;
 
-	// 체력이 0에 도달했을 때 호출(공용 속성셋의 OnOutOfHealth 통지). 기본 구현은 비어 있고, 서브클래스가 사망 처리한다.
-	virtual void HandleDeath();
+	// 체력이 0에 도달했을 때 호출(공용 속성셋의 OnOutOfHealth 통지). 공통 사망 처리를 담당한다:
+	// 재진입 가드(bDead) + State.Dead 태그 부여 + 진행 중 능력 취소 + 이동 정지. 이후 확장 훅 OnDeath()를 부른다.
+	// (스턴의 OnStunTagChanged/OnStunStateChanged와 같은 Template Method 패턴 — 자식은 OnDeath()만 override 한다.)
+	void HandleDeath();
+
+	// 사망 시 확장 훅. 자식이 사망 연출/후처리를 담당한다(플레이어=입력 차단/게임오버, AI=래그돌/드롭/디스폰 등).
+	// 공통 처리(태그/능력취소/이동정지)는 HandleDeath가 이미 수행했고, bDead 가드로 1회만 호출됨이 보장된다. 기본 구현 없음.
+	virtual void OnDeath();
 
 	// MoveSpeed 속성(버프 포함 최종값)을 CMC의 MaxWalkSpeed에 반영한다. 기본 구현은 MaxWalkSpeed = MoveSpeed.
 	// 스프린트/앉기 등 추가 연산이 필요한 자식은 이 함수를 override 한다.
@@ -58,4 +68,7 @@ protected:
 	// 캐릭터의 서브오브젝트로 만들면 ASC가 InitializeComponent 시 자동 등록한다(공용 스탯: 체력/이동속도).
 	UPROPERTY()
 	TObjectPtr<UFTAttributeSet> AttributeSet;
+
+	// 사망 처리 완료 플래그이자 재진입 가드. 0 HP에서 독 DoT 등이 계속 틱해 OnOutOfHealth가 재통지돼도 HandleDeath는 1회만 실행된다.
+	bool bDead = false;
 };

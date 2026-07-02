@@ -37,6 +37,10 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Slow);     // 슬로우: 이�
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff);            // 모든 버프의 부모(질의/디스펠용)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff_Haste);     // 헤이스트: 이동속도 증가 (UFTGE_Haste)
 
+// 사망 상태 태그. 체력 소진 시 AFTCharacterBase가 소유 ASC에 Loose 태그로 부여한다(GE 수명이 아닌 캐릭터 상태).
+// "죽었나?" 질의(HasMatchingGameplayTag)와 사망 중 어빌리티 발동 차단(GA의 ActivationBlockedTags)의 단일 소스로 쓴다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Dead);
+
 // 아이템 사용 입력 → 사용 어빌리티(UFTGA_UseItem)를 발동시키는 GameplayEvent 태그. 페이로드 = 대상 UFTItemDataAsset.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_UseItem);
 

@@ -35,15 +35,8 @@ void AFTAICharacterBase::SetMoveSpeed(float NewSpeed)
 	}
 }
 
-void AFTAICharacterBase::HandleDeath()
+void AFTAICharacterBase::OnDeath()
 {
 	UE_LOG(LogFTNPC, Log, TEXT("AI character '%s' died."), *GetNameSafe(this));
-
-	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-	{
-		// 사망한 AI가 더 이상 이동하지 않도록 비활성화한다.
-		Movement->DisableMovement();
-	}
-	
-	Super::HandleDeath();
+	// 이동 정지는 베이스(HandleDeath)가 처리한다. 래그돌/루트 드롭/디스폰 등 AI 전용 후처리는 여기에 추가.
 }
