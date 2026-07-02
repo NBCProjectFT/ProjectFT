@@ -8,6 +8,7 @@ class AFTHubQuestBoard;
 class AFTHubShop;
 class AFTHubTerminal;
 class UButton;
+class UTextBlock;
 class UFTHubMarketPanelWidget;
 class UFTHubQuestPanelWidget;
 class UFTHubShopPanelWidget;
@@ -29,6 +30,7 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_MailTab;
@@ -45,6 +47,9 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UButton* BTN_Close;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_CollectionCoin;
+
 	UPROPERTY(meta = (BindWidget))
 	UFTHubQuestPanelWidget* WBP_QuestPanel;
 
@@ -55,6 +60,7 @@ protected:
 	UFTHubShopPanelWidget* WBP_ShopPanel;
 
 private:
+	void RefreshCollectionCoinText();
 	void ShowQuestPanel();
 	void ShowMarketPanel();
 	void ShowShopPanel();
@@ -73,4 +79,10 @@ private:
 
 	UPROPERTY(Transient)
 	AFTHubTerminal* HubTerminal;
+
+	UPROPERTY(Transient)
+	AFTHubShop* HubShop;
+
+	UPROPERTY(Transient)
+	UFTInventoryComponent* PlayerInventory;
 };
