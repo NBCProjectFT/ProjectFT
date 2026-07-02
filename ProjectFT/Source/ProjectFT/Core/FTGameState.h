@@ -6,6 +6,7 @@
 #include "FTGameState.generated.h"
 
 class UFTReportGaugeComponent;
+class UFTSecurityCaptureComponent;
 class UFTSecurityChaseGaugeComponent;
 
 UCLASS()
@@ -30,6 +31,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UFTSecurityChaseGaugeComponent> SecurityChaseGaugeComponent;
+
+	/** 보안요원의 단일 체포 소유권과 체포/탈출 메시지를 관리한다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	TObjectPtr<UFTSecurityCaptureComponent> SecurityCaptureComponent;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Security")
 	void SetReportGauge(float NewReportGauge);
