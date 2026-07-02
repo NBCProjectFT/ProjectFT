@@ -80,6 +80,14 @@ public:
 	void SelectItemDetailAtIndex(int32 SlotIndex);
 
 	/**
+	 * @brief 현재 선택(상세)된 아이템을 지정한 퀵슬롯 번호에 등록한다.
+	 * @param SlotIndex : 등록 대상 퀵슬롯 인덱스 (0 ~ 5) — 어떤 아이템을 넣을지는 SelectedItem이 결정한다.
+	 * @return 등록 성공 여부 (선택된 아이템이 없거나 Common/미보유 등으로 거부되면 false)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "FT|Inventory|QuickSlot")
+	bool RegisterSelectedToQuickSlot(int32 SlotIndex);
+
+	/**
 	 * @brief 특정 슬롯 체크박스의 클릭 상태(체크 여부) 기록
 	 * @param SlotIndex : 선택 상태를 설정할 아이템의 카테고리 내 인덱스
 	 * @param bIsSelected : 선택(체크) 여부

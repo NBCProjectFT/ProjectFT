@@ -6,6 +6,7 @@
 #include "FTItemTileListObject.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Hub/FTHubShop.h"
+#include "Types/SlateEnums.h"
 
 void UFTHubShopPanelWidget::InitializeShopPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory)
 {
@@ -24,14 +25,20 @@ void UFTHubShopPanelWidget::NativeConstruct()
 
 	if (TV_ShopItems)
 	{
+		TV_ShopItems->SetSelectionMode(ESelectionMode::Single);
 		TV_ShopItems->OnItemClicked().RemoveAll(this);
 		TV_ShopItems->OnItemClicked().AddUObject(this, &UFTHubShopPanelWidget::HandleShopItemClicked);
+		TV_ShopItems->OnItemSelectionChanged().RemoveAll(this);
+		TV_ShopItems->OnItemSelectionChanged().AddUObject(this, &UFTHubShopPanelWidget::HandleShopItemSelectionChanged);
 	}
 
 	if (TV_PlayerItems)
 	{
+		TV_PlayerItems->SetSelectionMode(ESelectionMode::Single);
 		TV_PlayerItems->OnItemClicked().RemoveAll(this);
 		TV_PlayerItems->OnItemClicked().AddUObject(this, &UFTHubShopPanelWidget::HandlePlayerItemClicked);
+		TV_PlayerItems->OnItemSelectionChanged().RemoveAll(this);
+		TV_PlayerItems->OnItemSelectionChanged().AddUObject(this, &UFTHubShopPanelWidget::HandlePlayerItemSelectionChanged);
 	}
 
 	if (BTN_Buy)
@@ -149,7 +156,7 @@ void UFTHubShopPanelWidget::UpdateSelectedItemDetails()
 	const bool bHasSelection = SelectedItem != nullptr;
 	const FName ItemID = bHasSelection ? SelectedItem->GetItemID() : NAME_None;
 	const bool bCanBuy = SelectedSource == EShopSelectionSourceType::Shop && HubShop && HubShop->CanBuyItem(ItemID, PlayerInventory);
-	const bool bCanSell = SelectedSource == EShopSelectionSourceType::Player && HubShop && PlayerInventory && !ItemID.IsNone();
+	const bool bCanSell = SelectedSource == EShopSelectionSourceType::Player && HubShop && HubShop->CanSellItemToShop(ItemID, 1, PlayerInventory);
 
 	if (TXT_SelectedItemName)
 	{
@@ -172,6 +179,13 @@ void UFTHubShopPanelWidget::UpdateSelectedItemDetails()
 			: FText::GetEmpty());
 	}
 
+	if (TXT_SelectedItemCount)
+	{
+		TXT_SelectedItemCount->SetText(bHasSelection
+			? FText::FromString(FString::Printf(TEXT("Count: %d"), SelectedItem->GetCount()))
+			: FText::GetEmpty());
+	}
+
 	if (TXT_SelectedItemState)
 	{
 		TXT_SelectedItemState->SetText(bHasSelection
@@ -190,20 +204,113 @@ void UFTHubShopPanelWidget::UpdateSelectedItemDetails()
 	}
 }
 
+void UFTHubShopPanelWidget::ClearTileChecks(UTileView* TileView)
+{
+	if (!TileView)
+	{
+		return;
+	}
+
+	const TArray<UObject*> ListItems = TileView->GetListItems();
+	for (UObject* ListItem : ListItems)
+	{
+		if (UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(ListItem))
+		{
+			TileObject->SetChecked(false);
+		}
+	}
+
+	TileView->RequestRefresh();
+}
+
 void UFTHubShopPanelWidget::HandleShopItemClicked(UObject* Item)
 {
+	if (bUpdatingSelection)
+	{
+		return;
+	}
+
 	SelectedShopItem = Cast<UFTItemTileListObject>(Item);
 	SelectedPlayerItem = nullptr;
 	SelectedSource = EShopSelectionSourceType::Shop;
+
+	bUpdatingSelection = true;
+
+	ClearTileChecks(TV_ShopItems);
+	ClearTileChecks(TV_PlayerItems);
+
+	if (SelectedShopItem)
+	{
+		SelectedShopItem->SetChecked(true);
+	}
+
+	if (TV_PlayerItems)
+	{
+		TV_PlayerItems->ClearSelection();
+	}
+
+	if (TV_ShopItems && SelectedShopItem)
+	{
+		TV_ShopItems->SetItemSelection(SelectedShopItem, true);
+		TV_ShopItems->RequestRefresh();
+	}
+
+	bUpdatingSelection = false;
+
 	UpdateSelectedItemDetails();
 }
 
 void UFTHubShopPanelWidget::HandlePlayerItemClicked(UObject* Item)
 {
+	if (bUpdatingSelection)
+	{
+		return;
+	}
+
 	SelectedPlayerItem = Cast<UFTItemTileListObject>(Item);
 	SelectedShopItem = nullptr;
 	SelectedSource = EShopSelectionSourceType::Player;
+
+	bUpdatingSelection = true;
+
+	ClearTileChecks(TV_ShopItems);
+	ClearTileChecks(TV_PlayerItems);
+
+	if (SelectedPlayerItem)
+	{
+		SelectedPlayerItem->SetChecked(true);
+	}
+
+	if (TV_ShopItems)
+	{
+		TV_ShopItems->ClearSelection();
+	}
+
+	if (TV_PlayerItems && SelectedPlayerItem)
+	{
+		TV_PlayerItems->SetItemSelection(SelectedPlayerItem, true);
+		TV_PlayerItems->RequestRefresh();
+	}
+
+	bUpdatingSelection = false;
+
 	UpdateSelectedItemDetails();
+}
+
+void UFTHubShopPanelWidget::HandleShopItemSelectionChanged(UObject* Item)
+{
+	if (Item)
+	{
+		HandleShopItemClicked(Item);
+	}
+}
+
+void UFTHubShopPanelWidget::HandlePlayerItemSelectionChanged(UObject* Item)
+{
+	if (Item)
+	{
+		HandlePlayerItemClicked(Item);
+	}
 }
 
 void UFTHubShopPanelWidget::HandleBuyClicked()
