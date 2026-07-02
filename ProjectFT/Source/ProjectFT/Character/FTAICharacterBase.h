@@ -17,7 +17,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void HandleDeath() override;
+	virtual void OnDeath() override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|AI|Stat", meta = (ClampMin = "1.0"))
 	float InitialHealth = 100.0f;
