@@ -14,6 +14,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Slow, "State.Debuff.Slow");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff, "State.Buff");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff_Haste, "State.Buff.Haste");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Dead, "State.Dead");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Captured, "State.Captured");
+
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UseItem, "Event.UseItem");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UseReleased, "Event.UseReleased");

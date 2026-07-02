@@ -41,6 +41,11 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff_Haste);     // 헤이스트: �
 // "죽었나?" 질의(HasMatchingGameplayTag)와 사망 중 어빌리티 발동 차단(GA의 ActivationBlockedTags)의 단일 소스로 쓴다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Dead);
 
+// 플레이어가 보안 요원에게 
+
+// AI (보안요원)에게 플레이어가 붙잡혀 있는 상태.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Captured);
+
 // 아이템 사용 입력 → 사용 어빌리티(UFTGA_UseItem)를 발동시키는 GameplayEvent 태그. 페이로드 = 대상 UFTItemDataAsset.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_UseItem);
 
