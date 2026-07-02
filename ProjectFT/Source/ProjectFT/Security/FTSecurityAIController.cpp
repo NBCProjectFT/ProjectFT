@@ -1,11 +1,14 @@
 ﻿
 #include "FTSecurityAIController.h"
 
+#include "AbilitySystemInterface.h"
+#include "AbilitySystemComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Components/StateTreeAIComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "HAL/IConsoleManager.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
@@ -636,9 +639,17 @@ bool AFTSecurityAIController::IsTargetStealing(const AActor* Actor) const
 		return false;
 	}
 
-	// TODO: 플레이어 쪽에서 도둑질 중 상태를 GameplayTag로 제공하면 이 임시 판정을 교체.
-	const UFTInteractionComponent* InteractionComponent = Actor->FindComponentByClass<UFTInteractionComponent>();
-	return InteractionComponent && InteractionComponent->IsChanneling();
+	// 플레이어가 "훔치는" 채널링 중이면 ASC에 State.Stealing 태그가 부여된다(UFTChanneledInteractionComponent가 부여/회수).
+	// 이전엔 IsChanneling()으로 판정해 채널 상호작용이면 무엇이든 도둑질로 오판정했으나, 이제 도둑질만 정확히 인식한다.
+	AActor* MutableActor = const_cast<AActor*>(Actor);
+	if (const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(MutableActor))
+	{
+		if (const UAbilitySystemComponent* ASC = AbilitySystemActor->GetAbilitySystemComponent())
+		{
+			return ASC->HasMatchingGameplayTag(TAG_FT_State_Stealing);
+		}
+	}
+	return false;
 }
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)

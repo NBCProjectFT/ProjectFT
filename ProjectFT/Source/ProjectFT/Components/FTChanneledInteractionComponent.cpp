@@ -2,6 +2,9 @@
 
 #include "FTChanneledInteractionComponent.h"
 
+#include "AbilitySystemInterface.h"
+#include "AbilitySystemComponent.h"
+
 #include "ProjectFT/Core/FTLogChannels.h"
 
 UFTChanneledInteractionComponent::UFTChanneledInteractionComponent()
@@ -21,6 +24,42 @@ void UFTChanneledInteractionComponent::TickComponent(float DeltaTime, ELevelTick
 	}
 }
 
+void UFTChanneledInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 채널 도중 대상(소유 액터)이 파괴되면 Stop/Complete를 못 거치므로, 시전자 ASC에 부여한 태그를 여기서 회수한다.
+	// bIsChanneling일 때만 회수해 Add/Remove 균형을 유지한다(이미 정리됐으면 no-op).
+	if (bIsChanneling)
+	{
+		ApplyChannelingStateTag(false);
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void UFTChanneledInteractionComponent::ApplyChannelingStateTag(bool bApply)
+{
+	if (!ChannelingStateTag.IsValid() || !Interactor)
+	{
+		return;
+	}
+
+	// 시전자가 GAS를 쓰면(플레이어) ASC에 Loose 태그로 부여/회수한다. ASC가 없으면 무시.
+	if (const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(Interactor))
+	{
+		if (UAbilitySystemComponent* ASC = AbilitySystemActor->GetAbilitySystemComponent())
+		{
+			if (bApply)
+			{
+				ASC->AddLooseGameplayTag(ChannelingStateTag);
+			}
+			else
+			{
+				ASC->RemoveLooseGameplayTag(ChannelingStateTag);
+			}
+		}
+	}
+}
+
 //플레이어가 진열대 털기 시작하는 시점. (채널링 시작.)
 void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor, float InWorkSpeedMultiplier)
 {
@@ -34,6 +73,9 @@ void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor, float 
 	bIsChanneling = true;
 	SetComponentTickEnabled(true);
 	ScheduleNextSkillCheck();
+
+	// 채널 시작 → 시전자 ASC에 상태 태그 부여(도둑질 채널이면 State.Stealing).
+	ApplyChannelingStateTag(true);
 
 	OnChannelStateChanged.Broadcast(true);
 }
@@ -56,6 +98,9 @@ void UFTChanneledInteractionComponent::StopChannel()
 	}
 
 	SetComponentTickEnabled(false);
+
+	// 태그 회수는 Interactor를 비우기 전에(회수 대상 ASC를 잃지 않도록).
+	ApplyChannelingStateTag(false);
 	Interactor = nullptr;
 
 	OnChannelStateChanged.Broadcast(false);
@@ -197,6 +242,9 @@ void UFTChanneledInteractionComponent::CompleteChannel()
 	}
 
 	SetComponentTickEnabled(false);
+
+	// 완료 시에도 태그 회수 후 Interactor 정리(대상이 완료 직후 Destroy돼도 태그가 남지 않도록).
+	ApplyChannelingStateTag(false);
 	Interactor = nullptr;
 
 	UE_LOG(LogFTPlayer, Verbose, TEXT("Channeled interaction completed on '%s'."), *GetNameSafe(GetOwner()));

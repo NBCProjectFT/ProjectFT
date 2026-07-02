@@ -46,6 +46,10 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Dead);
 // AI (보안요원)에게 플레이어가 붙잡혀 있는 상태.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Captured);
 
+// 훔치는 채널형 상호작용(예: LootShelf) 진행 중 시전자(플레이어) ASC에 부여되는 상태 태그.
+// UFTChanneledInteractionComponent가 ChannelingStateTag로 이 값을 부여/해제한다. NPC/경비 AI가 도둑질 인식에 질의한다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Stealing);
+
 // 아이템 사용 입력 → 사용 어빌리티(UFTGA_UseItem)를 발동시키는 GameplayEvent 태그. 페이로드 = 대상 UFTItemDataAsset.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_UseItem);
 

@@ -1,6 +1,8 @@
 ﻿
 #include "FTNPCAIController.h"
 
+#include "AbilitySystemInterface.h"
+#include "AbilitySystemComponent.h"
 #include "Components/StateTreeAIComponent.h"
 #include "DrawDebugHelpers.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
@@ -8,6 +10,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
@@ -404,13 +407,17 @@ bool AFTNPCAIController::IsTargetStealing(const AActor* Actor) const
 		return false;
 	}
 
-	// TODO: 플레이어 쪽에서 도둑질 중 상태를 GameplayTag로 제공해주시길 바랍니다.
-	// TODO: 플레이어 담당 코드에 명시적인 도둑질 상태가 생기면 이 임시 판정을 교체.
-	// 현재는 플레이어 코드를 수정하지 않기 위해 임시로 채널링 상호작용 중인지로만 도둑질을 판정한다.
-	// 그러나 이 방식은 채널링 상호작용이기만 하면 전부 도둑질로 판단해버리니
-	// 플레이어 쪽에서 도둑질 중 상태를 GameplayTag로 제공해주시길 바랍니다.
-	const UFTInteractionComponent* InteractionComponent = Actor->FindComponentByClass<UFTInteractionComponent>();
-	return InteractionComponent && InteractionComponent->IsChanneling();
+	// 플레이어가 "훔치는" 채널링 중이면 ASC에 State.Stealing 태그가 부여된다(UFTChanneledInteractionComponent가 부여/회수).
+	// 이전엔 IsChanneling()으로 판정해 채널 상호작용이면 무엇이든 도둑질로 오판정했으나, 이제 도둑질만 정확히 인식한다.
+	AActor* MutableActor = const_cast<AActor*>(Actor);
+	if (const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(MutableActor))
+	{
+		if (const UAbilitySystemComponent* ASC = AbilitySystemActor->GetAbilitySystemComponent())
+		{
+			return ASC->HasMatchingGameplayTag(TAG_FT_State_Stealing);
+		}
+	}
+	return false;
 }
 
 bool AFTNPCAIController::ShouldCancelReport() const
