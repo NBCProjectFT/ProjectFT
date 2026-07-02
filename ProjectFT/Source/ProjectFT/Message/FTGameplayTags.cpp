@@ -12,8 +12,9 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCDetectedPlayer, "Event.NPC.DetectedPlayer
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportStarted, "Event.NPC.ReportStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportProgress, "Event.NPC.ReportProgress");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportCompleted, "Event.NPC.ReportCompleted");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseStarted, "Event.Security.ChaseStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityAttackStarted, "Event.Security.AttackStarted");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetCaptured, "Event.Security.TargetCaptured");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetEscaped, "Event.Security.TargetEscaped");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetSeen, "Event.Security.TargetSeen");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetLost, "Event.Security.TargetLost");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseGaugeChanged, "Event.Security.ChaseGauge.Changed");
