@@ -41,16 +41,6 @@ void UFTUIManagerSubsystem::ShowInventory()
 		return;
 	}
 
-	if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
-	{
-		PlayerChar->SetInventoryOpen(true, false);
-	}
-
-	if (InventoryViewModel)
-	{
-		InventoryViewModel->ClearSelection();
-	}
-
 	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
 	if (!GameData)
 	{
