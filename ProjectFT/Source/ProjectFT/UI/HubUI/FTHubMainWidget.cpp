@@ -4,6 +4,8 @@
 #include "FTHubMarketPanelWidget.h"
 #include "FTHubQuestPanelWidget.h"
 #include "FTHubShopPanelWidget.h"
+#include "Components/TextBlock.h"
+#include "ProjectFT/Hub/FTHubShop.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
 
 void UFTHubMainWidget::InitializeHubMain(
@@ -14,6 +16,8 @@ void UFTHubMainWidget::InitializeHubMain(
 )
 {
 	HubTerminal = InHubTerminal;
+	HubShop = InHubShop;
+	PlayerInventory = InPlayerInventory;
 
 	if (WBP_QuestPanel)
 	{
@@ -30,6 +34,7 @@ void UFTHubMainWidget::InitializeHubMain(
 		WBP_MarketPanel->InitializeMarketPanel(InHubShop, InPlayerInventory);
 	}
 
+	RefreshCollectionCoinText();
 	ShowQuestPanel();
 }
 
@@ -66,6 +71,29 @@ void UFTHubMainWidget::NativeConstruct()
 		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubMainWidget::HandleCloseClicked);
 		BTN_Close->OnClicked.AddDynamic(this, &UFTHubMainWidget::HandleCloseClicked);
 	}
+
+	RefreshCollectionCoinText();
+}
+
+void UFTHubMainWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	RefreshCollectionCoinText();
+}
+
+void UFTHubMainWidget::RefreshCollectionCoinText()
+{
+	if (!TXT_CollectionCoin)
+	{
+		return;
+	}
+
+	const int32 CoinAmount = HubShop
+		? HubShop->GetCurrencyAmount(PlayerInventory)
+		: 0;
+
+	TXT_CollectionCoin->SetText(FText::FromString(FString::Printf(TEXT("보유 현금 %d"), CoinAmount)));
 }
 
 void UFTHubMainWidget::ShowQuestPanel()
@@ -75,14 +103,14 @@ void UFTHubMainWidget::ShowQuestPanel()
 		WBP_QuestPanel->SetVisibility(ESlateVisibility::Visible);
 	}
 
-	if (WBP_ShopPanel)
-	{
-		WBP_ShopPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-
 	if (WBP_MarketPanel)
 	{
 		WBP_MarketPanel->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	if (WBP_ShopPanel)
+	{
+		WBP_ShopPanel->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }
 

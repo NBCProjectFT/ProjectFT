@@ -3,6 +3,8 @@
 #include "Components/Button.h"
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
+#include "Components/TileView.h"
+#include "FTItemTileListObject.h"
 #include "FTTradePostListObject.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Hub/FTHubShop.h"
@@ -46,6 +48,7 @@ void UFTHubMarketPanelWidget::NativeConstruct()
 
 	RefreshTradePosts();
 	UpdateSelectedPostDetails();
+	RefreshSelectedPostItems();
 }
 
 void UFTHubMarketPanelWidget::RefreshTradePosts()
@@ -124,8 +127,40 @@ void UFTHubMarketPanelWidget::UpdateSelectedPostDetails()
 
 	if (BTN_Trade)
 	{
-		BTN_Trade->SetIsEnabled(bHasSelection && PlayerInventory != nullptr);
+		const bool bCanTrade = Post && HubShop && PlayerInventory
+			? (bBuyRequestMode
+				? HubShop->CanSellMarketItem(Post->PostID, PlayerInventory)
+				: HubShop->CanBuyMarketItem(Post->PostID, PlayerInventory))
+			: false;
+		BTN_Trade->SetIsEnabled(bCanTrade);
 	}
+
+	RefreshSelectedPostItems();
+}
+
+void UFTHubMarketPanelWidget::RefreshSelectedPostItems()
+{
+	if (!TV_SelectedPostItems)
+	{
+		return;
+	}
+
+	TV_SelectedPostItems->ClearListItems();
+
+	if (!SelectedPost)
+	{
+		return;
+	}
+
+	const FTTradePostStruct& Post = SelectedPost->GetTradePost();
+	if (Post.ItemID.IsNone() || Post.Count <= 0)
+	{
+		return;
+	}
+
+	UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+	ItemObject->InitializeItem(Post.ItemID, Post.Count, Post.Price);
+	TV_SelectedPostItems->AddItem(ItemObject);
 }
 
 void UFTHubMarketPanelWidget::SetBuyRequestMode(bool bInBuyRequestMode)

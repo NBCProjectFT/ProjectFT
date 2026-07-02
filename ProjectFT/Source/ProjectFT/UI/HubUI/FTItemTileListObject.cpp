@@ -7,6 +7,7 @@ void UFTItemTileListObject::InitializeItem(FName InItemID, int32 InCount, int32 
 {
 	ItemID = InItemID;
 	Count = FMath::Max(1, InCount);
+	OwnedCount = INDEX_NONE;
 	Price = FMath::Max(0, InPrice);
 	bLocked = bInLocked;
 	DisplayName = FText::FromName(ItemID);
@@ -15,9 +16,10 @@ void UFTItemTileListObject::InitializeItem(FName InItemID, int32 InCount, int32 
 	LoadItemData();
 }
 
-void UFTItemTileListObject::InitializeIngredient(const FTCraftIngredientStruct& Ingredient)
+void UFTItemTileListObject::InitializeIngredient(const FTCraftIngredientStruct& Ingredient, const int32 InOwnedCount)
 {
 	InitializeItem(Ingredient.ItemID, Ingredient.Count);
+	OwnedCount = InOwnedCount;
 }
 
 void UFTItemTileListObject::InitializeShopItem(const FTShopItemStruct& ShopItem, bool bInLocked)
@@ -35,6 +37,11 @@ int32 UFTItemTileListObject::GetCount() const
 	return Count;
 }
 
+int32 UFTItemTileListObject::GetOwnedCount() const
+{
+	return OwnedCount;
+}
+
 int32 UFTItemTileListObject::GetPrice() const
 {
 	return Price;
@@ -48,6 +55,11 @@ float UFTItemTileListObject::GetTotalWeight() const
 bool UFTItemTileListObject::IsLocked() const
 {
 	return bLocked;
+}
+
+bool UFTItemTileListObject::HasOwnedCount() const
+{
+	return OwnedCount != INDEX_NONE;
 }
 
 bool UFTItemTileListObject::IsChecked() const

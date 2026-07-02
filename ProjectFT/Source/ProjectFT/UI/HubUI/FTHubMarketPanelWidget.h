@@ -7,9 +7,11 @@
 class AFTHubShop;
 class UButton;
 class UFTInventoryComponent;
+class UFTItemTileListObject;
 class UFTTradePostListObject;
 class UListView;
 class UTextBlock;
+class UTileView;
 
 UCLASS()
 class PROJECTFT_API UFTHubMarketPanelWidget : public UUserWidget
@@ -44,12 +46,16 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedPostPrice;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTileView* TV_SelectedPostItems;
+
 	UPROPERTY(meta = (BindWidget))
 	UButton* BTN_Trade;
 
 private:
 	void RefreshTradePosts();
 	void UpdateSelectedPostDetails();
+	void RefreshSelectedPostItems();
 	void SetBuyRequestMode(bool bInBuyRequestMode);
 	void HandleTradePostClicked(UObject* Item);
 
