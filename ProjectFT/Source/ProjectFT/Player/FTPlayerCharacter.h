@@ -14,6 +14,7 @@ class UCameraComponent;
 class USpringArmComponent;
 class UFTInteractionComponent;
 class UFTTraversalComponent;
+class UFTCaptureEscapeComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
@@ -68,6 +69,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction")
 	bool IsChannelingInteraction() const;
 
+	// 경비에게 붙잡힌 상태(UFTGA_Grab). 이동/시점/아이템 입력이 막히고 좌우 연타 탈출만 허용된다.
+	UFUNCTION(BlueprintPure, Category = "FT|Capture")
+	bool IsCaptured() const;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -94,6 +99,10 @@ protected:
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
+
+	// 붙잡힘(경비 잡기) 상태·좌우연타 탈출 게이지를 소유한다. UFTGA_Grab이 BeginCapture/EndCapture로 구동한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Capture", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTCaptureEscapeComponent> CaptureEscapeComponent;
 
 	// 트레이스 기반 파쿠르(Vault/Hurdle/Mantle). 점프 입력 시 TryStartTraversal에서 사용한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Traversal", meta = (AllowPrivateAccess = "true"))

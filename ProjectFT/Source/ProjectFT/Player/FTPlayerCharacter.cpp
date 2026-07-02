@@ -18,6 +18,7 @@
 #include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Components/FTCaptureEscapeComponent.h"
 #include "ProjectFT/Components/FTTraversalComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -69,6 +70,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	// 트레이스 기반 파쿠르 컴포넌트(필요 시 MotionWarpingComponent를 런타임에 스스로 추가한다).
 	TraversalComponent = CreateDefaultSubobject<UFTTraversalComponent>(TEXT("TraversalComponent"));
+
+	// 붙잡힘(경비 잡기) 상태 + 좌우연타 탈출 게이지.
+	CaptureEscapeComponent = CreateDefaultSubobject<UFTCaptureEscapeComponent>(TEXT("CaptureEscapeComponent"));
 
 	// GAS: 플레이어 전용 속성셋만 여기서 생성한다(ASC·공용 AttributeSet은 베이스 AFTCharacterBase가 생성).
 	// 캐릭터 서브오브젝트라 베이스의 ASC가 자동 등록한다.
@@ -134,6 +138,16 @@ void AFTPlayerCharacter::Tick(float DeltaSeconds)
 
 void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 {
+	// 붙잡힘 중엔 이동 대신 좌우 연타를 탈출 게이지로 흘려보낸다(이동 자체는 하지 않음).
+	if (IsCaptured())
+	{
+		if (CaptureEscapeComponent)
+		{
+			CaptureEscapeComponent->AddStruggleInput(MoveValue.X);
+		}
+		return;
+	}
+
 	if (!Controller)
 	{
 		return;
@@ -162,12 +176,23 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 
 void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 {
+	// 붙잡힘 중 시점 조작 차단.
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	AddControllerYawInput(LookValue.X);
 	AddControllerPitchInput(LookValue.Y);
 }
 
 void AFTPlayerCharacter::HandleJumpPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (bTryTraversalBeforeJump && TryStartTraversal())
 	{
 		return;
@@ -183,6 +208,11 @@ void AFTPlayerCharacter::HandleJumpReleased()
 
 void AFTPlayerCharacter::HandleSprintPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	// 키 상태만 기록. 조건 확인과 속도 적용은 Tick의 UpdateSprintState가 처리.
 	bSprintHeld = true;
 }
@@ -194,6 +224,11 @@ void AFTPlayerCharacter::HandleSprintReleased()
 
 void AFTPlayerCharacter::HandleCrouchPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	Crouch();
 }
 
@@ -204,6 +239,11 @@ void AFTPlayerCharacter::HandleCrouchReleased()
 
 void AFTPlayerCharacter::HandleInteractPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (InteractionComponent)
 	{
 		InteractionComponent->TryInteract();
@@ -220,6 +260,11 @@ void AFTPlayerCharacter::HandleInteractReleased()
 
 void AFTPlayerCharacter::HandleSkillCheckPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (InteractionComponent)
 	{
 		InteractionComponent->NotifySkillCheckInput();
@@ -228,6 +273,11 @@ void AFTPlayerCharacter::HandleSkillCheckPressed()
 
 void AFTPlayerCharacter::HandleUseItemPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (!AbilitySystemComponent)
 	{
 		return;
@@ -281,6 +331,11 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 
 void AFTPlayerCharacter::HandleUseItemReleased()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (!AbilitySystemComponent)
 	{
 		return;
@@ -309,6 +364,11 @@ void AFTPlayerCharacter::CancelItemUseAbilities(FGameplayTag MatchTag)
 
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
 	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
 	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
@@ -349,12 +409,22 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 
 void AFTPlayerCharacter::HandleToggleInventoryPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	// 열림 상태의 단일 소스는 UI 서브시스템이다. 캐릭터는 토글만 위임하고 상태는 보유하지 않는다.
 	if (UFTUIManagerSubsystem* UIManager = GetUIManager())
 	{
 		UIManager->ToggleInventory();
 	}
 	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory toggled -> %d"), IsInventoryOpen());
+}
+
+bool AFTPlayerCharacter::IsCaptured() const
+{
+	return CaptureEscapeComponent && CaptureEscapeComponent->IsCaptured();
 }
 
 bool AFTPlayerCharacter::IsInventoryOpen() const
