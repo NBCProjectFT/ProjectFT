@@ -50,6 +50,12 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Captured);
 // UFTChanneledInteractionComponent가 ChannelingStateTag로 이 값을 부여/해제한다. NPC/경비 AI가 도둑질 인식에 질의한다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Stealing);
 
+// 경비 잡기 어빌리티(UFTGA_Grab) 발동용 GameplayEvent 트리거 태그. StateTree가 대상(플레이어)을 페이로드(Target)로 실어 보낸다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Grab);
+
+// 잡기 어빌리티가 활성인 동안 경비 ASC에 부여되는 진행 상태 태그(ActivationOwnedTags). StateTree가 "아직 잡는 중?" 질의에 쓴다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Grabbing);
+
 // 아이템 사용 입력 → 사용 어빌리티(UFTGA_UseItem)를 발동시키는 GameplayEvent 태그. 페이로드 = 대상 UFTItemDataAsset.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_UseItem);
 

@@ -6,6 +6,7 @@
 #include "FTSecurityCharacter.generated.h"
 
 class USceneComponent;
+class UGameplayAbility;
 
 UCLASS()
 class PROJECTFT_API AFTSecurityCharacter : public AFTAICharacterBase
@@ -36,6 +37,10 @@ protected:
 	/** 붙잡힌 플레이어가 Attach 또는 추종할 위치 기준이다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	TObjectPtr<USceneComponent> CapturePoint;
+
+	/** BeginPlay에서 이 경비 ASC에 부여할 어빌리티들(잡기 UFTGA_Grab 등). 경비만 이 능력을 쓰므로 여기서 부여한다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Security|Abilities")
+	TArray<TSubclassOf<UGameplayAbility>> DefaultAbilities;
 
 private:
 	FTimerHandle PawnCollisionRestoreTimerHandle;

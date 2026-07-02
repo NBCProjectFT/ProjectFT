@@ -16,6 +16,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff_Haste, "State.Buff.Haste");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Dead, "State.Dead");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Captured, "State.Captured");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Stealing, "State.Stealing");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Grab, "Event.Grab");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Grabbing, "State.Grabbing");
 
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UseItem, "Event.UseItem");
