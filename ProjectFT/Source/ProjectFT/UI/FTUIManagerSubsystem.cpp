@@ -41,6 +41,11 @@ void UFTUIManagerSubsystem::ShowInventory()
 		return;
 	}
 
+	if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
+	{
+		PlayerChar->SetInventoryOpen(true, false);
+	}
+
 	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
 	if (!GameData)
 	{
@@ -114,6 +119,11 @@ void UFTUIManagerSubsystem::HideInventory()
 	{
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
+
+		if (AFTPlayerCharacter* PlayerChar = Cast<AFTPlayerCharacter>(PlayerController->GetPawn()))
+		{
+			PlayerChar->SetInventoryOpen(false, false);
+		}
 	}
 }
 
