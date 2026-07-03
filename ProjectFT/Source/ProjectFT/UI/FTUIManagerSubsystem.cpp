@@ -4,14 +4,19 @@
 #include "FTCountdownEscapeWidget.h"
 #include "FTInventoryWidget.h"
 #include "FTMainMenuWidget.h"
+#include "HubUI/FTHubCraftTestWidget.h"
+#include "HubUI/FTHubStorageWidget.h"
 #include "Framework/Application/SlateApplication.h"
 #include "../ViewModel/FTCraftingViewModel.h"
 #include "../ViewModel/FTHUDViewModel.h"
 #include "../ViewModel/FTInventoryViewModel.h"
 #include "../ViewModel/FTQuestViewModel.h"
 #include "../ViewModel/FTSettlementViewModel.h"
+#include "../ViewModel/FTHubStorageViewModel.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
+#include "ProjectFT/Hub/FTHubStorage.h"
+#include "ProjectFT/Hub/FTHubWorkbench.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/Pawn.h"
@@ -287,10 +292,164 @@ bool UFTUIManagerSubsystem::IsInventoryOpen() const
 
 void UFTUIManagerSubsystem::ShowCrafting()
 {
+	UE_LOG(LogFTUI, Warning, TEXT("ShowCrafting called without a workbench context."));
+}
+
+void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubCraftTestWidget> FallbackWidgetClass)
+{
+	if (!HubWorkbench)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Craft widget was not created because HubWorkbench is missing."));
+		return;
+	}
+
+	if (HubCraftWidget && HubCraftWidget->IsInViewport())
+	{
+		HideCrafting();
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Craft widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	TSubclassOf<UFTHubCraftTestWidget> CraftWidgetClass = nullptr;
+	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
+	{
+		CraftWidgetClass = UFTAssetManager::GetSubclass(GameData->HubCraftWidgetClass);
+	}
+
+	if (!CraftWidgetClass)
+	{
+		CraftWidgetClass = FallbackWidgetClass;
+	}
+
+	if (!CraftWidgetClass)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Craft widget class is not set in game data or fallback actor."));
+		return;
+	}
+
+	if (!HubCraftWidget || !HubCraftWidget->IsA(CraftWidgetClass))
+	{
+		HubCraftWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, CraftWidgetClass);
+		if (!HubCraftWidget)
+		{
+			return;
+		}
+	}
+
+	if (!CraftingViewModel)
+	{
+		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
+	}
+
+	HubCraftWidget->InitializeCraftTest(HubWorkbench, PlayerInventory, CraftingViewModel);
+	HubCraftWidget->AddToViewport(20);
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetWidgetToFocus(HubCraftWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+}
+
+void UFTUIManagerSubsystem::HideCrafting()
+{
+	if (HubCraftWidget)
+	{
+		HubCraftWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
 }
 
 void UFTUIManagerSubsystem::ShowStorage()
 {
+	UE_LOG(LogFTUI, Warning, TEXT("ShowStorage called without a storage context."));
+}
+
+void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubStorageWidget> FallbackWidgetClass)
+{
+	if (!HubStorage)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Storage widget was not created because HubStorage is missing."));
+		return;
+	}
+
+	if (HubStorageWidget && HubStorageWidget->IsInViewport())
+	{
+		HideStorage();
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Storage widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	TSubclassOf<UFTHubStorageWidget> StorageWidgetClass = nullptr;
+	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
+	{
+		StorageWidgetClass = UFTAssetManager::GetSubclass(GameData->HubStorageWidgetClass);
+	}
+
+	if (!StorageWidgetClass)
+	{
+		StorageWidgetClass = FallbackWidgetClass;
+	}
+
+	if (!StorageWidgetClass)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Storage widget class is not set in game data or fallback actor."));
+		return;
+	}
+
+	if (!HubStorageWidget || !HubStorageWidget->IsA(StorageWidgetClass))
+	{
+		HubStorageWidget = CreateWidget<UFTHubStorageWidget>(PlayerController, StorageWidgetClass);
+		if (!HubStorageWidget)
+		{
+			return;
+		}
+	}
+
+	if (!HubStorageViewModel)
+	{
+		HubStorageViewModel = NewObject<UFTHubStorageViewModel>(this);
+	}
+
+	HubStorageWidget->InitializeStorageWidget(HubStorage, PlayerInventory, HubStorageViewModel);
+	HubStorageWidget->AddToViewport(20);
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetWidgetToFocus(HubStorageWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+}
+
+void UFTUIManagerSubsystem::HideStorage()
+{
+	if (HubStorageWidget)
+	{
+		HubStorageWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
 }
 
 void UFTUIManagerSubsystem::ShowQuestBoard()

@@ -1,13 +1,11 @@
 #include "FTHubStorage.h"
-#include "Blueprint/UserWidget.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "ProjectFT/UI/HubUI//FTHubStorageWidget.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/ViewModel/FTHubStorageViewModel.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "ProjectFT/UI/HubUI/FTHubStorageWidget.h"
 
 AFTHubStorage::AFTHubStorage()
-	:HubStorageWidget(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	StorageInventory = CreateDefaultSubobject<UFTInventoryComponent>(TEXT("StorageInventory"));
@@ -172,98 +170,50 @@ FText AFTHubStorage::GetInteractionPrompt_Implementation() const
 
 void AFTHubStorage::OpenStorageWidget(AActor* Interactor)
 {
-	if (!HubStorageWidgetClass)
+	UGameInstance* GameInstance = GetGameInstance();
+	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HubStorageWidgetClass is not assigned."));
-		return;
-	}
-	
-	APlayerController* PlayerController = nullptr;
-
-	if (APawn* InteractorPawn = Cast<APawn>(Interactor))
-	{
-		PlayerController = Cast<APlayerController>(InteractorPawn->GetController());
-	}
-	
-	if (HubStorageWidget && HubStorageWidget->IsInViewport())
-	{
-		CloseStorageWidget();
+		UIManager->ShowStorage(this, FindPlayerInventory(Interactor), HubStorageWidgetClass);
 		return;
 	}
 
-	
-
-	
-
-	if (!PlayerController)
-	{
-		PlayerController = GetWorld()->GetFirstPlayerController();
-	}
-
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	UFTInventoryComponent* PlayerInventory = nullptr;
-	if (Interactor)
-	{
-		PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>();
-	}
-
-	if (!PlayerInventory && PlayerController->GetPawn())
-	{
-		PlayerInventory = PlayerController->GetPawn()->FindComponentByClass<UFTInventoryComponent>();
-	}
-
-	if (!PlayerInventory)
-	{
-		PlayerInventory = PlayerController->FindComponentByClass<UFTInventoryComponent>();
-	}
-
-	if (!HubStorageWidget)
-	{
-		HubStorageWidget = CreateWidget<UFTHubStorageWidget>(PlayerController, HubStorageWidgetClass);
-		if (!HubStorageWidget)
-		{
-			return;
-		}
-	}
-
-	if (!HubStorageViewModel)
-	{
-		HubStorageViewModel = NewObject<UFTHubStorageViewModel>(this);
-	}
-
-	HubStorageWidget->InitializeStorageWidget(this, PlayerInventory, HubStorageViewModel);
-
-	if (!HubStorageWidget->IsInViewport())
-	{
-		HubStorageWidget->AddToViewport();
-
-		PlayerController->bShowMouseCursor = true;
-
-		FInputModeGameAndUI InputMode;
-		InputMode.SetWidgetToFocus(HubStorageWidget->TakeWidget());
-		PlayerController->SetInputMode(InputMode);
-	}
+	UE_LOG(LogTemp, Warning, TEXT("Storage widget was not opened because UIManager is missing."));
 }
 
 void AFTHubStorage::CloseStorageWidget()
 {
-	if (HubStorageWidget && HubStorageWidget->IsInViewport())
+	UGameInstance* GameInstance = GetGameInstance();
+	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
 	{
-		HubStorageWidget->RemoveFromParent();
+		UIManager->HideStorage();
+	}
+}
+
+UFTInventoryComponent* AFTHubStorage::FindPlayerInventory(AActor* Interactor) const
+{
+	if (Interactor)
+	{
+		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
 	}
 
-	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	const APlayerController* PlayerController = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr;
 	if (!PlayerController)
 	{
-		return;
+		return nullptr;
 	}
 
-	PlayerController->bShowMouseCursor = false;
+	if (APawn* Pawn = PlayerController->GetPawn())
+	{
+		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
+	}
 
-	FInputModeGameOnly InputMode;
-	PlayerController->SetInputMode(InputMode);
+	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
 }
