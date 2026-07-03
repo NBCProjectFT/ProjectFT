@@ -10,6 +10,8 @@ class UFTCraftingViewModel;
 class UFTQuestViewModel;
 class UFTSettlementViewModel;
 class UFTInventoryWidget;
+class UFTMainMenuWidget;
+class UFTCountdownEscapeWidget;
 
 UCLASS()
 class PROJECTFT_API UFTUIManagerSubsystem : public UGameInstanceSubsystem
@@ -36,6 +38,21 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowHUD();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowMainMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideMainMenu(bool bKeepMouseCursor = false);
+	
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowCountdownEscape();
+	
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideCountdownEscape();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void SetCountdownEscapeRemainingTime(float RemainingTime);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowInventory();
@@ -71,4 +88,10 @@ private:
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFTInventoryWidget> InventoryWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTMainMenuWidget> MainMenuWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;
 };

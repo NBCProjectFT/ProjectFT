@@ -3,14 +3,31 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "Engine/EngineTypes.h"
+#include "ProjectFT/Enum/FTFlowStateType.h"
 #include "FTGameDataAsset.generated.h"
 
 class UFTItemDataAsset;
 class UFTLoadingWidget;
+class UFTMainMenuWidget;
 class UFTMainHUDWidget;
 class UFTInventoryWidget;
 class UFTQuestListWidget;
 class UMaterialInterface;
+
+USTRUCT(BlueprintType)
+struct FFTFlowStateDefinition
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
+	EFTFlowStateType State = EFTFlowStateType::MainMenu;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
+	FName TargetLevelName = NAME_None;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
+	bool bUseLoadingLevel = true;
+};
 
 UCLASS(BlueprintType)
 class PROJECTFT_API UFTGameDataAsset : public UPrimaryDataAsset
@@ -37,8 +54,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Item")
 	TArray<TSoftObjectPtr<UFTItemDataAsset>> ItemDataAssets;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
+	FName LoadingLevelName = TEXT("Lvl_Loading");
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
+	TArray<FFTFlowStateDefinition> FlowStateDefinitions;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UFTLoadingWidget> LoadingWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	TSoftClassPtr<UFTMainMenuWidget> MainMenuWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UFTMainHUDWidget> MainHUDWidgetClass;
@@ -48,7 +74,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UFTQuestListWidget> QuestListWidgetClass;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UUserWidget> DamageTextWidgetClass;
 
