@@ -2,7 +2,6 @@
 
 #include "FTGameFlowSubsystem.h"
 #include "FTLogChannels.h"
-#include "../Data/FTGameDataAsset.h"
 #include "../Manager/AssetManager/FTAssetManager.h"
 #include "../UI/FTLoadingWidget.h"
 #include "Blueprint/UserWidget.h"
@@ -38,17 +37,10 @@ void AFTLoadingGameMode::StartPlay()
 
 void AFTLoadingGameMode::CreateLoadingWidget()
 {
-	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
-	if (!GameData)
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Loading widget was not created because game data is missing."));
-		return;
-	}
-
-	TSubclassOf<UFTLoadingWidget> LoadingWidgetClass = UFTAssetManager::GetSubclass(GameData->LoadingWidgetClass);
+	TSubclassOf<UFTLoadingWidget> LoadingWidgetClass = UFTAssetManager::Get().GetLoadingWidgetClass();
 	if (!LoadingWidgetClass)
 	{
-		UE_LOG(LogFTUI, Warning, TEXT("LoadingWidgetClass is not set."));
+		UE_LOG(LogFTUI, Warning, TEXT("LoadingWidgetClass is not set in UI data."));
 		return;
 	}
 

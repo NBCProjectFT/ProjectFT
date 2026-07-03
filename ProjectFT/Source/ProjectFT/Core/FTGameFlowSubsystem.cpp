@@ -163,6 +163,19 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 
 void UFTGameFlowSubsystem::ReturnToBase()
 {
+	if (!UFTAssetManager::Get().UseHubGameData())
+	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Return to base requested, but HubGameDataPath could not be loaded."));
+	}
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->HideEscapedRaid();
+		}
+	}
+
 	TravelToState(EFTFlowStateType::Base);
 }
 
@@ -349,6 +362,13 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 		BroadcastFlowEvent(TAG_FT_Event_RaidStarted);
 		break;
 	case EFTFlowStateType::Escaped:
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				UIManager->ShowEscapedRaid();
+			}
+		}
 		BroadcastFlowEvent(TAG_FT_Event_RaidEscaped);
 		break;
 	case EFTFlowStateType::Failed:

@@ -6,6 +6,18 @@
 #include "FTAssetManager.generated.h"
 
 class UFTGameDataAsset;
+class UFTUIDataAsset;
+class UFTEscapedRaidWidget;
+class UFTHubCraftTestWidget;
+class UFTHubStorageWidget;
+class UFTCountdownEscapeWidget;
+class UFTInventoryWidget;
+class UFTLoadingWidget;
+class UFTMainHUDWidget;
+class UFTMainMenuWidget;
+class UFTQuestListWidget;
+class UMaterialInterface;
+class UUserWidget;
 struct FStreamableHandle;
 
 DECLARE_DELEGATE_ThreeParams(FFTAssetLoadProgressDelegate, const FString&, int32, int32);
@@ -35,6 +47,19 @@ public:
 	static void DumpLoadedAssets();
 
 	const UFTGameDataAsset* GetGameData();
+	const UFTUIDataAsset* GetUIData();
+	TSubclassOf<UFTLoadingWidget> GetLoadingWidgetClass();
+	TSubclassOf<UFTMainMenuWidget> GetMainMenuWidgetClass();
+	TSubclassOf<UFTMainHUDWidget> GetMainHUDWidgetClass();
+	TSubclassOf<UFTInventoryWidget> GetInventoryWidgetClass();
+	TSubclassOf<UFTQuestListWidget> GetQuestListWidgetClass();
+	TSubclassOf<UFTHubStorageWidget> GetHubStorageWidgetClass();
+	TSubclassOf<UFTHubCraftTestWidget> GetHubCraftWidgetClass();
+	TSubclassOf<UFTCountdownEscapeWidget> GetCountdownEscapeWidgetClass();
+	TSubclassOf<UFTEscapedRaidWidget> GetEscapedRaidWidgetClass();
+	TSubclassOf<UUserWidget> GetDamageTextWidgetClass();
+	UMaterialInterface* GetDamageTextBackgroundMaterial();
+	UMaterialInterface* GetPaperFlutterMaterial();
 	bool UseMainMenuGameData();
 	bool UseHubGameData();
 	bool UseRaidGameData();
@@ -49,6 +74,7 @@ private:
 
 	void AddLoadedAsset(const UObject* Asset);
 	UFTGameDataAsset* LoadGameData();
+	UFTUIDataAsset* LoadUIData();
 	TArray<FSoftObjectPath> CollectPreloadAssetPaths(const UFTGameDataAsset& LoadedGameData) const;
 	void AppendDirectoryAssetPaths(const TArray<FDirectoryPath>& Directories, TArray<FSoftObjectPath>& AssetPaths) const;
 	void AppendManualAssetPaths(const TArray<TSoftObjectPtr<UObject>>& Assets, TArray<FSoftObjectPath>& AssetPaths) const;
@@ -69,13 +95,19 @@ private:
 	TSoftObjectPtr<UFTGameDataAsset> MainMenuDataPath;
 	
 	UPROPERTY(Config)
-	TSoftObjectPtr<UFTGameDataAsset> HubGameDataPath;
+	TSoftObjectPtr<UFTGameDataAsset> HubDataPath;
 	
 	UPROPERTY(Config)
-	TSoftObjectPtr<UFTGameDataAsset> HubGameRaidDataPath;
+	TSoftObjectPtr<UFTGameDataAsset> RaidDataPath;
+
+	UPROPERTY(Config)
+	TSoftObjectPtr<UFTUIDataAsset> UIDataPath;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTGameDataAsset> GameData = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTUIDataAsset> UIData = nullptr;
 
 	UPROPERTY()
 	TSet<TObjectPtr<const UObject>> LoadedAssets;

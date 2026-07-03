@@ -11,7 +11,6 @@
 #include "Materials/MaterialInterface.h"
 #include "NativeGameplayTags.h"
 #include "ProjectFT/Core/FTLogChannels.h"
-#include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "GameFramework/PlayerController.h"
@@ -27,22 +26,12 @@ void UFTDamageTextSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
-	// UFTAssetManagerì— ë“±ë¡í•´ë‘” WidgetClass ê°€ì ¸ì˜´
-	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
-	if (!GameData)
+	DamageTextWidgetClass = UFTAssetManager::Get().GetDamageTextWidgetClass();
+	DamageTextBackgroundMaterial = UFTAssetManager::Get().GetDamageTextBackgroundMaterial();
+	if (!DamageTextWidgetClass)
 	{
-		UE_LOG(LogFTUI, Warning, TEXT("Damage text subsystem was not initialized because game data is missing."));
-		return;
+		UE_LOG(LogFTUI, Warning, TEXT("Damage text widget class is not set in UI data."));
 	}
-
-	// WidgetClass ë“±ë¡
-	if (TSubclassOf<UUserWidget> LoadedWidgetClass = UFTAssetManager::GetSubclass(GameData->DamageTextWidgetClass))
-	{
-		DamageTextWidgetClass = LoadedWidgetClass;
-	}
-
-	
-	// DamageTextBackgroundMaterial = GameData->DamageTextBackgroundMaterial.LoadSynchronous();
 
 	RegisterDamageMessageListeners();
 
@@ -72,7 +61,7 @@ void UFTDamageTextSubsystem::Tick(float DeltaTime)
 }
 
 
-// UFTDamageTextSubsystemì˜ Tick ë¹„ìš©ì„ STATGROUP_Tickables ê·¸ë£¹ì— ê¸°ë¡
+// UFTDamageTextSubsystemÀÇ Tick ºñ¿ëÀ» STATGROUP_Tickables ±×·ì¿¡ ±â·Ï
 TStatId UFTDamageTextSubsystem::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UFTDamageTextSubsystem, STATGROUP_Tickables);
