@@ -14,6 +14,7 @@ class UCameraComponent;
 class USpringArmComponent;
 class UFTInteractionComponent;
 class UFTTraversalComponent;
+class UFTCaptureEscapeComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
@@ -68,6 +69,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction")
 	bool IsChannelingInteraction() const;
 
+	// 경비에게 붙잡힌 상태(UFTGA_Grab). 이동/시점/아이템 입력이 막히고 좌우 연타 탈출만 허용된다.
+	UFUNCTION(BlueprintPure, Category = "FT|Capture")
+	bool IsCaptured() const;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -94,6 +99,10 @@ protected:
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
+
+	// 붙잡힘(경비 잡기) 상태·좌우연타 탈출 게이지를 소유한다. UFTGA_Grab이 BeginCapture/EndCapture로 구동한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Capture", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTCaptureEscapeComponent> CaptureEscapeComponent;
 
 	// 트레이스 기반 파쿠르(Vault/Hurdle/Mantle). 점프 입력 시 TryStartTraversal에서 사용한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Traversal", meta = (AllowPrivateAccess = "true"))
@@ -155,8 +164,8 @@ private:
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);
 	
-	// 체력이 0에 도달했을 때 호출(베이스의 OnOutOfHealth 통지). 플레이어 사망 처리.
-	virtual void HandleDeath() override;
+	// 플레이어 사망 후처리(베이스 HandleDeath가 태그/능력취소/이동정지를 끝낸 뒤 호출). 입력 차단까지 담당한다.
+	virtual void OnDeath() override;
 
 	UFTInventoryComponent* GetInventoryComponent() const;
 

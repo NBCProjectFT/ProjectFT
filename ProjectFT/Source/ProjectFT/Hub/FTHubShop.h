@@ -17,6 +17,7 @@ class PROJECTFT_API AFTHubShop : public AActor, public IFTInteractable
 
 public:
 	AFTHubShop();
+
 	//머지용 주석
 	virtual bool Interact_Implementation(AActor* Interactor) override;
 	virtual FText GetInteractionPrompt_Implementation() const override;

@@ -3,6 +3,15 @@
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_RaidStarted, "Event.Raid.Started");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_RaidFailed, "Event.Raid.Failed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_RaidEscaped, "Event.Raid.Escaped");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_FlowStateChanged, "Event.Flow.StateChanged");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UI_MainMenu_StartGame, "Event.UI.MainMenu.StartGame");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_StartGame, "Request.Flow.StartGame");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_StartRaid, "Request.Flow.StartRaid");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_StartEscape, "Request.Flow.StartEscape");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_CancelEscape, "Request.Flow.CancelEscape");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_CompleteEscape, "Request.Flow.CompleteEscape");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_FailRaid, "Request.Flow.FailRaid");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_ReturnToBase, "Request.Flow.ReturnToBase");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemPickedUp, "Event.Item.PickedUp");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemConsumed, "Event.Item.Consumed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ReportGaugeChanged, "Event.ReportGauge.Changed");
@@ -12,8 +21,9 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCDetectedPlayer, "Event.NPC.DetectedPlayer
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportStarted, "Event.NPC.ReportStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportProgress, "Event.NPC.ReportProgress");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportCompleted, "Event.NPC.ReportCompleted");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseStarted, "Event.Security.ChaseStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityAttackStarted, "Event.Security.AttackStarted");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetCaptured, "Event.Security.TargetCaptured");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetEscaped, "Event.Security.TargetEscaped");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetSeen, "Event.Security.TargetSeen");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetLost, "Event.Security.TargetLost");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseGaugeChanged, "Event.Security.ChaseGauge.Changed");

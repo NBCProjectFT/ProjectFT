@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "GameplayTagContainer.h"
 #include "ProjectFT/Enum/FTSkillCheckResultType.h"
 #include "FTChanneledInteractionComponent.generated.h"
 
@@ -32,6 +33,9 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	// 소유 액터(대상)가 채널 도중 파괴되면 StopChannel/CompleteChannel을 못 거치므로, 시전자 ASC에 남은 상태 태그를 여기서 회수한다.
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	// 플레이어가 상호작용 키를 누르기 시작 → 채널링 시작(이미 진행 중이면 무시).
 	// InWorkSpeedMultiplier: 진행 속도 배수(예: 플레이어 손재주). 1.0 = 기본. 채널 시작 시점에 캡처된다.
 	void StartChannel(AActor* InInteractor, float InWorkSpeedMultiplier = 1.0f);
@@ -56,6 +60,11 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "FT|Interaction") FFTOnChannelCompleted OnCompleted;
 	UPROPERTY(BlueprintAssignable, Category = "FT|Interaction") FFTOnSkillCheckStarted OnSkillCheckStarted;
 	UPROPERTY(BlueprintAssignable, Category = "FT|Interaction") FFTOnSkillCheckEnded OnSkillCheckEnded;
+
+	// 채널링 중 시전자(Interactor)의 ASC에 부여할 상태 태그(비우면 없음). 예: 도둑질 채널 → State.Stealing.
+	// 채널 시작 시 부여, 중단/완료(또는 대상 파괴) 시 회수한다. AI 등 외부가 "이 플레이어가 이 종류 작업 중인가"를 태그로 정확히 질의할 수 있게 한다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction")
+	FGameplayTag ChannelingStateTag;
 
 protected:
 	// 0→1까지 채우는 데 필요한 총 작업 시간(초).
@@ -108,6 +117,10 @@ private:
 	void ScheduleNextSkillCheck();
 	void SetProgress(float NewProgress);
 	void CompleteChannel();
+
+	// 현재 Interactor의 ASC에 ChannelingStateTag를 부여(bApply=true)하거나 회수(false)한다. 태그가 비어있으면 no-op.
+	// Add/Remove는 채널 세션당 1:1로만 호출되도록 상태 전이 지점(Start/Stop/Complete/EndPlay)에서만 부른다.
+	void ApplyChannelingStateTag(bool bApply);
 
 	// 현재 채널링 중인 액터(보통 플레이어).
 	UPROPERTY(Transient)

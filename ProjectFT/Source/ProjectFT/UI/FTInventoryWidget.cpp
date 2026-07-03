@@ -7,6 +7,8 @@ void UFTInventoryWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	bHasConstructed = true;
+
 	UGameInstance* GI = GetGameInstance();
 	if (!GI) return;
 
@@ -38,6 +40,9 @@ void UFTInventoryWidget::SetupInventory(UFTInventoryComponent* InInventoryCompon
 	// 뷰모델을 타겟 인벤토리 컴포넌트로 초기화
 	ViewModel->Initialize(InInventoryComponent);
 	
+	// 인벤토리가 열리거나 새로 세팅될 때 체크박스 선택 초기화
+	ViewModel->ClearSelection();
+	
 	ViewModel->OnViewModelChanged.AddUniqueDynamic(this, &UFTInventoryWidget::HandleViewModelChanged);
 	
 	// 초기 동기화 호출
@@ -46,7 +51,7 @@ void UFTInventoryWidget::SetupInventory(UFTInventoryComponent* InInventoryCompon
 
 void UFTInventoryWidget::HandleViewModelChanged()
 {
-	if (!ViewModel) return;
+	if (!bHasConstructed || !ViewModel) return;
 
 	// UI 갱신 이벤트 호출 (블루프린트에서 오버라이드하여 처리 가능)
 	UpdateWeight(ViewModel->CurrentWeight, ViewModel->MaxWeight);
