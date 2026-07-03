@@ -1,19 +1,17 @@
 #include "FTHubWorkbench.h"
 
-#include "Blueprint/UserWidget.h"
 #include "Engine/DataTable.h"
 #include "FTHubStorage.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/UI/HubUI/FTHubCraftTestWidget.h"
-#include "ProjectFT/ViewModel/FTCraftingViewModel.h"
 
 AFTHubWorkbench::AFTHubWorkbench()
 	: CraftRecipeDataTable(nullptr)
 	, HubStorage(nullptr)
-	, HubCraftTestWidget(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -109,61 +107,14 @@ FText AFTHubWorkbench::GetInteractionPrompt_Implementation() const
 
 void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
 {
-	if (!HubCraftTestWidgetClass)
+	UGameInstance* GameInstance = GetGameInstance();
+	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HubCraftTestWidgetClass is not assigned."));
+		UIManager->ShowCrafting(this, FindPlayerInventory(Interactor), HubCraftTestWidgetClass);
 		return;
 	}
 
-	APlayerController* PlayerController = nullptr;
-
-	if (APawn* InteractorPawn = Cast<APawn>(Interactor))
-	{
-		PlayerController = Cast<APlayerController>(InteractorPawn->GetController());
-	}
-
-	if (!PlayerController)
-	{
-		PlayerController = GetWorld()->GetFirstPlayerController();
-	}
-
-	if (!PlayerController)
-	{
-		return;
-	}
-	if (HubCraftTestWidget && HubCraftTestWidget->IsInViewport())
-	{
-		CloseCraftWidget();
-		return;
-	}
-	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
-
-	if (!HubCraftTestWidget)
-	{
-		HubCraftTestWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, HubCraftTestWidgetClass);
-		if (!HubCraftTestWidget)
-		{
-			return;
-		}
-	}
-
-	if (!CraftingViewModel)
-	{
-		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
-	}
-
-	HubCraftTestWidget->InitializeCraftTest(this, PlayerInventory, CraftingViewModel);
-
-	if (!HubCraftTestWidget->IsInViewport())
-	{
-		HubCraftTestWidget->AddToViewport();
-
-		PlayerController->bShowMouseCursor = true;
-
-		FInputModeGameAndUI InputMode;
-		InputMode.SetWidgetToFocus(HubCraftTestWidget->TakeWidget());
-		PlayerController->SetInputMode(InputMode);
-	}
+	UE_LOG(LogTemp, Warning, TEXT("Craft widget was not opened because UIManager is missing."));
 }
 
 void AFTHubWorkbench::PrintAllRecipes(UFTInventoryComponent* PlayerInventory) const
@@ -258,21 +209,11 @@ bool AFTHubWorkbench::TryCraftRecipe(FName RecipeID, UFTInventoryComponent* Play
 
 void AFTHubWorkbench::CloseCraftWidget()
 {
-	if (HubCraftTestWidget && HubCraftTestWidget->IsInViewport())
+	UGameInstance* GameInstance = GetGameInstance();
+	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
 	{
-		HubCraftTestWidget->RemoveFromParent();
+		UIManager->HideCrafting();
 	}
-
-	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	PlayerController->bShowMouseCursor = false;
-
-	FInputModeGameOnly InputMode;
-	PlayerController->SetInputMode(InputMode);
 }
 
 void AFTHubWorkbench::GetCraftRecipes(TArray<FTCraftRecipeStruct>& OutRecipes) const

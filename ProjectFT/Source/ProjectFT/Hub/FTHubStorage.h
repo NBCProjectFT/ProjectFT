@@ -10,7 +10,6 @@
 
 class UFTInventoryComponent;
 class UFTHubStorageWidget;
-class UFTHubStorageViewModel;
 UCLASS()
 class PROJECTFT_API AFTHubStorage : public AActor,  public IFTInteractable
 {
@@ -46,12 +45,6 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Craft|UI")
 	TSubclassOf<UFTHubStorageWidget> HubStorageWidgetClass;
-	
-	UPROPERTY(Transient)
-	UFTHubStorageWidget* HubStorageWidget;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UFTHubStorageViewModel> HubStorageViewModel;
 
 private:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Storage",meta = (AllowPrivateAccess = "true"))
@@ -68,4 +61,5 @@ private:
 	
 
 	void OpenStorageWidget(AActor* Interactor);
+	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
 };
