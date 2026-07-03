@@ -7,6 +7,7 @@
 #include "AIController.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
@@ -16,8 +17,10 @@
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTCaptureEscapeComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Security/FTCaptureDestination.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
+#include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 
 UFTGA_Grab::UFTGA_Grab()
 {
@@ -40,13 +43,15 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	// 인스턴스 재사용(InstancedPerActor) 대비 상태 리셋.
 	bResolved = false;
 	bBoundMoveCompleted = false;
+	bCapturedMessageBroadcast = false;
+	bEscapedMessageBroadcast = false;
 	CapturedTarget = nullptr;
 	TargetEscapeComp = nullptr;
 	CachedAIController = nullptr;
 
 	AActor* Avatar = GetAvatarActorFromActorInfo();
 	APawn* AvatarPawn = Cast<APawn>(Avatar);
-	if (!AvatarPawn || !CommitAbility(Handle, ActorInfo, ActivationInfo))
+	if (!AvatarPawn)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, /*bReplicateEndAbility=*/true, /*bWasCancelled=*/true);
 		return;
@@ -62,8 +67,35 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	UFTCaptureEscapeComponent* EscapeComp = Target ? Target->FindComponentByClass<UFTCaptureEscapeComponent>() : nullptr;
 
 	// 확정 캐치 사거리 + 대상/컴포넌트 유효성 확인. 못 잡으면 취소 종료.
-	if (!Target || !EscapeComp
+	if (!Target || !EscapeComp || EscapeComp->IsCaptured()
 		|| FVector::Dist(Avatar->GetActorLocation(), Target->GetActorLocation()) > GrabRange)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Verbose,
+			TEXT("Grab rejected: Security=%s Target=%s Captured=%s"),
+			*GetNameSafe(Avatar),
+			*GetNameSafe(Target),
+			EscapeComp && EscapeComp->IsCaptured() ? TEXT("true") : TEXT("false")
+		);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	// 부착 지점(경비 CapturePoint).
+	USceneComponent* AttachPoint = nullptr;
+	if (AFTSecurityCharacter* Security = Cast<AFTSecurityCharacter>(Avatar))
+	{
+		AttachPoint = Security->GetCapturePointComponent();
+	}
+	else
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (!CommitAbility(Handle, ActorInfo, ActivationInfo)
+		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
@@ -72,16 +104,11 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	CapturedTarget = Target;
 	TargetEscapeComp = EscapeComp;
 
-	// 부착 지점(경비 CapturePoint).
-	USceneComponent* AttachPoint = nullptr;
-	if (AFTSecurityCharacter* Security = Cast<AFTSecurityCharacter>(Avatar))
-	{
-		AttachPoint = Security->GetCapturePointComponent();
-	}
-
 	// 탈출 성공 통지 바인딩 후 붙잡기 시작.
 	EscapeComp->OnEscaped.AddDynamic(this, &UFTGA_Grab::OnTargetEscaped);
-	EscapeComp->BeginCapture(Avatar, AttachPoint);
+	BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetCaptured);
+	bCapturedMessageBroadcast = true;
+	UE_LOG(LogFTSecurity, Log, TEXT("Security '%s' captured target '%s'"), *GetNameSafe(Avatar), *GetNameSafe(Target));
 
 	// 이송: 가장 가까운 목적지로 MoveTo, 도달 시 실패. 없으면/컨트롤러 없으면 안전 타이머로 실패.
 	AFTCaptureDestination* Destination = FindNearestCaptureDestination(Avatar->GetActorLocation());
@@ -143,6 +170,9 @@ void UFTGA_Grab::FinishGrab(bool bEscaped)
 				ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, StunSpec);
 			}
 		}
+
+		BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetEscaped);
+		bEscapedMessageBroadcast = true;
 	}
 	else
 	{
@@ -181,13 +211,50 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 		World->GetTimerManager().ClearTimer(FallbackTimerHandle);
 	}
 
+	if (bWasCancelled && bCapturedMessageBroadcast && !bEscapedMessageBroadcast && CapturedTarget.IsValid())
+	{
+		BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetEscaped);
+		bEscapedMessageBroadcast = true;
+	}
+
 	if (UFTCaptureEscapeComponent* Comp = TargetEscapeComp.Get())
 	{
 		Comp->OnEscaped.RemoveDynamic(this, &UFTGA_Grab::OnTargetEscaped);
 		Comp->EndCapture();
 	}
 
+	CapturedTarget = nullptr;
+	TargetEscapeComp = nullptr;
+	CachedAIController = nullptr;
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void UFTGA_Grab::BroadcastCaptureMessage(FGameplayTag Channel) const
+{
+	AActor* SecurityActor = GetAvatarActorFromActorInfo();
+	AActor* TargetActor = CapturedTarget.Get();
+	if (!Channel.IsValid() || !SecurityActor || !TargetActor)
+	{
+		return;
+	}
+
+	FFTNPCReportPayloadStruct Payload;
+	Payload.ReporterActor = SecurityActor;
+	Payload.TargetActor = TargetActor;
+	Payload.ReportLocation = TargetActor->GetActorLocation();
+	Payload.ReportAmount = 0.0f;
+	Payload.ReportProgress = 1.0f;
+
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(Channel, Payload);
+	UE_LOG(
+		LogFTSecurity,
+		Verbose,
+		TEXT("Security capture message '%s': Reporter=%s Target=%s"),
+		*Channel.ToString(),
+		*GetNameSafe(SecurityActor),
+		*GetNameSafe(TargetActor)
+	);
 }
 
 AFTCaptureDestination* UFTGA_Grab::FindNearestCaptureDestination(const FVector& From) const

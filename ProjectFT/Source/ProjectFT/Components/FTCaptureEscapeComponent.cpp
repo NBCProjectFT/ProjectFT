@@ -28,11 +28,11 @@ void UFTCaptureEscapeComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	}
 }
 
-void UFTCaptureEscapeComponent::BeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint)
+bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint)
 {
-	if (bCaptured)
+	if (bCaptured || !IsValid(InCaptor))
 	{
-		return;
+		return false;
 	}
 
 	bCaptured = true;
@@ -71,6 +71,7 @@ void UFTCaptureEscapeComponent::BeginCapture(AActor* InCaptor, USceneComponent* 
 	}
 
 	SetComponentTickEnabled(true);
+	return true;
 }
 
 void UFTCaptureEscapeComponent::EndCapture()
