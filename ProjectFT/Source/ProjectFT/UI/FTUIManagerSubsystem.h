@@ -12,6 +12,12 @@ class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
 class UFTCountdownEscapeWidget;
+class AFTHubStorage;
+class AFTHubWorkbench;
+class UFTHubStorageViewModel;
+class UFTHubStorageWidget;
+class UFTHubCraftTestWidget;
+class UFTInventoryComponent;
 
 UCLASS()
 class PROJECTFT_API UFTUIManagerSubsystem : public UGameInstanceSubsystem
@@ -70,8 +76,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowCrafting();
 
+	void ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubCraftTestWidget> FallbackWidgetClass = nullptr);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideCrafting();
+
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowStorage();
+
+	void ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubStorageWidget> FallbackWidgetClass = nullptr);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideStorage();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowQuestBoard();
@@ -94,4 +110,13 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTHubStorageViewModel> HubStorageViewModel = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTHubStorageWidget> HubStorageWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTHubCraftTestWidget> HubCraftWidget = nullptr;
 };

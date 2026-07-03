@@ -8,7 +8,6 @@
 
 class AFTHubStorage;
 class UFTHubCraftTestWidget;
-class UFTCraftingViewModel;
 class UDataTable;
 class UFTInventoryComponent;
 
@@ -62,12 +61,4 @@ private:
 	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
-
-	UPROPERTY(Transient)
-	UFTHubCraftTestWidget* HubCraftTestWidget;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UFTCraftingViewModel> CraftingViewModel;
-	
-	
 };
