@@ -37,6 +37,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float GrabRange = 200.0f;
 
+	// [탈출 난이도 = 이 경비의 붙잡는 힘] 대상이 탈출하려면 채워야 하는 총 struggle 양.
+	// 대상의 좌우 전환당 힘(UFTCaptureEscapeComponent::StruggleGainPerFlip)으로 이만큼 쌓으면 탈출.
+	// 예) 임계값 17 vs 전환당 힘 1.0 → 약 17번 전환. 값이 클수록 탈출이 어렵다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.01"))
+	float EscapeThreshold = 17.0f;
+
+	// [AI의 탈출 저지력] 초당 누적 struggle을 되끌어내리는 양. 대상의 자연증가(StrugglePassiveGainPerSecond)와
+	// 매 틱 힘싸움을 벌인다. 감소 > 증가면 가만히 있으면 게이지가 빠지고, 반대면 저절로 찬다. 캡처 시작 시 컴포넌트에 주입.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
+	float EscapeDecayPerSecond = 2.0f;
+
 	// 탈출 실패(목적지 도달) 시 대상에게 줄 피해량.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float FailDamage = 100.0f;

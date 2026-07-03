@@ -95,7 +95,7 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	}
 
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo)
-		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint))
+		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint, EscapeThreshold, EscapeDecayPerSecond))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
