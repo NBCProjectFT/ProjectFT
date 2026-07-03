@@ -1,7 +1,10 @@
 #include "FTUIManagerSubsystem.h"
 
 #include "Blueprint/UserWidget.h"
+#include "FTCountdownEscapeWidget.h"
 #include "FTInventoryWidget.h"
+#include "FTMainMenuWidget.h"
+#include "Framework/Application/SlateApplication.h"
 #include "../ViewModel/FTCraftingViewModel.h"
 #include "../ViewModel/FTHUDViewModel.h"
 #include "../ViewModel/FTInventoryViewModel.h"
@@ -11,6 +14,12 @@
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Player/FTPlayerCharacter.h"
+
+namespace
+{
+	// Temporary fallback path. This should move to FTUIDataAsset when UI config is separated.
+	const TCHAR* CountdownEscapeWidgetFallbackPath = TEXT("/Game/UI/Escaping/WBP_CountDownEscape.WBP_CountDownEscape_C");
+}
 
 void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -25,6 +34,147 @@ void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UFTUIManagerSubsystem::ShowHUD()
 {
+}
+
+void UFTUIManagerSubsystem::ShowMainMenu()
+{
+	if (MainMenuWidget && MainMenuWidget->IsInViewport())
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Main menu widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	if (!MainMenuWidget)
+	{
+		TSubclassOf<UFTMainMenuWidget> MainMenuWidgetClass = nullptr;
+		if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
+		{
+			MainMenuWidgetClass = UFTAssetManager::GetSubclass(GameData->MainMenuWidgetClass);
+		}
+
+		if (!MainMenuWidgetClass)
+		{
+			MainMenuWidgetClass = LoadClass<UFTMainMenuWidget>(
+				nullptr,
+				TEXT("/Game/UI/WBP_MainMenu.WBP_MainMenu_C"));
+		}
+
+		if (!MainMenuWidgetClass)
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Main menu widget class is not set."));
+			return;
+		}
+
+		MainMenuWidget = CreateWidget<UFTMainMenuWidget>(PlayerController, MainMenuWidgetClass);
+		if (!MainMenuWidget)
+		{
+			return;
+		}
+	}
+
+	MainMenuWidget->AddToViewport(10);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(MainMenuWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+
+	UE_LOG(LogFTUI, Log, TEXT("Main menu shown. UIOnly input applied. PlayerController=%s Widget=%s"),
+		*GetNameSafe(PlayerController),
+		*GetNameSafe(MainMenuWidget));
+}
+
+void UFTUIManagerSubsystem::HideMainMenu(bool bKeepMouseCursor)
+{
+	if (MainMenuWidget)
+	{
+		MainMenuWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		// 메뉴는 UIOnly 입력을 사용하므로, 레벨 이동 전에 반드시 게임 입력으로 되돌린다.
+		// 이 복구가 빠지면 다음 맵에서 Pawn/Controller가 정상이어도 입력이 UI 포커스에 묶인 것처럼 보일 수 있다.
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = bKeepMouseCursor;
+
+		UE_LOG(LogFTUI, Log, TEXT("Main menu hidden. GameOnly input restored. KeepMouseCursor=%s PlayerController=%s"),
+			bKeepMouseCursor ? TEXT("true") : TEXT("false"),
+			*GetNameSafe(PlayerController));
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Main menu hidden without PlayerController; input mode could not be restored."));
+	}
+}
+
+void UFTUIManagerSubsystem::ShowCountdownEscape()
+{
+	if (CountdownEscapeWidget && CountdownEscapeWidget->IsInViewport())
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Countdown escape widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	if (!CountdownEscapeWidget)
+	{
+		TSubclassOf<UFTCountdownEscapeWidget> CountdownEscapeWidgetClass =
+			LoadClass<UFTCountdownEscapeWidget>(nullptr, CountdownEscapeWidgetFallbackPath);
+		if (!CountdownEscapeWidgetClass)
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Countdown escape widget class could not be loaded. Path=%s"),
+				CountdownEscapeWidgetFallbackPath);
+			return;
+		}
+
+		CountdownEscapeWidget = CreateWidget<UFTCountdownEscapeWidget>(PlayerController, CountdownEscapeWidgetClass);
+		if (!CountdownEscapeWidget)
+		{
+			return;
+		}
+	}
+
+	CountdownEscapeWidget->AddToViewport(30);
+}
+
+void UFTUIManagerSubsystem::HideCountdownEscape()
+{
+	if (CountdownEscapeWidget)
+	{
+		CountdownEscapeWidget->RemoveFromParent();
+		CountdownEscapeWidget->ResetCountdown();
+	}
+}
+
+void UFTUIManagerSubsystem::SetCountdownEscapeRemainingTime(float RemainingTime)
+{
+	if (!CountdownEscapeWidget || !CountdownEscapeWidget->IsInViewport())
+	{
+		ShowCountdownEscape();
+	}
+
+	if (CountdownEscapeWidget)
+	{
+		CountdownEscapeWidget->SetRemainingTime(RemainingTime);
+	}
 }
 
 void UFTUIManagerSubsystem::ShowInventory()
