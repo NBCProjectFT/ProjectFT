@@ -51,4 +51,11 @@ protected:
 private:
 	/** @brief 드롭 요청 메시지 리스너 핸들 */
 	FGameplayMessageListenerHandle DropItemListenerHandle;
+
+	/** @brief 비활성화되어 재사용 대기 중인 아이템 액터 풀 */
+	UPROPERTY()
+	TArray<TObjectPtr<AFTItemActor>> InactivePool;
+
+	/** @brief 풀이 유지할 최대 비활성 액터 개수 */
+	int32 MaxPoolSize = 50;
 };

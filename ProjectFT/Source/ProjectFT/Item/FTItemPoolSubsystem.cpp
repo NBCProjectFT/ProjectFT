@@ -37,6 +37,16 @@ void UFTItemPoolSubsystem::Deinitialize()
 	// 이 단계에서 명시적으로 UnregisterListener를 호출하면 어설션 크래시가 발생하므로 생략합니다.
 	// 어차피 서브시스템과 월드가 통째로 해제되는 시점이므로 누수가 발생하지 않습니다.
 
+	// 대기 중인 풀 내부의 모든 액터 안전 소멸
+	for (TObjectPtr<AFTItemActor> Actor : InactivePool)
+	{
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
+		}
+	}
+	InactivePool.Empty();
+
 	Super::Deinitialize();
 }
 
@@ -52,28 +62,93 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 		return nullptr;
 	}
 
-	// [1단계] 풀링이 구현되지 않은 기본 상태이므로 매번 SpawnActor 수행
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-	
-	AFTItemActor* NewActor = World->SpawnActor<AFTItemActor>(AFTItemActor::StaticClass(), Location, Rotation, SpawnParams);
-	if (NewActor)
+	AFTItemActor* TargetActor = nullptr;
+
+	// 1. 풀에 재사용 가능한 유효한 액터가 있는지 확인
+	while (InactivePool.Num() > 0)
 	{
-		NewActor->ItemData = ItemDataAsset;
-		NewActor->UpdateAppearance();
-		
-		UE_LOG(LogFTItem, Log, TEXT("아이템 스폰 성공: '%s' 생성 완료"), *ItemId.ToString());
+		TObjectPtr<AFTItemActor> PooledActor = InactivePool.Pop();
+		if (IsValid(PooledActor))
+		{
+			TargetActor = PooledActor;
+			break;
+		}
 	}
 
-	return NewActor;
+	if (TargetActor)
+	{
+		// 2. 풀에서 꺼낸 액터 활성화
+		TargetActor->SetActorLocationAndRotation(Location, Rotation);
+		TargetActor->ItemData = ItemDataAsset;
+		TargetActor->UpdateAppearance();
+
+		TargetActor->SetActorHiddenInGame(false);
+		TargetActor->SetActorTickEnabled(true);
+
+		// 물리 및 콜리전 재설정
+		if (UStaticMeshComponent* MeshComp = TargetActor->FindComponentByClass<UStaticMeshComponent>())
+		{
+			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			MeshComp->SetCollisionProfileName(TEXT("PhysicsBody"));
+			MeshComp->SetSimulatePhysics(true);
+			MeshComp->WakeRigidBody();
+		}
+
+		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 재사용 성공: '%s' 획득 완료"), *ItemId.ToString());
+	}
+	else
+	{
+		// 3. 풀이 비어있으면 새로 생성
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+		TargetActor = World->SpawnActor<AFTItemActor>(AFTItemActor::StaticClass(), Location, Rotation, SpawnParams);
+		if (TargetActor)
+		{
+			TargetActor->ItemData = ItemDataAsset;
+			TargetActor->UpdateAppearance();
+
+			UE_LOG(LogFTItem, Log, TEXT("아이템 풀 신규 스폰: '%s' 생성 완료"), *ItemId.ToString());
+		}
+	}
+
+	return TargetActor;
 }
 
 void UFTItemPoolSubsystem::ReleaseItemActor(AFTItemActor* ItemActor)
 {
 	if (!ItemActor) return;
 
-	// [1단계] 풀링이 구현되지 않은 기본 상태이므로 즉시 Destroy
-	ItemActor->Destroy();
+	// 최대 보관 개수를 초과하면 진짜 파괴
+	if (InactivePool.Num() >= MaxPoolSize)
+	{
+		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 포화 상태 (현재 크기: %d): 액터 '%s'를 실제 Destroy 처리합니다."), InactivePool.Num(), *ItemActor->GetName());
+		ItemActor->Destroy();
+		return;
+	}
+
+	// 액터 비활성화 처리
+	ItemActor->SetActorHiddenInGame(true);
+	ItemActor->SetActorTickEnabled(false);
+
+	// 물리 시뮬레이션 및 콜리전 끄기
+	if (UStaticMeshComponent* MeshComp = ItemActor->FindComponentByClass<UStaticMeshComponent>())
+	{
+		MeshComp->SetSimulatePhysics(false);
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		MeshComp->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		MeshComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+		MeshComp->SetStaticMesh(nullptr); // 이전 외형 에셋 해제하여 자원 절약
+	}
+
+	// 데이터 참조 해제
+	ItemActor->ItemData = nullptr;
+
+	// 안전을 위해 멀리 떨어진 공간으로 위치 이동
+	ItemActor->SetActorLocation(FVector(0.0f, 0.0f, -99999.0f));
+
+	InactivePool.Add(ItemActor);
+	UE_LOG(LogFTItem, Log, TEXT("아이템 풀 반환 완료: '%s' (현재 풀 크기: %d/%d)"), *ItemActor->GetName(), InactivePool.Num(), MaxPoolSize);
 }
 
 void UFTItemPoolSubsystem::HandleDropItemMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
