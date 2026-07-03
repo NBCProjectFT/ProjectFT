@@ -6,6 +6,7 @@
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTChanneledInteractionComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 
@@ -32,6 +33,10 @@ AFTLootShelf::AFTLootShelf()
 
 	// 꾹 눌러 훔치는 채널형 상호작용 컴포넌트.
 	ChanneledInteraction = CreateDefaultSubobject<UFTChanneledInteractionComponent>(TEXT("ChanneledInteraction"));
+
+	// 이 채널은 "훔치기"다 — 진행 중 시전자(플레이어) ASC에 State.Stealing을 부여하게 지정한다(AI 도둑질 인식용).
+	// EditAnywhere라 인스턴스/BP에서 덮어쓸 수 있다.
+	ChanneledInteraction->ChannelingStateTag = TAG_FT_State_Stealing;
 }
 
 void AFTLootShelf::BeginPlay()

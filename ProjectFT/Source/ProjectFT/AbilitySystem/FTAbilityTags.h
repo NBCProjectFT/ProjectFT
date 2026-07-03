@@ -37,6 +37,25 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Slow);     // 슬로우: 이�
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff);            // 모든 버프의 부모(질의/디스펠용)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff_Haste);     // 헤이스트: 이동속도 증가 (UFTGE_Haste)
 
+// 사망 상태 태그. 체력 소진 시 AFTCharacterBase가 소유 ASC에 Loose 태그로 부여한다(GE 수명이 아닌 캐릭터 상태).
+// "죽었나?" 질의(HasMatchingGameplayTag)와 사망 중 어빌리티 발동 차단(GA의 ActivationBlockedTags)의 단일 소스로 쓴다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Dead);
+
+// 플레이어가 보안 요원에게 
+
+// AI (보안요원)에게 플레이어가 붙잡혀 있는 상태.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Captured);
+
+// 훔치는 채널형 상호작용(예: LootShelf) 진행 중 시전자(플레이어) ASC에 부여되는 상태 태그.
+// UFTChanneledInteractionComponent가 ChannelingStateTag로 이 값을 부여/해제한다. NPC/경비 AI가 도둑질 인식에 질의한다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Stealing);
+
+// 경비 잡기 어빌리티(UFTGA_Grab) 발동용 GameplayEvent 트리거 태그. StateTree가 대상(플레이어)을 페이로드(Target)로 실어 보낸다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Grab);
+
+// 잡기 어빌리티가 활성인 동안 경비 ASC에 부여되는 진행 상태 태그(ActivationOwnedTags). StateTree가 "아직 잡는 중?" 질의에 쓴다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Grabbing);
+
 // 아이템 사용 입력 → 사용 어빌리티(UFTGA_UseItem)를 발동시키는 GameplayEvent 태그. 페이로드 = 대상 UFTItemDataAsset.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_UseItem);
 

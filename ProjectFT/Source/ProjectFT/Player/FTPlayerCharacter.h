@@ -14,9 +14,11 @@ class UCameraComponent;
 class USpringArmComponent;
 class UFTInteractionComponent;
 class UFTTraversalComponent;
+class UFTCaptureEscapeComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
+class UFTUIManagerSubsystem;
 class AFTItemActor;
 struct FOnAttributeChangeData;
 
@@ -51,11 +53,9 @@ public:
 	virtual void HandleToggleInventoryPressed() override;
 	//~ End IFTInputInterface
 
+	// 인벤토리 열림 상태는 UI 서브시스템이 단일 소스로 소유한다. 여기선 게임플레이/AnimBP가 읽기 편하도록 중계만 한다.
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
-	bool IsInventoryOpen() const { return bInventoryOpen; }
-
-	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
-	void SetInventoryOpen(bool bNewInventoryOpen, bool bUpdateUI = true);
+	bool IsInventoryOpen() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item")
 	const FFTInventoryItem& GetCurrentHeldInventoryItem() const { return CurrentHeldInventoryItem; }
@@ -68,6 +68,10 @@ public:
 	// (꾹 누르고 있는 동안만 true — 키를 떼면 채널이 멈춰 false. 진행도/대상은 InteractionComponent에서 폴링.)
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction")
 	bool IsChannelingInteraction() const;
+
+	// 경비에게 붙잡힌 상태(UFTGA_Grab). 이동/시점/아이템 입력이 막히고 좌우 연타 탈출만 허용된다.
+	UFUNCTION(BlueprintPure, Category = "FT|Capture")
+	bool IsCaptured() const;
 
 protected:
 	// Called when the game starts or when spawned
@@ -96,6 +100,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
 
+	// 붙잡힘(경비 잡기) 상태·좌우연타 탈출 게이지를 소유한다. UFTGA_Grab이 BeginCapture/EndCapture로 구동한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Capture", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTCaptureEscapeComponent> CaptureEscapeComponent;
+
 	// 트레이스 기반 파쿠르(Vault/Hurdle/Mantle). 점프 입력 시 TryStartTraversal에서 사용한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Traversal", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTTraversalComponent> TraversalComponent;
@@ -105,9 +113,6 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UFTPlayerAttributeSet> PlayerAttributeSet;
         
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Inventory", meta = (AllowPrivateAccess = "true"))
-	bool bInventoryOpen = false;
-
 	// 현재 플레이어가 손에 들고 있는 실질적인 아이템. 사용 입력은 이 아이템의 UseData를 기준으로 처리한다.
 	// 직접 대입하지 말고 SetCurrentHeldInventoryItem()으로만 바꾼다(비주얼 액터 동기화를 위해).
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "FT|Item", meta = (AllowPrivateAccess = "true"))
@@ -159,10 +164,13 @@ private:
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);
 	
-	// 체력이 0에 도달했을 때 호출(베이스의 OnOutOfHealth 통지). 플레이어 사망 처리.
-	virtual void HandleDeath() override;
+	// 플레이어 사망 후처리(베이스 HandleDeath가 태그/능력취소/이동정지를 끝낸 뒤 호출). 입력 차단까지 담당한다.
+	virtual void OnDeath() override;
 
 	UFTInventoryComponent* GetInventoryComponent() const;
+
+	// 게임 인스턴스에서 UI 매니저 서브시스템을 가져온다(인벤토리 열림 판정/토글 위임용).
+	UFTUIManagerSubsystem* GetUIManager() const;
 
 	bool EnsureUseAbilityGranted(TSubclassOf<UFTGameplayAbility> UseAbility);
 

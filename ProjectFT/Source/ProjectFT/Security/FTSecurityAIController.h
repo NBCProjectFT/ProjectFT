@@ -91,12 +91,40 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|ChaseGauge")
 	bool bSecurityChaseActive = false;
 
+	/** 현재 추격 대상이 보안요원에게 붙잡힌 상태인지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bTargetCaptured = false;
+
+	/** 이 AI가 현재 붙잡힌 대상의 Captor인지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bIsCaptor = false;
+
+	/** 다른 보안요원이 현재 대상을 붙잡았는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bIsTargetCapturedByOtherSecurity = false;
+
+	/** StateTree가 Return 상태로 전환해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bReturnRequested = false;
+
+	/** StateTree가 탈출 위치를 조사해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bInvestigateRequested = false;
+
+	/** 이 AI가 탈출 직후 Stun 상태로 전환해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bStunRequested = false;
+
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
 	FGameplayMessageListenerHandle ChaseGaugeChangedListenerHandle;
 	FGameplayMessageListenerHandle ChaseEndedListenerHandle;
 	FGameplayMessageListenerHandle SecurityDeployedListenerHandle;
+	FGameplayMessageListenerHandle SecurityTargetCapturedListenerHandle;
+	FGameplayMessageListenerHandle SecurityTargetEscapedListenerHandle;
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void OnSecurityTargetCaptured(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void OnSecurityTargetEscaped(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnChaseGaugeChanged(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);

@@ -1,11 +1,14 @@
 ﻿
 #include "FTSecurityAIController.h"
 
+#include "AbilitySystemInterface.h"
+#include "AbilitySystemComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Components/StateTreeAIComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "HAL/IConsoleManager.h"
+#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
@@ -138,6 +141,16 @@ void AFTSecurityAIController::BeginPlay()
 		this,
 		&ThisClass::OnSecurityDeployed
 	);
+	SecurityTargetCapturedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_SecurityTargetCaptured,
+		this,
+		&ThisClass::OnSecurityTargetCaptured
+	);
+	SecurityTargetEscapedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_SecurityTargetEscaped,
+		this,
+		&ThisClass::OnSecurityTargetEscaped
+	);
 
 	if (APawn* ControlledPawn = GetPawn())
 	{
@@ -173,6 +186,11 @@ void AFTSecurityAIController::BeginPlay()
 void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
 	if (!Actor || !IsPlayerActor(Actor))
+	{
+		return;
+	}
+
+	if (bTargetCaptured)
 	{
 		return;
 	}
@@ -245,7 +263,7 @@ void AFTSecurityAIController::SetTargetActor(AActor* NewTargetActor)
 
 void AFTSecurityAIController::StartChase()
 {
-	if (!TargetActor)
+	if (!TargetActor || bTargetCaptured)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Security AI: TargetActor is null"));
 		return;
@@ -257,6 +275,11 @@ void AFTSecurityAIController::StartChase()
 
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
 {
+	if (bTargetCaptured)
+	{
+		return;
+	}
+
 	if (!Payload.TargetActor)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Security AI: TargetActor is null"));
@@ -275,6 +298,9 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 		StopMovement();
 	}
 	bReturning = false;
+	bReturnRequested = false;
+	bInvestigateRequested = false;
+	bStunRequested = false;
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	if (AFTSecurityCharacter* SecurityCharacter = Cast<AFTSecurityCharacter>(GetPawn()))
@@ -306,6 +332,15 @@ AActor* AFTSecurityAIController::GetTargetActor() const
 
 void AFTSecurityAIController::UpdateTargetState()
 {
+	if (bTargetCaptured)
+	{
+		TargetDistance = 0.0f;
+		bHasSeenTarget = false;
+		bIsTargetInAttackRange = false;
+		UpdateChaseGaugeTargetSeenState();
+		return;
+	}
+
 	const APawn* ControlledPawn = GetPawn();
 	if (!ControlledPawn || !TargetActor)
 	{
@@ -366,8 +401,14 @@ void AFTSecurityAIController::OnChaseGaugeChanged(FGameplayTag Channel, const FF
 
 void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload)
 {
+	if (bTargetCaptured)
+	{
+		return;
+	}
+
 	StopMovement();
 	bReturning = true;
+	bReturnRequested = true;
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	SecurityChaseGauge = 0.0f;
@@ -389,6 +430,12 @@ void AFTSecurityAIController::OnSecurityDeployed(FGameplayTag Channel, const FFT
 
 	bSpawnedFromSecurityRoom = true;
 	bReturning = false;
+	bTargetCaptured = false;
+	bIsCaptor = false;
+	bIsTargetCapturedByOtherSecurity = false;
+	bReturnRequested = false;
+	bInvestigateRequested = false;
+	bStunRequested = false;
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	bSecurityCalled = true;
@@ -404,6 +451,82 @@ void AFTSecurityAIController::OnSecurityDeployed(FGameplayTag Channel, const FFT
 	UpdateTargetState();
 
 	UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' deployed from room"), *GetName());
+}
+
+void AFTSecurityAIController::OnSecurityTargetCaptured(
+	FGameplayTag Channel,
+	const FFTNPCReportPayloadStruct& Payload)
+{
+	if (!Payload.ReporterActor || !Payload.TargetActor || !GetPawn())
+	{
+		return;
+	}
+
+	StopMovement();
+	TargetActor = Payload.TargetActor;
+	InvestigateLocation = Payload.ReportLocation;
+	bTargetCaptured = true;
+	bIsCaptor = Payload.ReporterActor == GetPawn();
+	bIsTargetCapturedByOtherSecurity = !bIsCaptor;
+	bReturnRequested = !bIsCaptor;
+	bReturning = !bIsCaptor;
+	bInvestigateRequested = false;
+	bStunRequested = false;
+	bSecurityCalled = false;
+	bHasSeenTarget = false;
+	bIsTargetInAttackRange = false;
+	UpdateChaseGaugeTargetSeenState();
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Security AI '%s' received target captured: Captor=%s IsCaptor=%s"),
+		*GetName(),
+		*GetNameSafe(Payload.ReporterActor),
+		bIsCaptor ? TEXT("true") : TEXT("false")
+	);
+}
+
+void AFTSecurityAIController::OnSecurityTargetEscaped(
+	FGameplayTag Channel,
+	const FFTNPCReportPayloadStruct& Payload)
+{
+	if (!Payload.ReporterActor || !Payload.TargetActor)
+	{
+		return;
+	}
+
+	const bool bWasEscapedFromThisSecurity = Payload.ReporterActor == GetPawn();
+	StopMovement();
+	TargetActor = Payload.TargetActor;
+	InvestigateLocation = Payload.ReportLocation.IsNearlyZero()
+		? Payload.TargetActor->GetActorLocation()
+		: Payload.ReportLocation;
+	bTargetCaptured = false;
+	bIsCaptor = false;
+	bIsTargetCapturedByOtherSecurity = false;
+	bReturnRequested = false;
+	bReturning = false;
+	bInvestigateRequested = true;
+	bStunRequested = bWasEscapedFromThisSecurity;
+	bSecurityCalled = true;
+	bReturnFailureLogged = false;
+	bReturnCollisionIgnored = false;
+
+	if (AFTSecurityCharacter* SecurityCharacter = Cast<AFTSecurityCharacter>(GetPawn()))
+	{
+		SecurityCharacter->RestorePawnCollision();
+	}
+
+	UpdateTargetState();
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Security AI '%s' received target escaped: StunRequested=%s Location=%s"),
+		*GetName(),
+		bStunRequested ? TEXT("true") : TEXT("false"),
+		*InvestigateLocation.ToString()
+	);
 }
 
 void AFTSecurityAIController::UpdateReturnCollision()
@@ -455,6 +578,7 @@ void AFTSecurityAIController::OnMoveCompleted(FAIRequestID RequestID, const FPat
 void AFTSecurityAIController::CompleteReturn()
 {
 	bReturning = false;
+	bReturnRequested = false;
 	APawn* ControlledPawn = GetPawn();
 	if (!ControlledPawn)
 	{
@@ -515,9 +639,17 @@ bool AFTSecurityAIController::IsTargetStealing(const AActor* Actor) const
 		return false;
 	}
 
-	// TODO: 플레이어 쪽에서 도둑질 중 상태를 GameplayTag로 제공하면 이 임시 판정을 교체.
-	const UFTInteractionComponent* InteractionComponent = Actor->FindComponentByClass<UFTInteractionComponent>();
-	return InteractionComponent && InteractionComponent->IsChanneling();
+	// 플레이어가 "훔치는" 채널링 중이면 ASC에 State.Stealing 태그가 부여된다(UFTChanneledInteractionComponent가 부여/회수).
+	// 이전엔 IsChanneling()으로 판정해 채널 상호작용이면 무엇이든 도둑질로 오판정했으나, 이제 도둑질만 정확히 인식한다.
+	AActor* MutableActor = const_cast<AActor*>(Actor);
+	if (const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(MutableActor))
+	{
+		if (const UAbilitySystemComponent* ASC = AbilitySystemActor->GetAbilitySystemComponent())
+		{
+			return ASC->HasMatchingGameplayTag(TAG_FT_State_Stealing);
+		}
+	}
+	return false;
 }
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -543,6 +675,14 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (SecurityDeployedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(SecurityDeployedListenerHandle);
+	}
+	if (SecurityTargetCapturedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(SecurityTargetCapturedListenerHandle);
+	}
+	if (SecurityTargetEscapedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(SecurityTargetEscapedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);

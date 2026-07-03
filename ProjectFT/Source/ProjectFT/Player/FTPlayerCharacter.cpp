@@ -8,6 +8,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 
 #include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
@@ -17,6 +18,7 @@
 #include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Components/FTCaptureEscapeComponent.h"
 #include "ProjectFT/Components/FTTraversalComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -25,6 +27,7 @@
 #include "ProjectFT/Data/FTLauncherDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "ProjectFT/ViewModel/FTInventoryViewModel.h"
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -67,6 +70,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	// 트레이스 기반 파쿠르 컴포넌트(필요 시 MotionWarpingComponent를 런타임에 스스로 추가한다).
 	TraversalComponent = CreateDefaultSubobject<UFTTraversalComponent>(TEXT("TraversalComponent"));
+
+	// 붙잡힘(경비 잡기) 상태 + 좌우연타 탈출 게이지.
+	CaptureEscapeComponent = CreateDefaultSubobject<UFTCaptureEscapeComponent>(TEXT("CaptureEscapeComponent"));
 
 	// GAS: 플레이어 전용 속성셋만 여기서 생성한다(ASC·공용 AttributeSet은 베이스 AFTCharacterBase가 생성).
 	// 캐릭터 서브오브젝트라 베이스의 ASC가 자동 등록한다.
@@ -132,6 +138,16 @@ void AFTPlayerCharacter::Tick(float DeltaSeconds)
 
 void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 {
+	// 붙잡힘 중엔 이동 대신 좌우 연타를 탈출 게이지로 흘려보낸다(이동 자체는 하지 않음).
+	if (IsCaptured())
+	{
+		if (CaptureEscapeComponent)
+		{
+			CaptureEscapeComponent->AddStruggleInput(MoveValue.X);
+		}
+		return;
+	}
+
 	if (!Controller)
 	{
 		return;
@@ -160,12 +176,23 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 
 void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 {
+	// 붙잡힘 중 시점 조작 차단.
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	AddControllerYawInput(LookValue.X);
 	AddControllerPitchInput(LookValue.Y);
 }
 
 void AFTPlayerCharacter::HandleJumpPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (bTryTraversalBeforeJump && TryStartTraversal())
 	{
 		return;
@@ -181,6 +208,11 @@ void AFTPlayerCharacter::HandleJumpReleased()
 
 void AFTPlayerCharacter::HandleSprintPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	// 키 상태만 기록. 조건 확인과 속도 적용은 Tick의 UpdateSprintState가 처리.
 	bSprintHeld = true;
 }
@@ -192,6 +224,11 @@ void AFTPlayerCharacter::HandleSprintReleased()
 
 void AFTPlayerCharacter::HandleCrouchPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	Crouch();
 }
 
@@ -202,6 +239,11 @@ void AFTPlayerCharacter::HandleCrouchReleased()
 
 void AFTPlayerCharacter::HandleInteractPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (InteractionComponent)
 	{
 		InteractionComponent->TryInteract();
@@ -218,6 +260,11 @@ void AFTPlayerCharacter::HandleInteractReleased()
 
 void AFTPlayerCharacter::HandleSkillCheckPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (InteractionComponent)
 	{
 		InteractionComponent->NotifySkillCheckInput();
@@ -226,6 +273,11 @@ void AFTPlayerCharacter::HandleSkillCheckPressed()
 
 void AFTPlayerCharacter::HandleUseItemPressed()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (!AbilitySystemComponent)
 	{
 		return;
@@ -279,6 +331,11 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 
 void AFTPlayerCharacter::HandleUseItemReleased()
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	if (!AbilitySystemComponent)
 	{
 		return;
@@ -307,6 +364,11 @@ void AFTPlayerCharacter::CancelItemUseAbilities(FGameplayTag MatchTag)
 
 void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 {
+	if (IsCaptured())
+	{
+		return;
+	}
+
 	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
 	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
 	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
@@ -317,12 +379,16 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 		return;
 	}
 
-	if (bInventoryOpen)
+	// 인벤토리 열림 = 퀵슬롯 편집 모드: 누른 번호(SlotIndex)는 "대상 퀵슬롯 번호"일 뿐이고,
+	// 실제로 등록되는 아이템은 인벤토리 N번째가 아니라 현재 UI에서 선택된 아이템(ViewModel->SelectedItem)이다.
+	if (IsInventoryOpen())
 	{
-		FFTInventoryItem InventoryItem;
-		if (Inventory->GetInventoryItemAtIndex(SlotIndex, InventoryItem))
+		const UFTUIManagerSubsystem* UIManager = GetUIManager();
+		if (UFTInventoryViewModel* ViewModel = UIManager ? UIManager->InventoryViewModel : nullptr)
 		{
-			Inventory->SetQuickSlot(SlotIndex, InventoryItem.ItemId);
+			const bool bRegistered = ViewModel->RegisterSelectedToQuickSlot(SlotIndex);
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d register selected -> %s."),
+				SlotIndex, bRegistered ? TEXT("OK") : TEXT("no selection/rejected"));
 		}
 		return;
 	}
@@ -343,38 +409,34 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 
 void AFTPlayerCharacter::HandleToggleInventoryPressed()
 {
-	SetInventoryOpen(!bInventoryOpen);
-	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory %d"), bInventoryOpen);
-}
-
-
-
-void AFTPlayerCharacter::SetInventoryOpen(bool bNewInventoryOpen, bool bUpdateUI)
-{
-	if (bInventoryOpen == bNewInventoryOpen)
+	if (IsCaptured())
 	{
 		return;
 	}
 
-	bInventoryOpen = bNewInventoryOpen;
-
-	if (bUpdateUI)
+	// 열림 상태의 단일 소스는 UI 서브시스템이다. 캐릭터는 토글만 위임하고 상태는 보유하지 않는다.
+	if (UFTUIManagerSubsystem* UIManager = GetUIManager())
 	{
-		if (UGameInstance* GI = GetGameInstance())
-		{
-			if (UFTUIManagerSubsystem* UIManager = GI->GetSubsystem<UFTUIManagerSubsystem>())
-			{
-				if (bInventoryOpen)
-				{
-					UIManager->ShowInventory();
-				}
-				else
-				{
-					UIManager->HideInventory();
-				}
-			}
-		}
+		UIManager->ToggleInventory();
 	}
+	UE_LOG(LogFTPlayer, Verbose, TEXT("Inventory toggled -> %d"), IsInventoryOpen());
+}
+
+bool AFTPlayerCharacter::IsCaptured() const
+{
+	return CaptureEscapeComponent && CaptureEscapeComponent->IsCaptured();
+}
+
+bool AFTPlayerCharacter::IsInventoryOpen() const
+{
+	const UFTUIManagerSubsystem* UIManager = GetUIManager();
+	return UIManager && UIManager->IsInventoryOpen();
+}
+
+UFTUIManagerSubsystem* AFTPlayerCharacter::GetUIManager() const
+{
+	const UGameInstance* GI = GetGameInstance();
+	return GI ? GI->GetSubsystem<UFTUIManagerSubsystem>() : nullptr;
 }
 
 bool AFTPlayerCharacter::IsChannelingInteraction() const
@@ -592,10 +654,19 @@ void AFTPlayerCharacter::UpdateStaminaRegen(float DeltaSeconds)
 	}
 }
 
-void AFTPlayerCharacter::HandleDeath()
+void AFTPlayerCharacter::OnDeath()
 {
 	UE_LOG(LogFTPlayer, Log, TEXT("'%s' died (health depleted)."), *GetNameSafe(this));
-	// 사망 후처리(레벨 전환 등)는 GameFlow 연동으로 — 이번 스코프 밖.
+
+	// 입력 차단: 이동/시점/점프/아이템 등 모든 입력은 컨트롤러의 InputComponent에 바인딩돼 있으므로
+	// 컨트롤러에 대해 DisableInput을 호출해야 한다(BuildInputStack이 컨트롤러의 InputEnabled로 게이트).
+	// 폰에 대한 DisableInput은 이 입력들을 막지 못한다. 이동 정지/능력 취소는 베이스가 이미 처리했다.
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->DisableInput(PC);
+	}
+
+	// 게임오버/리스폰/레벨 전환은 GameFlow 연동으로 — 이번 스코프 밖.
 }
 
 UFTInventoryComponent* AFTPlayerCharacter::GetInventoryComponent() const

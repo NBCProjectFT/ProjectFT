@@ -66,7 +66,36 @@ void AFTCharacterBase::BeginPlay()
 
 void AFTCharacterBase::HandleDeath()
 {
-	// 기본 구현 없음. 서브클래스가 사망 연출/레벨 전환 요청 등을 처리한다.
+	// 재진입 가드: 0 HP 상태에서 체력 변경 GE(독 DoT 등)가 다시 실행돼 OnOutOfHealth가 재통지돼도 사망 처리는 1회만.
+	if (bDead)
+	{
+		return;
+	}
+	bDead = true;
+
+	if (AbilitySystemComponent)
+	{
+		// 사망 상태의 단일 소스. GE 수명이 아니라 캐릭터 상태이므로 Loose 태그로 직접 부여한다.
+		AbilitySystemComponent->AddLooseGameplayTag(TAG_FT_State_Dead);
+
+		// 진행 중이던 능력(아이템 사용/투척 등)을 즉시 취소한다.
+		AbilitySystemComponent->CancelAllAbilities();
+	}
+
+	// 공통 이동 정지 — 모든 캐릭터는 죽으면 멈춘다(기존에 AI가 개별로 하던 것을 베이스로 통합).
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+		Movement->DisableMovement();
+	}
+
+	// 자식별 사망 후처리(플레이어 입력 차단/게임오버, AI 래그돌/드롭/디스폰 등).
+	OnDeath();
+}
+
+void AFTCharacterBase::OnDeath()
+{
+	// 기본 구현 없음. 자식이 사망 연출/후처리를 확장한다(공통 처리는 HandleDeath가 이미 수행).
 }
 
 void AFTCharacterBase::ApplyMovementSpeed()
