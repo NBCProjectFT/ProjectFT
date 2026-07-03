@@ -8,6 +8,7 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTHubCraftTestWidget.h"
+#include "ProjectFT/ViewModel/FTCraftingViewModel.h"
 
 AFTHubWorkbench::AFTHubWorkbench()
 	: CraftRecipeDataTable(nullptr)
@@ -146,7 +147,12 @@ void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
 		}
 	}
 
-	HubCraftTestWidget->InitializeCraftTest(this, PlayerInventory);
+	if (!CraftingViewModel)
+	{
+		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
+	}
+
+	HubCraftTestWidget->InitializeCraftTest(this, PlayerInventory, CraftingViewModel);
 
 	if (!HubCraftTestWidget->IsInViewport())
 	{

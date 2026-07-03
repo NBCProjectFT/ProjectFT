@@ -5,6 +5,7 @@
 #include "FTHubQuestPanelWidget.h"
 #include "FTHubShopPanelWidget.h"
 #include "Components/TextBlock.h"
+#include "Components/WidgetSwitcher.h"
 #include "ProjectFT/Hub/FTHubShop.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
 
@@ -96,57 +97,27 @@ void UFTHubMainWidget::RefreshCollectionCoinText()
 	TXT_CollectionCoin->SetText(FText::FromString(FString::Printf(TEXT("보유 현금 %d"), CoinAmount)));
 }
 
-void UFTHubMainWidget::ShowQuestPanel()
-{
-	if (WBP_QuestPanel)
-	{
-		WBP_QuestPanel->SetVisibility(ESlateVisibility::Visible);
-	}
-
-	if (WBP_MarketPanel)
-	{
-		WBP_MarketPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-
-	if (WBP_ShopPanel)
-	{
-		WBP_ShopPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-}
-
 void UFTHubMainWidget::ShowMarketPanel()
 {
-	if (WBP_QuestPanel)
+	if (WidgetSwitcher_Main)
 	{
-		WBP_QuestPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-
-	if (WBP_MarketPanel)
-	{
-		WBP_MarketPanel->SetVisibility(ESlateVisibility::Visible);
-	}
-
-	if (WBP_ShopPanel)
-	{
-		WBP_ShopPanel->SetVisibility(ESlateVisibility::Collapsed);
+		WidgetSwitcher_Main->SetActiveWidget(WBP_MarketPanel);
 	}
 }
 
 void UFTHubMainWidget::ShowShopPanel()
 {
-	if (WBP_QuestPanel)
+	if (WidgetSwitcher_Main)
 	{
-		WBP_QuestPanel->SetVisibility(ESlateVisibility::Collapsed);
+		WidgetSwitcher_Main->SetActiveWidget(WBP_ShopPanel);
 	}
+}
 
-	if (WBP_ShopPanel)
+void UFTHubMainWidget::ShowQuestPanel()
+{
+	if (WidgetSwitcher_Main)
 	{
-		WBP_ShopPanel->SetVisibility(ESlateVisibility::Visible);
-	}
-
-	if (WBP_MarketPanel)
-	{
-		WBP_MarketPanel->SetVisibility(ESlateVisibility::Collapsed);
+		WidgetSwitcher_Main->SetActiveWidget(WBP_QuestPanel);
 	}
 }
 

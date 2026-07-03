@@ -8,6 +8,7 @@
 
 class AFTHubStorage;
 class UFTHubCraftTestWidget;
+class UFTCraftingViewModel;
 class UDataTable;
 class UFTInventoryComponent;
 
@@ -64,6 +65,9 @@ private:
 
 	UPROPERTY(Transient)
 	UFTHubCraftTestWidget* HubCraftTestWidget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTCraftingViewModel> CraftingViewModel;
 	
 	
 };

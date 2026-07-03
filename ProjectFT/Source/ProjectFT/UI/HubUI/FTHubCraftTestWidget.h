@@ -9,13 +9,12 @@ class AFTHubWorkbench;
 class UButton;
 class UCheckBox;
 class UEditableTextBox;
-class UFTCraftRecipeListObject;
+class UFTCraftingViewModel;
 class UFTInventoryComponent;
 class UImage;
 class UListView;
 class UTextBlock;
 class UTileView;
-class UFTItemDataAsset;
 
 UCLASS()
 class PROJECTFT_API UFTHubCraftTestWidget : public UUserWidget
@@ -24,7 +23,7 @@ class PROJECTFT_API UFTHubCraftTestWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Craft")
-	void InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory);
+	void InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, UFTCraftingViewModel* InViewModel);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -43,6 +42,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UCheckBox* CHK_CraftableOnly;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UCheckBox* CHK_ShowCraftableOnly;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UEditableTextBox* EDT_SearchRecipe;
@@ -81,15 +83,12 @@ protected:
 	UButton* BTN_Close;
 
 private:
-	void RefreshAll();
-	void RefreshStorageItems();
-	void RefreshCraftRecipes();
-	void RefreshRequiredItemTiles();
-	void UpdateSelectedRecipeDetails();
+	UFUNCTION()
+	void RefreshFromViewModel();
+
 	UListView* GetStorageItemsView() const;
-	bool ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, bool bCanCraft) const;
-	int32 GetOwnedIngredientCount(FName ItemID) const;
-	const UFTItemDataAsset* FindItemData(FName ItemID) const;
+	UCheckBox* GetCraftableOnlyCheckBox() const;
+	void PopulateItems(UListView* ItemsView, const TArray<TObjectPtr<UObject>>& Items);
 	void HandleRecipeClicked(UObject* Item);
 
 	UFUNCTION()
@@ -102,13 +101,10 @@ private:
 	void HandleSearchRecipeTextChanged(const FText& Text);
 
 	UPROPERTY(Transient)
-	AFTHubWorkbench* HubWorkbench;
+	TObjectPtr<AFTHubWorkbench> HubWorkbench;
 
 	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTCraftRecipeListObject* SelectedRecipe;
+	TObjectPtr<UFTCraftingViewModel> ViewModel;
 	
 	UFUNCTION()
 	void HandleCloseClicked();

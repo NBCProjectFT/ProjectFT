@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "ProjectFT/UI/HubUI//FTHubStorageWidget.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/ViewModel/FTHubStorageViewModel.h"
 
 AFTHubStorage::AFTHubStorage()
 	:HubStorageWidget(nullptr)
@@ -229,7 +230,12 @@ void AFTHubStorage::OpenStorageWidget(AActor* Interactor)
 		}
 	}
 
-	HubStorageWidget->InitializeStorageWidget(this, PlayerInventory);
+	if (!HubStorageViewModel)
+	{
+		HubStorageViewModel = NewObject<UFTHubStorageViewModel>(this);
+	}
+
+	HubStorageWidget->InitializeStorageWidget(this, PlayerInventory, HubStorageViewModel);
 
 	if (!HubStorageWidget->IsInViewport())
 	{
