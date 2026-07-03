@@ -71,6 +71,7 @@ private:
 
 	// 성공(bEscaped=true)/실패(false) 공통 마무리. 최초 1회만 효과 적용 후 해방·종료.
 	void FinishGrab(bool bEscaped);
+	void BroadcastCaptureMessage(FGameplayTag Channel) const;
 
 	AFTCaptureDestination* FindNearestCaptureDestination(const FVector& From) const;
 
@@ -80,4 +81,6 @@ private:
 	FTimerHandle FallbackTimerHandle;
 	bool bResolved = false;
 	bool bBoundMoveCompleted = false;
+	bool bCapturedMessageBroadcast = false;
+	bool bEscapedMessageBroadcast = false;
 };

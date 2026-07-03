@@ -103,9 +103,30 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	UpdateAbilityState();
 	UpdateTargetState();
 	UpdateReturnCollision();
 	DrawSightDebug();
+}
+
+void AFTSecurityAIController::UpdateAbilityState()
+{
+	bIsGrabbing = false;
+	bIsStunned = false;
+
+	const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(GetPawn());
+	const UAbilitySystemComponent* ASC = AbilitySystemActor ? AbilitySystemActor->GetAbilitySystemComponent() : nullptr;
+	if (!ASC)
+	{
+		return;
+	}
+
+	bIsGrabbing = ASC->HasMatchingGameplayTag(TAG_FT_State_Grabbing);
+	bIsStunned = ASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Stun);
+	if (!bIsStunned)
+	{
+		bStunRequested = false;
+	}
 }
 
 void AFTSecurityAIController::BeginPlay()

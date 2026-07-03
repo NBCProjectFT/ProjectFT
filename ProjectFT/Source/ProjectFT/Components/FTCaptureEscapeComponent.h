@@ -29,13 +29,18 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	// 붙잡힘 시작. InCaptor=붙잡은 액터, InAttachPoint=추종할 부착 지점(경비 CapturePoint). 이미 붙잡힌 상태면 무시.
-	void BeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint);
+	/** Attempts to reserve this target for one captor and starts the captured state. */
+	bool TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint);
 
 	// 붙잡힘 해제(어빌리티가 성공/실패/취소 어느 경로로든 호출). 이동/충돌/부착/태그를 원복한다.
 	void EndCapture();
 
 	UFUNCTION(BlueprintPure, Category = "FT|Capture")
 	bool IsCaptured() const { return bCaptured; }
+
+	/** Returns the actor that currently owns this capture. */
+	UFUNCTION(BlueprintPure, Category = "FT|Capture")
+	AActor* GetCaptorActor() const { return Captor.Get(); }
 
 	// 좌우 연타 탈출 입력. 붙잡힘 중 플레이어의 이동 X축 값을 받아, 방향이 바뀔 때마다 게이지를 올린다.
 	void AddStruggleInput(float MoveAxisX);

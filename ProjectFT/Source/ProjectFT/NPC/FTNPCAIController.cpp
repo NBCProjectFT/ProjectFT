@@ -441,17 +441,40 @@ void AFTNPCAIController::OnShelfDamaged(
 {
 	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
 	AActor* DamagedShelf = Payload.TargetActor;
+	if (!SuspectActor)
+	{
+		// TODO: Shelf damage 발행 측에서 실제 플레이어를 InstigatorActor로 보장하면 이 fallback을 제거한다.
+		SuspectActor = UGameplayStatics::GetPlayerPawn(this, 0);
+	}
 
 	if (!IsPlayerActor(SuspectActor) || !DamagedShelf)
 	{
+		UE_LOG(
+			LogFTNPC,
+			Warning,
+			TEXT("[NPC] Ignored shelf damage: Instigator=%s ResolvedPlayer=%s Shelf=%s"),
+			*GetNameSafe(Payload.InstigatorActor),
+			*GetNameSafe(SuspectActor),
+			*GetNameSafe(DamagedShelf)
+		);
 		return;
 	}
 
 	TargetActor = SuspectActor;
 	UpdateTargetState();
 
-	if (!bHasSeenTarget || !LineOfSightTo(DamagedShelf))
+	const bool bCanSeeDamagedShelf = LineOfSightTo(DamagedShelf);
+	if (!bHasSeenTarget || !bCanSeeDamagedShelf)
 	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[NPC] Shelf damage not witnessed: PlayerVisible=%s ShelfVisible=%s Player=%s Shelf=%s"),
+			bHasSeenTarget ? TEXT("true") : TEXT("false"),
+			bCanSeeDamagedShelf ? TEXT("true") : TEXT("false"),
+			*GetNameSafe(SuspectActor),
+			*GetNameSafe(DamagedShelf)
+		);
 		return;
 	}
 
