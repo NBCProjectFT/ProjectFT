@@ -7,23 +7,35 @@
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
-#include "Engine/AssetManager.h"
 #include "Engine/Texture2D.h"
-#include "FTCraftRecipeListObject.h"
-#include "FTItemTileListObject.h"
-#include "FTStorageItemListObject.h"
-#include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/Data/FTItemDataAsset.h"
-#include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
-#include "ProjectFT/Struct/FTCraftIngredientStruct.h"
+#include "ProjectFT/ViewModel/FTCraftingViewModel.h"
 
-void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory)
+void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, UFTCraftingViewModel* InViewModel)
 {
 	HubWorkbench = InHubWorkbench;
-	PlayerInventory = InPlayerInventory;
-	SelectedRecipe = nullptr;
-	RefreshAll();
+
+	if (ViewModel != InViewModel)
+	{
+		if (ViewModel)
+		{
+			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::RefreshFromViewModel);
+		}
+
+		ViewModel = InViewModel ? InViewModel : NewObject<UFTCraftingViewModel>(this);
+		if (ViewModel)
+		{
+			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::RefreshFromViewModel);
+			ViewModel->OnChanged.AddDynamic(this, &UFTHubCraftTestWidget::RefreshFromViewModel);
+		}
+	}
+
+	if (ViewModel)
+	{
+		ViewModel->Initialize(HubWorkbench, InPlayerInventory, TV_StorageItems != nullptr);
+	}
+
+	RefreshFromViewModel();
 }
 
 void UFTHubCraftTestWidget::NativeConstruct()
@@ -55,100 +67,78 @@ void UFTHubCraftTestWidget::NativeConstruct()
 		BTN_Craft->SetIsEnabled(false);
 	}
 
-	UpdateSelectedRecipeDetails();
 	if (BTN_Close)
 	{
 		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
 		BTN_Close->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
 	}
 
-	RefreshAll();
+	RefreshFromViewModel();
 }
 
-void UFTHubCraftTestWidget::RefreshAll()
+void UFTHubCraftTestWidget::RefreshFromViewModel()
 {
-	if (!LV_CraftRecipes)
+	if (!ViewModel)
 	{
 		return;
 	}
 
-	RefreshStorageItems();
-	RefreshCraftRecipes();
-}
-
-void UFTHubCraftTestWidget::RefreshStorageItems()
-{
-	UListView* StorageItemsView = GetStorageItemsView();
-	if (!StorageItemsView)
-	{
-		return;
-	}
-
-	StorageItemsView->ClearListItems();
-
-	if (!HubWorkbench || !HubWorkbench->GetHubStorage())
-	{
-		return;
-	}
-
-	for (const FTStorageItemStruct& StorageItem : HubWorkbench->GetHubStorage()->GetStorageItems())
-	{
-		UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-		ItemObject->Initialize(StorageItem);
-		StorageItemsView->AddItem(ItemObject);
-	}
-}
-
-void UFTHubCraftTestWidget::RefreshCraftRecipes()
-{
-	if (!LV_CraftRecipes)
-	{
-		return;
-	}
-
-	const FName SelectedRecipeID = SelectedRecipe
-		? SelectedRecipe->GetRecipe().RecipeID
-		: NAME_None;
-
-	SelectedRecipe = nullptr;
-	LV_CraftRecipes->ClearListItems();
-
-	if (!HubWorkbench)
-	{
-		UpdateSelectedRecipeDetails();
-		return;
-	}
-
-	TArray<FTCraftRecipeStruct> Recipes;
-	HubWorkbench->GetCraftRecipes(Recipes);
-
-	int32 VisibleRecipeCount = 0;
-	for (const FTCraftRecipeStruct& Recipe : Recipes)
-	{
-		const bool bCanCraft = HubWorkbench->CanCraftRecipe(Recipe, PlayerInventory);
-		if (!ShouldShowRecipe(Recipe, bCanCraft))
-		{
-			continue;
-		}
-
-		UFTCraftRecipeListObject* RecipeObject = NewObject<UFTCraftRecipeListObject>(this);
-		RecipeObject->Initialize(Recipe, bCanCraft);
-		LV_CraftRecipes->AddItem(RecipeObject);
-		++VisibleRecipeCount;
-
-		if (Recipe.RecipeID == SelectedRecipeID)
-		{
-			SelectedRecipe = RecipeObject;
-			LV_CraftRecipes->SetItemSelection(RecipeObject, true);
-		}
-	}
+	PopulateItems(GetStorageItemsView(), ViewModel->GetStorageItemObjects());
+	PopulateItems(LV_CraftRecipes, ViewModel->GetRecipeObjects());
+	PopulateItems(TV_RequiredItems, ViewModel->GetRequiredItemObjects());
 
 	if (TXT_RecipeCount)
 	{
-		TXT_RecipeCount->SetText(FText::FromString(FString::Printf(TEXT("%d / %d"), VisibleRecipeCount, Recipes.Num())));
+		TXT_RecipeCount->SetText(ViewModel->GetRecipeCountText());
 	}
 
-	UpdateSelectedRecipeDetails();
+	if (TXT_SelectedRecipeName)
+	{
+		TXT_SelectedRecipeName->SetText(ViewModel->GetSelectedRecipeNameText());
+	}
+
+	if (TXT_RequiredItems)
+	{
+		TXT_RequiredItems->SetText(ViewModel->GetRequiredItemsText());
+	}
+
+	if (TXT_ResultItem)
+	{
+		TXT_ResultItem->SetText(ViewModel->GetResultItemText());
+	}
+
+	if (TXT_SelectedRecipeTier)
+	{
+		TXT_SelectedRecipeTier->SetText(ViewModel->GetSelectedRecipeTierText());
+	}
+
+	if (TXT_SelectedRecipeDescription)
+	{
+		TXT_SelectedRecipeDescription->SetText(ViewModel->GetSelectedRecipeDescriptionText());
+	}
+
+	if (TXT_CraftTime)
+	{
+		TXT_CraftTime->SetText(ViewModel->GetCraftTimeText());
+	}
+
+	if (TXT_CraftAmount)
+	{
+		TXT_CraftAmount->SetText(ViewModel->GetCraftAmountText());
+	}
+
+	if (IMG_ResultItemIcon)
+	{
+		if (UTexture2D* IconTexture = ViewModel->GetResultItemIcon())
+		{
+			IMG_ResultItemIcon->SetBrushFromTexture(IconTexture);
+		}
+	}
+
+	if (BTN_Craft)
+	{
+		BTN_Craft->SetIsEnabled(ViewModel->CanCraftSelectedRecipe());
+	}
 }
 
 UListView* UFTHubCraftTestWidget::GetStorageItemsView() const
@@ -161,218 +151,49 @@ UCheckBox* UFTHubCraftTestWidget::GetCraftableOnlyCheckBox() const
 	return CHK_ShowCraftableOnly ? CHK_ShowCraftableOnly : CHK_CraftableOnly;
 }
 
-bool UFTHubCraftTestWidget::ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, const bool bCanCraft) const
+void UFTHubCraftTestWidget::PopulateItems(UListView* ItemsView, const TArray<TObjectPtr<UObject>>& Items)
 {
-	const UCheckBox* CraftableOnlyCheckBox = GetCraftableOnlyCheckBox();
-	if (CraftableOnlyCheckBox && CraftableOnlyCheckBox->IsChecked() && !bCanCraft)
-	{
-		return false;
-	}
-
-	if (!EDT_SearchRecipe)
-	{
-		return true;
-	}
-
-	const FString SearchText = EDT_SearchRecipe->GetText().ToString().TrimStartAndEnd();
-	if (SearchText.IsEmpty())
-	{
-		return true;
-	}
-
-	return Recipe.RecipeID.ToString().Contains(SearchText, ESearchCase::IgnoreCase)
-		|| Recipe.ResultItemID.ToString().Contains(SearchText, ESearchCase::IgnoreCase);
-}
-
-int32 UFTHubCraftTestWidget::GetOwnedIngredientCount(const FName ItemID) const
-{
-	const int32 PlayerCount = PlayerInventory
-		? PlayerInventory->GetItemQuantity(ItemID)
-		: 0;
-	const int32 StorageCount = HubWorkbench && HubWorkbench->GetHubStorage()
-		? HubWorkbench->GetHubStorage()->GetStorageItemCount(ItemID)
-		: 0;
-
-	return PlayerCount + StorageCount;
-}
-
-const UFTItemDataAsset* UFTHubCraftTestWidget::FindItemData(const FName ItemID) const
-{
-	if (ItemID.IsNone())
-	{
-		return nullptr;
-	}
-
-	UAssetManager& AssetManager = UAssetManager::Get();
-	const FPrimaryAssetId AssetID(FName("FTItemItem"), ItemID);
-
-	UObject* AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
-	if (!AssetObject)
-	{
-		const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
-		if (AssetPath.IsValid())
-		{
-			AssetObject = AssetPath.TryLoad();
-		}
-	}
-
-	return Cast<UFTItemDataAsset>(AssetObject);
-}
-
-void UFTHubCraftTestWidget::RefreshRequiredItemTiles()
-{
-	if (!TV_RequiredItems)
+	if (!ItemsView)
 	{
 		return;
 	}
 
-	TV_RequiredItems->ClearListItems();
-
-	if (!SelectedRecipe)
+	ItemsView->ClearListItems();
+	for (UObject* Item : Items)
 	{
-		return;
+		ItemsView->AddItem(Item);
 	}
-
-	for (const FTCraftIngredientStruct& Ingredient : SelectedRecipe->GetRecipe().RequiredItems)
-	{
-		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		ItemObject->InitializeIngredient(Ingredient, GetOwnedIngredientCount(Ingredient.ItemID));
-		TV_RequiredItems->AddItem(ItemObject);
-	}
-}
-
-void UFTHubCraftTestWidget::UpdateSelectedRecipeDetails()
-{
-	if (!TXT_SelectedRecipeName || !BTN_Craft)
-	{
-		return;
-	}
-
-	if (!SelectedRecipe)
-	{
-		TXT_SelectedRecipeName->SetText(FText::FromString(TEXT("Select Recipe")));
-		if (TXT_RequiredItems)
-		{
-			TXT_RequiredItems->SetText(FText::GetEmpty());
-		}
-		if (TXT_ResultItem)
-		{
-			TXT_ResultItem->SetText(FText::GetEmpty());
-		}
-		if (TXT_SelectedRecipeTier)
-		{
-			TXT_SelectedRecipeTier->SetText(FText::GetEmpty());
-		}
-		if (TXT_SelectedRecipeDescription)
-		{
-			TXT_SelectedRecipeDescription->SetText(FText::GetEmpty());
-		}
-		if (TXT_CraftTime)
-		{
-			TXT_CraftTime->SetText(FText::GetEmpty());
-		}
-		if (TXT_CraftAmount)
-		{
-			TXT_CraftAmount->SetText(FText::GetEmpty());
-		}
-		if (TV_RequiredItems)
-		{
-			TV_RequiredItems->ClearListItems();
-		}
-		BTN_Craft->SetIsEnabled(false);
-		return;
-	}
-
-	const FTCraftRecipeStruct& Recipe = SelectedRecipe->GetRecipe();
-	const UFTItemDataAsset* ResultItemData = FindItemData(Recipe.ResultItemID);
-	FString RequiredItems;
-
-	for (const FTCraftIngredientStruct& Ingredient : Recipe.RequiredItems)
-	{
-		if (!RequiredItems.IsEmpty())
-		{
-			RequiredItems += TEXT("\n");
-		}
-
-		const int32 TotalCount = GetOwnedIngredientCount(Ingredient.ItemID);
-
-		RequiredItems += FString::Printf(
-			TEXT("%s %d / %d"),
-			*Ingredient.ItemID.ToString(),
-			TotalCount,
-			Ingredient.Count);
-	}
-
-	TXT_SelectedRecipeName->SetText(ResultItemData && !ResultItemData->ItemData.ItemName.IsEmpty()
-		? ResultItemData->ItemData.ItemName
-		: FText::FromName(Recipe.RecipeID));
-	if (TXT_RequiredItems)
-	{
-		TXT_RequiredItems->SetText(FText::FromString(RequiredItems));
-	}
-	if (TXT_ResultItem)
-	{
-		TXT_ResultItem->SetText(FText::FromString(
-			FString::Printf(TEXT("Result: %s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount)));
-	}
-	if (TXT_SelectedRecipeTier)
-	{
-		TXT_SelectedRecipeTier->SetText(FText::FromString(TEXT("Tier 1")));
-	}
-	if (TXT_SelectedRecipeDescription)
-	{
-		TXT_SelectedRecipeDescription->SetText(ResultItemData
-			? ResultItemData->ItemData.ItemDescription
-			: FText::GetEmpty());
-	}
-	if (TXT_CraftTime)
-	{
-		TXT_CraftTime->SetText(FText::FromString(TEXT("1 sec")));
-	}
-	if (TXT_CraftAmount)
-	{
-		TXT_CraftAmount->SetText(FText::FromString(FString::Printf(TEXT("x%d"), Recipe.ResultCount)));
-	}
-	if (IMG_ResultItemIcon && ResultItemData)
-	{
-		if (UTexture2D* IconTexture = ResultItemData->ItemData.ItemIcon.LoadSynchronous())
-		{
-			IMG_ResultItemIcon->SetBrushFromTexture(IconTexture);
-		}
-	}
-	RefreshRequiredItemTiles();
-	BTN_Craft->SetIsEnabled(SelectedRecipe->CanCraft());
 }
 
 void UFTHubCraftTestWidget::HandleRecipeClicked(UObject* Item)
 {
-	SelectedRecipe = Cast<UFTCraftRecipeListObject>(Item);
-	UpdateSelectedRecipeDetails();
+	if (ViewModel)
+	{
+		ViewModel->SelectRecipeObject(Item);
+	}
 }
 
 void UFTHubCraftTestWidget::HandleCraftableOnlyChanged(const bool bIsChecked)
 {
-	(void)bIsChecked;
-	RefreshCraftRecipes();
+	if (ViewModel)
+	{
+		ViewModel->SetCraftableOnly(bIsChecked);
+	}
 }
 
 void UFTHubCraftTestWidget::HandleSearchRecipeTextChanged(const FText& Text)
 {
-	(void)Text;
-	RefreshCraftRecipes();
+	if (ViewModel)
+	{
+		ViewModel->SetSearchText(Text);
+	}
 }
 
 void UFTHubCraftTestWidget::HandleCraftClicked()
 {
-	if (!HubWorkbench || !SelectedRecipe)
+	if (ViewModel)
 	{
-		return;
-	}
-
-	if (HubWorkbench->TryCraftRecipe(SelectedRecipe->GetRecipe().RecipeID, PlayerInventory))
-	{
-		RefreshAll();
-		UpdateSelectedRecipeDetails();
+		ViewModel->CraftSelectedRecipe();
 	}
 }
 

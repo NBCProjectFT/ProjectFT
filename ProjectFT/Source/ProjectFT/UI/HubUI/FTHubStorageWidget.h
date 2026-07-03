@@ -20,7 +20,7 @@ class PROJECTFT_API UFTHubStorageWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Storage")
-	void InitializeStorageWidget(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory);
+	void InitializeStorageWidget(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory, UFTHubStorageViewModel* InViewModel);
 
 protected:
 	virtual void NativeConstruct() override;

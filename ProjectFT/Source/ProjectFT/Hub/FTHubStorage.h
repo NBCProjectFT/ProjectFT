@@ -10,6 +10,7 @@
 
 class UFTInventoryComponent;
 class UFTHubStorageWidget;
+class UFTHubStorageViewModel;
 UCLASS()
 class PROJECTFT_API AFTHubStorage : public AActor,  public IFTInteractable
 {
@@ -48,6 +49,9 @@ protected:
 	
 	UPROPERTY(Transient)
 	UFTHubStorageWidget* HubStorageWidget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTHubStorageViewModel> HubStorageViewModel;
 
 private:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Storage",meta = (AllowPrivateAccess = "true"))

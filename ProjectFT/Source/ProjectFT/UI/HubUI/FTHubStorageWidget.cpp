@@ -9,17 +9,30 @@
 #include "ProjectFT/ViewModel/FTHubStorageViewModel.h"
 #include "Types/SlateEnums.h"
 
-void UFTHubStorageWidget::InitializeStorageWidget(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
+void UFTHubStorageWidget::InitializeStorageWidget(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory, UFTHubStorageViewModel* InViewModel)
 {
 	HubStorage = InHubStorage;
 
-	if (!ViewModel)
+	if (ViewModel != InViewModel)
 	{
-		ViewModel = NewObject<UFTHubStorageViewModel>(this);
-		ViewModel->OnChanged.AddDynamic(this, &UFTHubStorageWidget::RefreshFromViewModel);
+		if (ViewModel)
+		{
+			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubStorageWidget::RefreshFromViewModel);
+		}
+
+		ViewModel = InViewModel ? InViewModel : NewObject<UFTHubStorageViewModel>(this);
+		if (ViewModel)
+		{
+			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubStorageWidget::RefreshFromViewModel);
+			ViewModel->OnChanged.AddDynamic(this, &UFTHubStorageWidget::RefreshFromViewModel);
+		}
 	}
 
-	ViewModel->Initialize(HubStorage, InPlayerInventory, TV_PlayerItems != nullptr, TV_StorageItems != nullptr);
+	if (ViewModel)
+	{
+		ViewModel->Initialize(HubStorage, InPlayerInventory, TV_PlayerItems != nullptr, TV_StorageItems != nullptr);
+	}
+
 	RefreshFromViewModel();
 }
 
