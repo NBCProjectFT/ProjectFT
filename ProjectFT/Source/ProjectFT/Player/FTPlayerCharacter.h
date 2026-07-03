@@ -163,7 +163,7 @@ private:
 
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);
-	
+
 	// 플레이어 사망 후처리(베이스 HandleDeath가 태그/능력취소/이동정지를 끝낸 뒤 호출). 입력 차단까지 담당한다.
 	virtual void OnDeath() override;
 
