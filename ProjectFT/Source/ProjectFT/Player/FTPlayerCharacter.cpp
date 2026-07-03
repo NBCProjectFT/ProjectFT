@@ -176,12 +176,8 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 
 void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 {
-	// 붙잡힘 중 시점 조작 차단.
-	if (IsCaptured())
-	{
-		return;
-	}
-
+	// 붙잡힘 중에도 시점은 자유롭게 돌릴 수 있다(DBD식 이송 시점). 몸(캡슐)은 캡처 중 bUseControllerRotationYaw를
+	// 꺼둬 경비 캡처 포즈를 따르므로, 시점만 스프링암(bUsePawnControlRotation)으로 컨트롤 회전을 따라 돈다.
 	AddControllerYawInput(LookValue.X);
 	AddControllerPitchInput(LookValue.Y);
 }
