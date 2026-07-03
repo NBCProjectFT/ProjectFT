@@ -8,6 +8,17 @@ class AFTHubShop;
 class UFTInventoryComponent;
 class UFTItemTileListObject;
 
+<<<<<<< Updated upstream
+=======
+UENUM(BlueprintType)
+enum class EFTShopSelectionSource : uint8
+{
+	None,
+	Shop,
+	Player
+};
+
+>>>>>>> Stashed changes
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTShopViewModelChanged);
 
 UCLASS(BlueprintType)
@@ -36,12 +47,17 @@ public:
 	void SelectPlayerItemObject(UObject* ItemObject);
 	bool BuySelectedItem();
 	bool SellSelectedItem();
+<<<<<<< Updated upstream
 	void RefreshShopStock();
+=======
+	void RefreshShop();
+>>>>>>> Stashed changes
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Shop")
 	FFTShopViewModelChanged OnChanged;
 
 private:
+<<<<<<< Updated upstream
 	enum class EShopSelectionSourceType : uint8
 	{
 		None,
@@ -49,17 +65,29 @@ private:
 		Player
 	};
 
+=======
+>>>>>>> Stashed changes
 	UFUNCTION()
 	void HandleInventoryChanged();
 
 	void RefreshShopItems();
 	void RefreshPlayerItems();
+<<<<<<< Updated upstream
 	void RestoreSelection(FName PreviousShopItemID, FName PreviousPlayerItemID, EShopSelectionSourceType PreviousSource);
 	void ClearSelection();
 	void ClearItemChecks();
 	void BindInventoryDelegate();
 	void UnbindInventoryDelegate();
 	UFTItemTileListObject* GetSelectedItemObject() const;
+=======
+	void RestoreSelection(FName PreviousShopItemID, FName PreviousPlayerItemID);
+	void UpdateSelectionChecks();
+	void BindInventoryDelegate();
+	void UnbindInventoryDelegate();
+	const UFTItemTileListObject* GetSelectedItem() const;
+	FName GetSelectedItemID() const;
+	void ClearSelection();
+>>>>>>> Stashed changes
 	void NotifyChanged();
 
 	UPROPERTY(Transient)
@@ -75,10 +103,19 @@ private:
 	TArray<TObjectPtr<UObject>> PlayerItemObjects;
 
 	UPROPERTY(Transient)
+<<<<<<< Updated upstream
 	TObjectPtr<UFTItemTileListObject> SelectedShopItemObject;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTItemTileListObject> SelectedPlayerItemObject;
 
 	EShopSelectionSourceType SelectedSource = EShopSelectionSourceType::None;
+=======
+	TObjectPtr<UFTItemTileListObject> SelectedShopItem;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTItemTileListObject> SelectedPlayerItem;
+
+	EFTShopSelectionSource SelectedSource = EFTShopSelectionSource::None;
+>>>>>>> Stashed changes
 };

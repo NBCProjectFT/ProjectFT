@@ -6,8 +6,12 @@
 
 class AFTHubShop;
 class UButton;
-class UFTInventoryComponent;
 class UFTShopViewModel;
+class UFTInventoryComponent;
+<<<<<<< Updated upstream
+class UFTShopViewModel;
+=======
+>>>>>>> Stashed changes
 class UTextBlock;
 class UTileView;
 
@@ -57,7 +61,11 @@ private:
 	UFUNCTION()
 	void RefreshFromViewModel();
 
+<<<<<<< Updated upstream
 	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+=======
+	void PopulateItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+>>>>>>> Stashed changes
 	void HandleShopItemClicked(UObject* Item);
 	void HandlePlayerItemClicked(UObject* Item);
 	void HandleShopItemSelectionChanged(UObject* Item);
@@ -75,5 +83,9 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFTShopViewModel> ViewModel;
 
+<<<<<<< Updated upstream
 	bool bRefreshingFromViewModel = false;
+=======
+	bool bUpdatingSelection = false;
+>>>>>>> Stashed changes
 };
