@@ -83,7 +83,7 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 	}
 
 	const FSlateColor TextColor = RecipeObject->CanCraft()
-		? FSlateColor(FLinearColor::Black)
+		? FSlateColor(FLinearColor::White)
 		: FSlateColor(FLinearColor(0.4f, 0.4f, 0.4f, 1.0f));
 
 	RecipeNameText->SetColorAndOpacity(TextColor);

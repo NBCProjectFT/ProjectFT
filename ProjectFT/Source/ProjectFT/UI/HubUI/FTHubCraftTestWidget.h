@@ -45,6 +45,9 @@ protected:
 	UCheckBox* CHK_CraftableOnly;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UCheckBox* CHK_ShowCraftableOnly;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UEditableTextBox* EDT_SearchRecipe;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -87,6 +90,7 @@ private:
 	void RefreshRequiredItemTiles();
 	void UpdateSelectedRecipeDetails();
 	UListView* GetStorageItemsView() const;
+	UCheckBox* GetCraftableOnlyCheckBox() const;
 	bool ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, bool bCanCraft) const;
 	int32 GetOwnedIngredientCount(FName ItemID) const;
 	const UFTItemDataAsset* FindItemData(FName ItemID) const;

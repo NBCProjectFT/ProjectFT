@@ -13,7 +13,7 @@ class UFTHubMarketPanelWidget;
 class UFTHubQuestPanelWidget;
 class UFTHubShopPanelWidget;
 class UFTInventoryComponent;
-
+class UWidgetSwitcher;
 UCLASS()
 class PROJECTFT_API UFTHubMainWidget : public UUserWidget
 {
@@ -31,6 +31,9 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	UPROPERTY(meta = (BindWidget))
+	UWidgetSwitcher* WidgetSwitcher_Main;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_MailTab;
@@ -59,6 +62,7 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UFTHubShopPanelWidget* WBP_ShopPanel;
 
+	
 private:
 	void RefreshCollectionCoinText();
 	void ShowQuestPanel();

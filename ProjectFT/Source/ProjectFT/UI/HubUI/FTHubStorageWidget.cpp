@@ -5,18 +5,22 @@
 #include "Components/SpinBox.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
-#include "FTItemTileListObject.h"
-#include "FTStorageItemListObject.h"
-#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
+#include "ProjectFT/ViewModel/FTHubStorageViewModel.h"
+#include "Types/SlateEnums.h"
 
 void UFTHubStorageWidget::InitializeStorageWidget(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
 {
 	HubStorage = InHubStorage;
-	PlayerInventory = InPlayerInventory;
-	SelectedItemID = NAME_None;
-	SelectedSource = EStorageTransferSourceType::None;
-	RefreshAllItems();
+
+	if (!ViewModel)
+	{
+		ViewModel = NewObject<UFTHubStorageViewModel>(this);
+		ViewModel->OnChanged.AddDynamic(this, &UFTHubStorageWidget::RefreshFromViewModel);
+	}
+
+	ViewModel->Initialize(HubStorage, InPlayerInventory, TV_PlayerItems != nullptr, TV_StorageItems != nullptr);
+	RefreshFromViewModel();
 }
 
 void UFTHubStorageWidget::NativeConstruct()
@@ -25,14 +29,20 @@ void UFTHubStorageWidget::NativeConstruct()
 
 	if (UListView* PlayerItemsView = GetPlayerItemsView())
 	{
+		PlayerItemsView->SetSelectionMode(ESelectionMode::Multi);
 		PlayerItemsView->OnItemClicked().RemoveAll(this);
 		PlayerItemsView->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandlePlayerItemClicked);
+		PlayerItemsView->OnItemSelectionChanged().RemoveAll(this);
+		PlayerItemsView->OnItemSelectionChanged().AddUObject(this, &UFTHubStorageWidget::HandlePlayerItemSelectionChanged);
 	}
 
 	if (UListView* StorageItemsView = GetStorageItemsView())
 	{
+		StorageItemsView->SetSelectionMode(ESelectionMode::Multi);
 		StorageItemsView->OnItemClicked().RemoveAll(this);
 		StorageItemsView->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandleStorageItemClicked);
+		StorageItemsView->OnItemSelectionChanged().RemoveAll(this);
+		StorageItemsView->OnItemSelectionChanged().AddUObject(this, &UFTHubStorageWidget::HandleStorageItemSelectionChanged);
 	}
 
 	if (BTN_Store)
@@ -47,101 +57,101 @@ void UFTHubStorageWidget::NativeConstruct()
 		BTN_Take->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleTakeClicked);
 	}
 
+	if (BTN_StoreAll)
+	{
+		BTN_StoreAll->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleStoreAllClicked);
+		BTN_StoreAll->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleStoreAllClicked);
+	}
+
+	if (BTN_TakeAll)
+	{
+		BTN_TakeAll->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleTakeAllClicked);
+		BTN_TakeAll->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleTakeAllClicked);
+	}
+
+	if (BTN_PlayerFilterAll)
+	{
+		BTN_PlayerFilterAll->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterAllClicked);
+		BTN_PlayerFilterAll->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterAllClicked);
+	}
+
+	if (BTN_PlayerFilterWeapon)
+	{
+		BTN_PlayerFilterWeapon->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterWeaponClicked);
+		BTN_PlayerFilterWeapon->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterWeaponClicked);
+	}
+
+	if (BTN_PlayerFilterHealing)
+	{
+		BTN_PlayerFilterHealing->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterHealingClicked);
+		BTN_PlayerFilterHealing->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterHealingClicked);
+	}
+
+	if (BTN_PlayerFilterCommon)
+	{
+		BTN_PlayerFilterCommon->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterCommonClicked);
+		BTN_PlayerFilterCommon->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandlePlayerFilterCommonClicked);
+	}
+
+	if (BTN_StorageFilterAll)
+	{
+		BTN_StorageFilterAll->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleStorageFilterAllClicked);
+		BTN_StorageFilterAll->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleStorageFilterAllClicked);
+	}
+
+	if (BTN_StorageFilterWeapon)
+	{
+		BTN_StorageFilterWeapon->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleStorageFilterWeaponClicked);
+		BTN_StorageFilterWeapon->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleStorageFilterWeaponClicked);
+	}
+
+	if (BTN_StorageFilterHealing)
+	{
+		BTN_StorageFilterHealing->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleStorageFilterHealingClicked);
+		BTN_StorageFilterHealing->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleStorageFilterHealingClicked);
+	}
+
+	if (BTN_StorageFilterCommon)
+	{
+		BTN_StorageFilterCommon->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleStorageFilterCommonClicked);
+		BTN_StorageFilterCommon->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleStorageFilterCommonClicked);
+	}
+
 	if (BTN_Close)
 	{
 		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleCloseClicked);
 		BTN_Close->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleCloseClicked);
 	}
 
-	RefreshAllItems();
+	RefreshFromViewModel();
 }
 
-void UFTHubStorageWidget::RefreshAllItems()
+void UFTHubStorageWidget::RefreshFromViewModel()
 {
-	RefreshPlayerItems();
-	RefreshStorageItems();
-	UpdateTransferControls();
-}
-
-void UFTHubStorageWidget::RefreshPlayerItems()
-{
-	UListView* PlayerItemsView = GetPlayerItemsView();
-	if (!PlayerItemsView)
+	if (!ViewModel)
 	{
 		return;
 	}
 
-	PlayerItemsView->ClearListItems();
-
-	if (!PlayerInventory)
-	{
-		return;
-	}
-
-	for (const FFTInventoryItem& InventoryItem : PlayerInventory->GetItems())
-	{
-		if (TV_PlayerItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity);
-			PlayerItemsView->AddItem(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			const FTStorageItemStruct StorageItem = { InventoryItem.ItemId, InventoryItem.Quantity };
-			ItemObject->Initialize(StorageItem);
-			PlayerItemsView->AddItem(ItemObject);
-		}
-	}
-}
-
-void UFTHubStorageWidget::RefreshStorageItems()
-{
-	UListView* StorageItemsView = GetStorageItemsView();
-	if (!StorageItemsView)
-	{
-		return;
-	}
-
-	StorageItemsView->ClearListItems();
-
-	if (!HubStorage)
-	{
-		return;
-	}
-
-	for (const FTStorageItemStruct& StorageItem : HubStorage->GetStorageItems())
-	{
-		if (TV_StorageItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
-			StorageItemsView->AddItem(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize(StorageItem);
-			StorageItemsView->AddItem(ItemObject);
-		}
-	}
-}
-
-void UFTHubStorageWidget::UpdateTransferControls()
-{
-	const int32 SelectedCount = GetSelectedItemCount();
-	const bool bHasSelection = !SelectedItemID.IsNone() && SelectedCount > 0;
+	bRefreshingFromViewModel = true;
+	PopulateItems(GetPlayerItemsView(), ViewModel->GetPlayerItemObjects());
+	PopulateItems(GetStorageItemsView(), ViewModel->GetStorageItemObjects());
+	bRefreshingFromViewModel = false;
 
 	if (TXT_SelectedItem)
 	{
-		TXT_SelectedItem->SetText(bHasSelection
-			? FText::FromString(FString::Printf(TEXT("%s x%d"), *SelectedItemID.ToString(), SelectedCount))
-			: FText::FromString(TEXT("Select Item")));
+		TXT_SelectedItem->SetText(ViewModel->GetSelectedItemText());
+	}
+
+	if (TXT_PlayerWeight)
+	{
+		TXT_PlayerWeight->SetText(ViewModel->GetPlayerWeightText());
 	}
 
 	if (SPB_MoveCount)
 	{
+		const int32 SelectedCount = ViewModel->GetSelectedEntryCount();
+		const bool bHasSelection = SelectedCount > 0;
 		SPB_MoveCount->SetMinValue(1.0f);
 		SPB_MoveCount->SetMaxValue(FMath::Max(1, SelectedCount));
 		SPB_MoveCount->SetValue(bHasSelection ? 1.0f : 0.0f);
@@ -150,47 +160,23 @@ void UFTHubStorageWidget::UpdateTransferControls()
 
 	if (BTN_Store)
 	{
-		BTN_Store->SetIsEnabled(bHasSelection && SelectedSource == EStorageTransferSourceType::Player);
+		BTN_Store->SetIsEnabled(ViewModel->CanStoreSelected());
 	}
 
 	if (BTN_Take)
 	{
-		BTN_Take->SetIsEnabled(bHasSelection && SelectedSource == EStorageTransferSourceType::Storage);
+		BTN_Take->SetIsEnabled(ViewModel->CanTakeSelected());
 	}
-}
 
-int32 UFTHubStorageWidget::GetRequestedCount() const
-{
-	if (!SPB_MoveCount)
+	if (BTN_StoreAll)
 	{
-		return 1;
+		BTN_StoreAll->SetIsEnabled(ViewModel->CanStoreAll());
 	}
 
-	return FMath::Max(1, FMath::RoundToInt(SPB_MoveCount->GetValue()));
-}
-
-int32 UFTHubStorageWidget::GetSelectedItemCount() const
-{
-	if (SelectedItemID.IsNone())
+	if (BTN_TakeAll)
 	{
-		return 0;
+		BTN_TakeAll->SetIsEnabled(ViewModel->CanTakeAll());
 	}
-
-	if (SelectedSource == EStorageTransferSourceType::Player)
-	{
-		return PlayerInventory
-			? PlayerInventory->GetItemQuantity(SelectedItemID)
-			: 0;
-	}
-
-	if (SelectedSource == EStorageTransferSourceType::Storage)
-	{
-		return HubStorage
-			? HubStorage->GetStorageItemCount(SelectedItemID)
-			: 0;
-	}
-
-	return 0;
 }
 
 UListView* UFTHubStorageWidget::GetPlayerItemsView() const
@@ -203,46 +189,53 @@ UListView* UFTHubStorageWidget::GetStorageItemsView() const
 	return TV_StorageItems ? Cast<UListView>(TV_StorageItems) : LV_StorageItems;
 }
 
+void UFTHubStorageWidget::PopulateItems(UListView* ItemsView, const TArray<TObjectPtr<UObject>>& Items)
+{
+	if (!ItemsView)
+	{
+		return;
+	}
+
+	ItemsView->ClearListItems();
+	for (UObject* Item : Items)
+	{
+		ItemsView->AddItem(Item);
+	}
+}
+
+void UFTHubStorageWidget::PushSelectedItemsToViewModel(UListView* ItemsView, const bool bFromPlayerItems)
+{
+	if (bRefreshingFromViewModel || !ViewModel || !ItemsView)
+	{
+		return;
+	}
+
+	TArray<UObject*> SelectedItems;
+	ItemsView->GetSelectedItems(SelectedItems);
+	ViewModel->SetSelectedItems(
+		bFromPlayerItems ? EFTHubStorageTransferSource::Player : EFTHubStorageTransferSource::Storage,
+		SelectedItems
+	);
+}
+
 void UFTHubStorageWidget::HandlePlayerItemClicked(UObject* Item)
 {
-	if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item))
-	{
-		SelectedItemID = TileObject->GetItemID();
-		SelectedSource = EStorageTransferSourceType::Player;
-		UpdateTransferControls();
-		return;
-	}
-
-	const UFTStorageItemListObject* ItemObject = Cast<UFTStorageItemListObject>(Item);
-	if (!ItemObject)
-	{
-		return;
-	}
-
-	SelectedItemID = ItemObject->GetStorageItem().ItemID;
-	SelectedSource = EStorageTransferSourceType::Player;
-	UpdateTransferControls();
+	PushSelectedItemsToViewModel(GetPlayerItemsView(), true);
 }
 
 void UFTHubStorageWidget::HandleStorageItemClicked(UObject* Item)
 {
-	if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item))
-	{
-		SelectedItemID = TileObject->GetItemID();
-		SelectedSource = EStorageTransferSourceType::Storage;
-		UpdateTransferControls();
-		return;
-	}
+	PushSelectedItemsToViewModel(GetStorageItemsView(), false);
+}
 
-	const UFTStorageItemListObject* ItemObject = Cast<UFTStorageItemListObject>(Item);
-	if (!ItemObject)
-	{
-		return;
-	}
+void UFTHubStorageWidget::HandlePlayerItemSelectionChanged(UObject* Item)
+{
+	PushSelectedItemsToViewModel(GetPlayerItemsView(), true);
+}
 
-	SelectedItemID = ItemObject->GetStorageItem().ItemID;
-	SelectedSource = EStorageTransferSourceType::Storage;
-	UpdateTransferControls();
+void UFTHubStorageWidget::HandleStorageItemSelectionChanged(UObject* Item)
+{
+	PushSelectedItemsToViewModel(GetStorageItemsView(), false);
 }
 
 void UFTHubStorageWidget::HandleCloseClicked()
@@ -255,30 +248,96 @@ void UFTHubStorageWidget::HandleCloseClicked()
 
 void UFTHubStorageWidget::HandleStoreClicked()
 {
-	if (!HubStorage || !PlayerInventory || SelectedSource != EStorageTransferSourceType::Player)
+	if (ViewModel)
 	{
-		return;
-	}
-
-	if (HubStorage->StoreItemFromInventory(PlayerInventory, SelectedItemID, GetRequestedCount()))
-	{
-		SelectedItemID = NAME_None;
-		SelectedSource = EStorageTransferSourceType::None;
-		RefreshAllItems();
+		ViewModel->StoreSelectedItems();
 	}
 }
 
 void UFTHubStorageWidget::HandleTakeClicked()
 {
-	if (!HubStorage || !PlayerInventory || SelectedSource != EStorageTransferSourceType::Storage)
+	if (ViewModel)
 	{
-		return;
+		ViewModel->TakeSelectedItems();
 	}
+}
 
-	if (HubStorage->TakeItemToInventory(PlayerInventory, SelectedItemID, GetRequestedCount()))
+void UFTHubStorageWidget::HandleStoreAllClicked()
+{
+	if (ViewModel)
 	{
-		SelectedItemID = NAME_None;
-		SelectedSource = EStorageTransferSourceType::None;
-		RefreshAllItems();
+		ViewModel->StoreAllItems();
+	}
+}
+
+void UFTHubStorageWidget::HandleTakeAllClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->TakeAllItems();
+	}
+}
+
+void UFTHubStorageWidget::HandlePlayerFilterAllClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetPlayerFilter(EFTItemCategoryType::None);
+	}
+}
+
+void UFTHubStorageWidget::HandlePlayerFilterWeaponClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetPlayerFilter(EFTItemCategoryType::Weapon);
+	}
+}
+
+void UFTHubStorageWidget::HandlePlayerFilterHealingClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetPlayerFilter(EFTItemCategoryType::Healing);
+	}
+}
+
+void UFTHubStorageWidget::HandlePlayerFilterCommonClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetPlayerFilter(EFTItemCategoryType::Common);
+	}
+}
+
+void UFTHubStorageWidget::HandleStorageFilterAllClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetStorageFilter(EFTItemCategoryType::None);
+	}
+}
+
+void UFTHubStorageWidget::HandleStorageFilterWeaponClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetStorageFilter(EFTItemCategoryType::Weapon);
+	}
+}
+
+void UFTHubStorageWidget::HandleStorageFilterHealingClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetStorageFilter(EFTItemCategoryType::Healing);
+	}
+}
+
+void UFTHubStorageWidget::HandleStorageFilterCommonClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetStorageFilter(EFTItemCategoryType::Common);
 	}
 }

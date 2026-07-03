@@ -36,10 +36,10 @@ void UFTHubCraftTestWidget::NativeConstruct()
 		LV_CraftRecipes->OnItemClicked().AddUObject(this, &UFTHubCraftTestWidget::HandleRecipeClicked);
 	}
 
-	if (CHK_CraftableOnly)
+	if (UCheckBox* CraftableOnlyCheckBox = GetCraftableOnlyCheckBox())
 	{
-		CHK_CraftableOnly->OnCheckStateChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCraftableOnlyChanged);
-		CHK_CraftableOnly->OnCheckStateChanged.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftableOnlyChanged);
+		CraftableOnlyCheckBox->OnCheckStateChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCraftableOnlyChanged);
+		CraftableOnlyCheckBox->OnCheckStateChanged.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftableOnlyChanged);
 	}
 
 	if (EDT_SearchRecipe)
@@ -156,9 +156,15 @@ UListView* UFTHubCraftTestWidget::GetStorageItemsView() const
 	return TV_StorageItems ? Cast<UListView>(TV_StorageItems) : LV_StorageItems;
 }
 
+UCheckBox* UFTHubCraftTestWidget::GetCraftableOnlyCheckBox() const
+{
+	return CHK_ShowCraftableOnly ? CHK_ShowCraftableOnly : CHK_CraftableOnly;
+}
+
 bool UFTHubCraftTestWidget::ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, const bool bCanCraft) const
 {
-	if (CHK_CraftableOnly && CHK_CraftableOnly->IsChecked() && !bCanCraft)
+	const UCheckBox* CraftableOnlyCheckBox = GetCraftableOnlyCheckBox();
+	if (CraftableOnlyCheckBox && CraftableOnlyCheckBox->IsChecked() && !bCanCraft)
 	{
 		return false;
 	}
