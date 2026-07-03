@@ -11,7 +11,6 @@
 
 void UFTHubMainWidget::InitializeHubMain(
 	AFTHubTerminal* InHubTerminal,
-	AFTHubQuestBoard* InQuestBoard,
 	AFTHubShop* InHubShop,
 	UFTInventoryComponent* InPlayerInventory
 )
@@ -20,23 +19,23 @@ void UFTHubMainWidget::InitializeHubMain(
 	HubShop = InHubShop;
 	PlayerInventory = InPlayerInventory;
 
-	if (WBP_QuestPanel)
-	{
-		WBP_QuestPanel->InitializeQuestPanel(InQuestBoard, InPlayerInventory);
-	}
-
-	if (WBP_ShopPanel)
-	{
-		WBP_ShopPanel->InitializeShopPanel(InHubShop, InPlayerInventory);
-	}
-
-	if (WBP_MarketPanel)
-	{
-		WBP_MarketPanel->InitializeMarketPanel(InHubShop, InPlayerInventory);
-	}
-
 	RefreshCollectionCoinText();
 	ShowQuestPanel();
+}
+
+UFTHubQuestPanelWidget* UFTHubMainWidget::GetQuestPanelWidget() const
+{
+	return WBP_QuestPanel;
+}
+
+UFTHubMarketPanelWidget* UFTHubMainWidget::GetMarketPanelWidget() const
+{
+	return WBP_MarketPanel;
+}
+
+UFTHubShopPanelWidget* UFTHubMainWidget::GetShopPanelWidget() const
+{
+	return WBP_ShopPanel;
 }
 
 void UFTHubMainWidget::NativeConstruct()

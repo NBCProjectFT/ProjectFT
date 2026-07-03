@@ -5,10 +5,10 @@
 #include "ProjectFT/Enum/FTQuestStateType.h"
 #include "FTHubQuestPanelWidget.generated.h"
 
-class AFTHubQuestBoard;
+class UFTObjectiveSubsystem;
 class UButton;
 class UFTInventoryComponent;
-class UFTQuestListObject;
+class UFTQuestViewModel;
 class UListView;
 class UTextBlock;
 class UTileView;
@@ -20,7 +20,7 @@ class PROJECTFT_API UFTHubQuestPanelWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Quest")
-	void InitializeQuestPanel(AFTHubQuestBoard* InQuestBoard, UFTInventoryComponent* InPlayerInventory);
+	void InitializeQuestPanel(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -56,13 +56,12 @@ protected:
 	UButton* BTN_AcceptQuest;
 
 private:
-	void RefreshQuestList();
-	void UpdateSelectedQuestDetails();
-	void RefreshRequiredItems();
-	void RefreshRewardItems();
-	void HandleQuestClicked(UObject* Item);
+	UFUNCTION()
+	void RefreshFromViewModel();
 
-	void SetQuestFilter(EFTQuestStateType NewQuestFilter);
+	void PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items);
+	void HandleQuestClicked(UObject* Item);
 
 	UFUNCTION()
 	void HandleCompleteQuestClicked();
@@ -80,13 +79,7 @@ private:
 	void HandleCompletedQuestTabClicked();
 
 	UPROPERTY(Transient)
-	AFTHubQuestBoard* QuestBoard;
+	TObjectPtr<UFTQuestViewModel> ViewModel;
 
-	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTQuestListObject* SelectedQuest;
-
-	EFTQuestStateType CurrentQuestFilter = EFTQuestStateType::Available;
+	bool bRefreshingFromViewModel = false;
 };

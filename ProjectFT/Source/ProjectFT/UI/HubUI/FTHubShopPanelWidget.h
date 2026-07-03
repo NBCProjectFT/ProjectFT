@@ -7,7 +7,7 @@
 class AFTHubShop;
 class UButton;
 class UFTInventoryComponent;
-class UFTItemTileListObject;
+class UFTShopViewModel;
 class UTextBlock;
 class UTileView;
 
@@ -54,18 +54,10 @@ protected:
 	UButton* BTN_Refresh;
 
 private:
-	enum class EShopSelectionSourceType : uint8
-	{
-		None,
-		Shop,
-		Player
-	};
+	UFUNCTION()
+	void RefreshFromViewModel();
 
-	void RefreshShopItems();
-	void RefreshPlayerItems();
-	void RefreshAllItems();
-	void UpdateSelectedItemDetails();
-	void ClearTileChecks(UTileView* TileView);
+	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
 	void HandleShopItemClicked(UObject* Item);
 	void HandlePlayerItemClicked(UObject* Item);
 	void HandleShopItemSelectionChanged(UObject* Item);
@@ -81,17 +73,7 @@ private:
 	void HandleRefreshClicked();
 
 	UPROPERTY(Transient)
-	AFTHubShop* HubShop;
+	TObjectPtr<UFTShopViewModel> ViewModel;
 
-	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTItemTileListObject* SelectedShopItem;
-
-	UPROPERTY(Transient)
-	UFTItemTileListObject* SelectedPlayerItem;
-
-	EShopSelectionSourceType SelectedSource = EShopSelectionSourceType::None;
-	bool bUpdatingSelection = false;
+	bool bRefreshingFromViewModel = false;
 };

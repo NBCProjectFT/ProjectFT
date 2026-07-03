@@ -9,7 +9,6 @@
 #include "FTHubStorage.generated.h"
 
 class UFTInventoryComponent;
-class UFTHubStorageWidget;
 UCLASS()
 class PROJECTFT_API AFTHubStorage : public AActor,  public IFTInteractable
 {
@@ -42,9 +41,6 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Craft|UI")
-	TSubclassOf<UFTHubStorageWidget> HubStorageWidgetClass;
 
 private:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Storage",meta = (AllowPrivateAccess = "true"))
@@ -61,5 +57,4 @@ private:
 	
 
 	void OpenStorageWidget(AActor* Interactor);
-	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
 };

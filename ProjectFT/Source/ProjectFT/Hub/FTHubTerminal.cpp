@@ -1,17 +1,21 @@
 #include "FTHubTerminal.h"
 
-#include "Blueprint/UserWidget.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
-#include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/UI/HubUI/FTHubMainWidget.h"
+#include "FTHubActorUtils.h"
+#include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 AFTHubTerminal::AFTHubTerminal()
-	: HubQuestBoard(nullptr)
+	: QuestDataTable(nullptr)
+	, HubStorage(nullptr)
 	, HubShop(nullptr)
-	, HubMainWidget(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
+}
+
+void AFTHubTerminal::BeginPlay()
+{
+	Super::BeginPlay();
+	ConfigureObjectiveSubsystem();
 }
 
 bool AFTHubTerminal::Interact_Implementation(AActor* Interactor)
@@ -27,117 +31,28 @@ FText AFTHubTerminal::GetInteractionPrompt_Implementation() const
 
 void AFTHubTerminal::CloseHubWidget()
 {
-	if (HubMainWidget && HubMainWidget->IsInViewport())
+	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
-		HubMainWidget->RemoveFromParent();
+		UIManager->HideHubMain();
 	}
-
-	APlayerController* PlayerController = GetWorld()
-		? GetWorld()->GetFirstPlayerController()
-		: nullptr;
-
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	PlayerController->bShowMouseCursor = false;
-
-	FInputModeGameOnly InputMode;
-	PlayerController->SetInputMode(InputMode);
 }
 
 void AFTHubTerminal::OpenHubWidget(AActor* Interactor)
 {
-	if (HubMainWidget && HubMainWidget->IsInViewport())
+	ConfigureObjectiveSubsystem();
+
+	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
-		CloseHubWidget();
-		return;
-	}
-
-	if (!HubMainWidgetClass)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HubMainWidgetClass is not assigned."));
-		return;
-	}
-
-	APlayerController* PlayerController = nullptr;
-
-	if (APawn* InteractorPawn = Cast<APawn>(Interactor))
-	{
-		PlayerController = Cast<APlayerController>(InteractorPawn->GetController());
-	}
-
-	if (!PlayerController)
-	{
-		PlayerController = GetWorld()
-			? GetWorld()->GetFirstPlayerController()
-			: nullptr;
-	}
-
-	if (!PlayerController)
-	{
-		return;
-	}
-
-	if (!HubMainWidget)
-	{
-		HubMainWidget = CreateWidget<UFTHubMainWidget>(
-			PlayerController,
-			HubMainWidgetClass
-		);
-
-		if (!HubMainWidget)
-		{
-			return;
-		}
-	}
-
-	HubMainWidget->InitializeHubMain(
-		this,
-		HubQuestBoard,
-		HubShop,
-		FindPlayerInventory(Interactor)
-	);
-
-	if (!HubMainWidget->IsInViewport())
-	{
-		HubMainWidget->AddToViewport();
-
-		PlayerController->bShowMouseCursor = true;
-
-		FInputModeGameAndUI InputMode;
-		InputMode.SetWidgetToFocus(HubMainWidget->TakeWidget());
-		PlayerController->SetInputMode(InputMode);
+		UIManager->ShowHubMain(this, HubShop, FTHubActorUtils::FindPlayerInventory(this, Interactor));
 	}
 }
 
-UFTInventoryComponent* AFTHubTerminal::FindPlayerInventory(AActor* Interactor) const
+void AFTHubTerminal::ConfigureObjectiveSubsystem()
 {
-	if (Interactor)
+	UGameInstance* GameInstance = GetGameInstance();
+	UFTObjectiveSubsystem* ObjectiveSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr;
+	if (ObjectiveSubsystem)
 	{
-		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
-		{
-			return PlayerInventory;
-		}
+		ObjectiveSubsystem->ConfigureHubQuests(QuestDataTable, HubStorage, HubShop, InitialQuestIDs);
 	}
-
-	const APlayerController* PlayerController = GetWorld()
-		? GetWorld()->GetFirstPlayerController()
-		: nullptr;
-
-	if (!PlayerController)
-	{
-		return nullptr;
-	}
-
-	if (APawn* Pawn = PlayerController->GetPawn())
-	{
-		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
-		{
-			return PlayerInventory;
-		}
-	}
-
-	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
 }

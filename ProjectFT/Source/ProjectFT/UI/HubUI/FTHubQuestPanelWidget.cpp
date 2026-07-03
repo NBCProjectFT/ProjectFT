@@ -4,19 +4,33 @@
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
-#include "FTItemTileListObject.h"
 #include "FTQuestListObject.h"
-#include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/Hub/FTHubQuestBoard.h"
-#include "ProjectFT/Struct/FTCraftIngredientStruct.h"
+#include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "ProjectFT/ViewModel/FTQuestViewModel.h"
 
-void UFTHubQuestPanelWidget::InitializeQuestPanel(AFTHubQuestBoard* InQuestBoard, UFTInventoryComponent* InPlayerInventory)
+void UFTHubQuestPanelWidget::InitializeQuestPanel(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
-	QuestBoard = InQuestBoard;
-	PlayerInventory = InPlayerInventory;
-	SelectedQuest = nullptr;
-	RefreshQuestList();
-	UpdateSelectedQuestDetails();
+	if (!ViewModel)
+	{
+		if (const UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				ViewModel = UIManager->QuestViewModel;
+			}
+		}
+	}
+
+	if (!ViewModel)
+	{
+		ViewModel = NewObject<UFTQuestViewModel>(this);
+	}
+
+	ViewModel->OnChanged.RemoveDynamic(this, &UFTHubQuestPanelWidget::RefreshFromViewModel);
+	ViewModel->OnChanged.AddDynamic(this, &UFTHubQuestPanelWidget::RefreshFromViewModel);
+	ViewModel->Initialize(InObjectiveSubsystem, InPlayerInventory);
+	RefreshFromViewModel();
 }
 
 void UFTHubQuestPanelWidget::NativeConstruct()
@@ -59,181 +73,126 @@ void UFTHubQuestPanelWidget::NativeConstruct()
 		BTN_AcceptQuest->OnClicked.AddDynamic(this, &UFTHubQuestPanelWidget::HandleAcceptQuestClicked);
 	}
 
-	RefreshQuestList();
-	UpdateSelectedQuestDetails();
+	RefreshFromViewModel();
 }
 
-void UFTHubQuestPanelWidget::RefreshQuestList()
+void UFTHubQuestPanelWidget::RefreshFromViewModel()
 {
-	if (!LV_Quests)
+	if (!ViewModel)
 	{
 		return;
 	}
 
-	const FName SelectedQuestID = SelectedQuest
-		? SelectedQuest->GetQuest().QuestID
-		: NAME_None;
-
-	SelectedQuest = nullptr;
-	LV_Quests->ClearListItems();
-
-	if (!QuestBoard)
-	{
-		return;
-	}
-
-	TArray<FTQuestStruct> Quests;
-	QuestBoard->GetQuestListByState(CurrentQuestFilter, Quests);
-
-	for (const FTQuestStruct& Quest : Quests)
-	{
-		UFTQuestListObject* QuestObject = NewObject<UFTQuestListObject>(this);
-		QuestObject->Initialize(Quest, QuestBoard->CanCompleteQuest(Quest, PlayerInventory));
-		LV_Quests->AddItem(QuestObject);
-
-		if (Quest.QuestID == SelectedQuestID)
-		{
-			SelectedQuest = QuestObject;
-			LV_Quests->SetItemSelection(QuestObject, true);
-		}
-	}
-}
-
-void UFTHubQuestPanelWidget::UpdateSelectedQuestDetails()
-{
-	const bool bHasSelection = SelectedQuest != nullptr;
+	bRefreshingFromViewModel = true;
+	PopulateListItems(LV_Quests, ViewModel->GetQuestObjects(), ViewModel->GetSelectedQuestObject());
+	PopulateTileItems(TV_RequiredItems, ViewModel->GetRequiredItemObjects());
+	PopulateTileItems(TV_RewardItems, ViewModel->GetRewardItemObjects());
+	bRefreshingFromViewModel = false;
 
 	if (TXT_SelectedQuestName)
 	{
-		TXT_SelectedQuestName->SetText(bHasSelection
-			? SelectedQuest->GetQuest().QuestName
-			: FText::FromString(TEXT("Select Quest")));
+		TXT_SelectedQuestName->SetText(ViewModel->GetSelectedQuestNameText());
 	}
 
 	if (TXT_QuestDescription)
 	{
-		TXT_QuestDescription->SetText(bHasSelection
-			? SelectedQuest->GetQuest().Description
-			: FText::GetEmpty());
+		TXT_QuestDescription->SetText(ViewModel->GetSelectedQuestDescriptionText());
 	}
-
-	RefreshRequiredItems();
-	RefreshRewardItems();
 
 	if (BTN_CompleteQuest)
 	{
-		BTN_CompleteQuest->SetIsEnabled(
-			bHasSelection &&
-			CurrentQuestFilter == EFTQuestStateType::Active &&
-			SelectedQuest->CanComplete()
-		);
+		BTN_CompleteQuest->SetIsEnabled(ViewModel->CanCompleteSelectedQuest());
 	}
 
 	if (BTN_AcceptQuest)
 	{
-		BTN_AcceptQuest->SetIsEnabled(
-			bHasSelection &&
-			CurrentQuestFilter == EFTQuestStateType::Available
-		);
+		BTN_AcceptQuest->SetIsEnabled(ViewModel->CanAcceptSelectedQuest());
 	}
 }
 
-void UFTHubQuestPanelWidget::RefreshRequiredItems()
+void UFTHubQuestPanelWidget::PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem)
 {
-	if (!TV_RequiredItems)
+	if (!ListView)
 	{
 		return;
 	}
 
-	TV_RequiredItems->ClearListItems();
-
-	if (!SelectedQuest)
+	ListView->ClearListItems();
+	for (UObject* Item : Items)
 	{
-		return;
+		ListView->AddItem(Item);
 	}
 
-	for (const FTCraftIngredientStruct& RequiredItem : SelectedQuest->GetQuest().RequiredItems)
+	if (SelectedItem)
 	{
-		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		ItemObject->InitializeIngredient(RequiredItem);
-		TV_RequiredItems->AddItem(ItemObject);
+		ListView->SetItemSelection(SelectedItem, true);
 	}
+
+	ListView->RequestRefresh();
 }
 
-void UFTHubQuestPanelWidget::RefreshRewardItems()
+void UFTHubQuestPanelWidget::PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items)
 {
-	if (!TV_RewardItems)
+	if (!TileView)
 	{
 		return;
 	}
 
-	TV_RewardItems->ClearListItems();
-
-	if (!SelectedQuest)
+	TileView->ClearListItems();
+	for (UObject* Item : Items)
 	{
-		return;
+		TileView->AddItem(Item);
 	}
 
-	for (const FTCraftIngredientStruct& RewardItem : SelectedQuest->GetQuest().RewardItems)
-	{
-		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		ItemObject->InitializeIngredient(RewardItem);
-		TV_RewardItems->AddItem(ItemObject);
-	}
+	TileView->RequestRefresh();
 }
 
 void UFTHubQuestPanelWidget::HandleQuestClicked(UObject* Item)
 {
-	SelectedQuest = Cast<UFTQuestListObject>(Item);
-	UpdateSelectedQuestDetails();
-}
-
-void UFTHubQuestPanelWidget::SetQuestFilter(EFTQuestStateType NewQuestFilter)
-{
-	CurrentQuestFilter = NewQuestFilter;
-	SelectedQuest = nullptr;
-	RefreshQuestList();
-	UpdateSelectedQuestDetails();
-}
-
-void UFTHubQuestPanelWidget::HandleCompleteQuestClicked()
-{
-	if (!QuestBoard || !SelectedQuest)
+	if (bRefreshingFromViewModel || !ViewModel)
 	{
 		return;
 	}
 
-	if (QuestBoard->TryCompleteQuest(SelectedQuest->GetQuest().QuestID, PlayerInventory))
+	ViewModel->SelectQuestObject(Item);
+}
+
+void UFTHubQuestPanelWidget::HandleCompleteQuestClicked()
+{
+	if (ViewModel)
 	{
-		RefreshQuestList();
-		UpdateSelectedQuestDetails();
+		ViewModel->CompleteSelectedQuest();
 	}
 }
 
 void UFTHubQuestPanelWidget::HandleAcceptQuestClicked()
 {
-	if (!QuestBoard || !SelectedQuest)
+	if (ViewModel)
 	{
-		return;
-	}
-
-	if (QuestBoard->AcceptQuest(SelectedQuest->GetQuest().QuestID))
-	{
-		SetQuestFilter(EFTQuestStateType::Active);
+		ViewModel->AcceptSelectedQuest();
 	}
 }
 
 void UFTHubQuestPanelWidget::HandleAvailableQuestTabClicked()
 {
-	SetQuestFilter(EFTQuestStateType::Available);
+	if (ViewModel)
+	{
+		ViewModel->SetQuestFilter(EFTQuestStateType::Available);
+	}
 }
 
 void UFTHubQuestPanelWidget::HandleActiveQuestTabClicked()
 {
-	SetQuestFilter(EFTQuestStateType::Active);
+	if (ViewModel)
+	{
+		ViewModel->SetQuestFilter(EFTQuestStateType::Active);
+	}
 }
 
 void UFTHubQuestPanelWidget::HandleCompletedQuestTabClicked()
 {
-	SetQuestFilter(EFTQuestStateType::Completed);
+	if (ViewModel)
+	{
+		ViewModel->SetQuestFilter(EFTQuestStateType::Completed);
+	}
 }

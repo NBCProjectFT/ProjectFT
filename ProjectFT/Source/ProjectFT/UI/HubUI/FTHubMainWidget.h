@@ -4,7 +4,6 @@
 #include "Blueprint/UserWidget.h"
 #include "FTHubMainWidget.generated.h"
 
-class AFTHubQuestBoard;
 class AFTHubShop;
 class AFTHubTerminal;
 class UButton;
@@ -23,10 +22,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub")
 	void InitializeHubMain(
 		AFTHubTerminal* InHubTerminal,
-		AFTHubQuestBoard* InQuestBoard,
 		AFTHubShop* InHubShop,
 		UFTInventoryComponent* InPlayerInventory
 	);
+
+	UFTHubQuestPanelWidget* GetQuestPanelWidget() const;
+	UFTHubMarketPanelWidget* GetMarketPanelWidget() const;
+	UFTHubShopPanelWidget* GetShopPanelWidget() const;
 
 protected:
 	virtual void NativeConstruct() override;

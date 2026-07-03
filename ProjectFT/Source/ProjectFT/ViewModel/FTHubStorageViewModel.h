@@ -25,7 +25,7 @@ class PROJECTFT_API UFTHubStorageViewModel : public UObject
 	GENERATED_BODY()
 
 public:
-	void Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory, bool bInUsePlayerTileItems, bool bInUseStorageTileItems);
+	void Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory);
 
 	const TArray<TObjectPtr<UObject>>& GetPlayerItemObjects() const;
 	const TArray<TObjectPtr<UObject>>& GetStorageItemObjects() const;
@@ -83,6 +83,4 @@ private:
 	EFTHubStorageTransferSource SelectedSource = EFTHubStorageTransferSource::None;
 	EFTItemCategoryType PlayerFilterCategory = EFTItemCategoryType::None;
 	EFTItemCategoryType StorageFilterCategory = EFTItemCategoryType::None;
-	bool bUsePlayerTileItems = false;
-	bool bUseStorageTileItems = false;
 };

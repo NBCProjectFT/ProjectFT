@@ -9,15 +9,13 @@
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTCraftRecipeListObject.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
-#include "ProjectFT/UI/HubUI/FTStorageItemListObject.h"
 
-void UFTCraftingViewModel::Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, const bool bInUseStorageTileItems)
+void UFTCraftingViewModel::Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory)
 {
 	UnbindInventoryDelegates();
 
 	HubWorkbench = InHubWorkbench;
 	PlayerInventory = InPlayerInventory;
-	bUseStorageTileItems = bInUseStorageTileItems;
 	SelectedRecipeObject = nullptr;
 	SelectedRecipe = NAME_None;
 	bCanCraft = false;
@@ -159,18 +157,9 @@ void UFTCraftingViewModel::RefreshStorageItems()
 
 	for (const FTStorageItemStruct& StorageItem : HubWorkbench->GetHubStorage()->GetStorageItems())
 	{
-		if (bUseStorageTileItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
-			StorageItemObjects.Add(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize(StorageItem);
-			StorageItemObjects.Add(ItemObject);
-		}
+		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+		ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
+		StorageItemObjects.Add(ItemObject);
 	}
 }
 

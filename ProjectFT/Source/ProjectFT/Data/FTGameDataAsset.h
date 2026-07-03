@@ -13,6 +13,7 @@ class UFTMainHUDWidget;
 class UFTInventoryWidget;
 class UFTQuestListWidget;
 class UFTHubCraftTestWidget;
+class UFTHubMainWidget;
 class UFTHubStorageWidget;
 class UMaterialInterface;
 
@@ -76,6 +77,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UFTQuestListWidget> QuestListWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
+	TSoftClassPtr<UFTHubMainWidget> HubMainWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
 	TSoftClassPtr<UFTHubStorageWidget> HubStorageWidgetClass;

@@ -7,7 +7,6 @@
 #include "FTHubWorkbench.generated.h"
 
 class AFTHubStorage;
-class UFTHubCraftTestWidget;
 class UDataTable;
 class UFTInventoryComponent;
 
@@ -48,17 +47,11 @@ protected:
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Craft")
 	AFTHubStorage* HubStorage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Craft|UI")
-	TSubclassOf<UFTHubCraftTestWidget> HubCraftTestWidgetClass;
-	
-	
-
 private:
 	void OpenCraftWidget(AActor* Interactor);
 	void PrintAllRecipes(UFTInventoryComponent* PlayerInventory) const;
 
 	const FTCraftRecipeStruct* FindRecipeByID(FName RecipeID) const;
-	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
 };

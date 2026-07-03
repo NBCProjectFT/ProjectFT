@@ -5,16 +5,13 @@
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
-#include "ProjectFT/UI/HubUI/FTStorageItemListObject.h"
 
-void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory, const bool bInUsePlayerTileItems, const bool bInUseStorageTileItems)
+void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
 {
 	UnbindInventoryDelegates();
 
 	HubStorage = InHubStorage;
 	PlayerInventory = InPlayerInventory;
-	bUsePlayerTileItems = bInUsePlayerTileItems;
-	bUseStorageTileItems = bInUseStorageTileItems;
 	ClearSelection();
 
 	BindInventoryDelegates();
@@ -171,18 +168,9 @@ void UFTHubStorageViewModel::RefreshPlayerItems()
 			continue;
 		}
 
-		if (bUsePlayerTileItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity);
-			PlayerItemObjects.Add(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize({ InventoryItem.ItemId, InventoryItem.Quantity });
-			PlayerItemObjects.Add(ItemObject);
-		}
+		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+		ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity);
+		PlayerItemObjects.Add(ItemObject);
 	}
 }
 
@@ -202,18 +190,9 @@ void UFTHubStorageViewModel::RefreshStorageItems()
 			continue;
 		}
 
-		if (bUseStorageTileItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
-			StorageItemObjects.Add(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize(StorageItem);
-			StorageItemObjects.Add(ItemObject);
-		}
+		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+		ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
+		StorageItemObjects.Add(ItemObject);
 	}
 }
 
@@ -287,12 +266,6 @@ bool UFTHubStorageViewModel::TryReadItemObject(UObject* ItemObject, FTStorageIte
 	{
 		OutItem.ItemID = TileObject->GetItemID();
 		OutItem.Count = TileObject->GetCount();
-		return !OutItem.ItemID.IsNone() && OutItem.Count > 0;
-	}
-
-	if (const UFTStorageItemListObject* StorageObject = Cast<UFTStorageItemListObject>(ItemObject))
-	{
-		OutItem = StorageObject->GetStorageItem();
 		return !OutItem.ItemID.IsNone() && OutItem.Count > 0;
 	}
 

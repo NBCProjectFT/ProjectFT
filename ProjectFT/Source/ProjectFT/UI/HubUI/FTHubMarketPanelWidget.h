@@ -6,9 +6,8 @@
 
 class AFTHubShop;
 class UButton;
+class UFTMarketViewModel;
 class UFTInventoryComponent;
-class UFTItemTileListObject;
-class UFTTradePostListObject;
 class UListView;
 class UTextBlock;
 class UTileView;
@@ -53,10 +52,11 @@ protected:
 	UButton* BTN_Trade;
 
 private:
-	void RefreshTradePosts();
-	void UpdateSelectedPostDetails();
-	void RefreshSelectedPostItems();
-	void SetBuyRequestMode(bool bInBuyRequestMode);
+	UFUNCTION()
+	void RefreshFromViewModel();
+
+	void PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items);
 	void HandleTradePostClicked(UObject* Item);
 
 	UFUNCTION()
@@ -69,13 +69,7 @@ private:
 	void HandleTradeClicked();
 
 	UPROPERTY(Transient)
-	AFTHubShop* HubShop;
+	TObjectPtr<UFTMarketViewModel> ViewModel;
 
-	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTTradePostListObject* SelectedPost;
-
-	bool bBuyRequestMode = true;
+	bool bRefreshingFromViewModel = false;
 };

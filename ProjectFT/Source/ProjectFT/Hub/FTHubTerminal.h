@@ -5,10 +5,9 @@
 #include "ProjectFT/Interface/FTInteractable.h"
 #include "FTHubTerminal.generated.h"
 
-class AFTHubQuestBoard;
 class AFTHubShop;
-class UFTHubMainWidget;
-class UFTInventoryComponent;
+class AFTHubStorage;
+class UDataTable;
 
 UCLASS()
 class PROJECTFT_API AFTHubTerminal : public AActor, public IFTInteractable
@@ -25,19 +24,21 @@ public:
 	void CloseHubWidget();
 
 protected:
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Hub")
-	AFTHubQuestBoard* HubQuestBoard;
+	virtual void BeginPlay() override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Quest")
+	UDataTable* QuestDataTable;
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Quest")
+	AFTHubStorage* HubStorage;
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Hub")
 	AFTHubShop* HubShop;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub|UI")
-	TSubclassOf<UFTHubMainWidget> HubMainWidgetClass;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Quest")
+	TArray<FName> InitialQuestIDs;
 
 private:
 	void OpenHubWidget(AActor* Interactor);
-	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
-
-	UPROPERTY(Transient)
-	UFTHubMainWidget* HubMainWidget;
+	void ConfigureObjectiveSubsystem();
 };

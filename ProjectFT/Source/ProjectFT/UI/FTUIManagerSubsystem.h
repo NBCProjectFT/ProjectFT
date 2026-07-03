@@ -12,8 +12,11 @@ class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
 class UFTCountdownEscapeWidget;
+class AFTHubShop;
 class AFTHubStorage;
+class AFTHubTerminal;
 class AFTHubWorkbench;
+class UFTHubMainWidget;
 class UFTHubStorageViewModel;
 class UFTHubStorageWidget;
 class UFTHubCraftTestWidget;
@@ -76,7 +79,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowCrafting();
 
-	void ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubCraftTestWidget> FallbackWidgetClass = nullptr);
+	void ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideCrafting();
@@ -84,13 +87,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowStorage();
 
-	void ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubStorageWidget> FallbackWidgetClass = nullptr);
+	void ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideStorage();
 
+	void ShowHubMain(
+		AFTHubTerminal* HubTerminal,
+		AFTHubShop* HubShop,
+		UFTInventoryComponent* PlayerInventory
+	);
+
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
-	void ShowQuestBoard();
+	void HideHubMain();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowFailScreen();
@@ -110,6 +119,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTHubMainWidget> HubMainWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubStorageViewModel> HubStorageViewModel = nullptr;

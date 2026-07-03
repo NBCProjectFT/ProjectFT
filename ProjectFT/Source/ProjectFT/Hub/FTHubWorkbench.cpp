@@ -1,13 +1,11 @@
 #include "FTHubWorkbench.h"
 
 #include "Engine/DataTable.h"
+#include "FTHubActorUtils.h"
 #include "FTHubStorage.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
-#include "ProjectFT/UI/HubUI/FTHubCraftTestWidget.h"
 
 AFTHubWorkbench::AFTHubWorkbench()
 	: CraftRecipeDataTable(nullptr)
@@ -93,7 +91,7 @@ bool AFTHubWorkbench::Interact_Implementation(AActor* Interactor)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Hub Workbench Interacted"));
 
-	UFTInventoryComponent* PlayerInventory = FindPlayerInventory(Interactor);
+	UFTInventoryComponent* PlayerInventory = FTHubActorUtils::FindPlayerInventory(this, Interactor);
 	PrintAllRecipes(PlayerInventory);
 	OpenCraftWidget(Interactor);
 
@@ -107,10 +105,9 @@ FText AFTHubWorkbench::GetInteractionPrompt_Implementation() const
 
 void AFTHubWorkbench::OpenCraftWidget(AActor* Interactor)
 {
-	UGameInstance* GameInstance = GetGameInstance();
-	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
+	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
-		UIManager->ShowCrafting(this, FindPlayerInventory(Interactor), HubCraftTestWidgetClass);
+		UIManager->ShowCrafting(this, FTHubActorUtils::FindPlayerInventory(this, Interactor));
 		return;
 	}
 
@@ -209,8 +206,7 @@ bool AFTHubWorkbench::TryCraftRecipe(FName RecipeID, UFTInventoryComponent* Play
 
 void AFTHubWorkbench::CloseCraftWidget()
 {
-	UGameInstance* GameInstance = GetGameInstance();
-	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
+	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
 		UIManager->HideCrafting();
 	}
@@ -247,36 +243,6 @@ void AFTHubWorkbench::GetCraftRecipes(TArray<FTCraftRecipeStruct>& OutRecipes) c
 AFTHubStorage* AFTHubWorkbench::GetHubStorage() const
 {
 	return HubStorage;
-}
-
-UFTInventoryComponent* AFTHubWorkbench::FindPlayerInventory(AActor* Interactor) const
-{
-	if (Interactor)
-	{
-		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
-		{
-			return PlayerInventory;
-		}
-	}
-
-	const APlayerController* PlayerController = GetWorld()
-		? GetWorld()->GetFirstPlayerController()
-		: nullptr;
-
-	if (!PlayerController)
-	{
-		return nullptr;
-	}
-
-	if (APawn* Pawn = PlayerController->GetPawn())
-	{
-		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
-		{
-			return PlayerInventory;
-		}
-	}
-
-	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
 }
 
 int32 AFTHubWorkbench::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const

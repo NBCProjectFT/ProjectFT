@@ -1,9 +1,7 @@
 #include "FTHubStorage.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
+#include "FTHubActorUtils.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
-#include "ProjectFT/UI/HubUI/FTHubStorageWidget.h"
 
 AFTHubStorage::AFTHubStorage()
 {
@@ -170,10 +168,9 @@ FText AFTHubStorage::GetInteractionPrompt_Implementation() const
 
 void AFTHubStorage::OpenStorageWidget(AActor* Interactor)
 {
-	UGameInstance* GameInstance = GetGameInstance();
-	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
+	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
-		UIManager->ShowStorage(this, FindPlayerInventory(Interactor), HubStorageWidgetClass);
+		UIManager->ShowStorage(this, FTHubActorUtils::FindPlayerInventory(this, Interactor));
 		return;
 	}
 
@@ -182,38 +179,8 @@ void AFTHubStorage::OpenStorageWidget(AActor* Interactor)
 
 void AFTHubStorage::CloseStorageWidget()
 {
-	UGameInstance* GameInstance = GetGameInstance();
-	if (UFTUIManagerSubsystem* UIManager = GameInstance ? GameInstance->GetSubsystem<UFTUIManagerSubsystem>() : nullptr)
+	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
 		UIManager->HideStorage();
 	}
-}
-
-UFTInventoryComponent* AFTHubStorage::FindPlayerInventory(AActor* Interactor) const
-{
-	if (Interactor)
-	{
-		if (UFTInventoryComponent* PlayerInventory = Interactor->FindComponentByClass<UFTInventoryComponent>())
-		{
-			return PlayerInventory;
-		}
-	}
-
-	const APlayerController* PlayerController = GetWorld()
-		? GetWorld()->GetFirstPlayerController()
-		: nullptr;
-	if (!PlayerController)
-	{
-		return nullptr;
-	}
-
-	if (APawn* Pawn = PlayerController->GetPawn())
-	{
-		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
-		{
-			return PlayerInventory;
-		}
-	}
-
-	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
 }
