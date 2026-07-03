@@ -282,6 +282,34 @@ const UFTGameDataAsset* UFTAssetManager::GetGameData()
 	return LoadGameData();
 }
 
+bool UFTAssetManager::UseMainMenuGameData()
+{
+	return false;
+}
+
+bool UFTAssetManager::UseHubGameData()
+{
+	return SetActiveGameDataPath(HubGameDataPath);
+}
+
+bool UFTAssetManager::UseRaidGameData()
+{
+	return false;
+}
+
+bool UFTAssetManager::SetActiveGameDataPath(const TSoftObjectPtr<UFTGameDataAsset>& NewGameDataPath)
+{
+	if (NewGameDataPath.IsNull())
+	{
+		UE_LOG(LogFTAsset, Warning, TEXT("Cannot switch game data because the requested path is not set."));
+		return false;
+	}
+
+	GameDataPath = NewGameDataPath;
+	GameData = nullptr;
+	return LoadGameData() != nullptr;
+}
+
 UFTGameDataAsset* UFTAssetManager::LoadGameData()
 {
 	if (GameData)

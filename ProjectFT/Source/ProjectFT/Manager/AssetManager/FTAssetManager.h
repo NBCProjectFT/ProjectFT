@@ -35,6 +35,10 @@ public:
 	static void DumpLoadedAssets();
 
 	const UFTGameDataAsset* GetGameData();
+	bool UseMainMenuGameData();
+	bool UseHubGameData();
+	bool UseRaidGameData();
+	bool SetActiveGameDataPath(const TSoftObjectPtr<UFTGameDataAsset>& NewGameDataPath);
 
 protected:
 	virtual void StartInitialLoading() override;
@@ -60,6 +64,15 @@ private:
 private:
 	UPROPERTY(Config)
 	TSoftObjectPtr<UFTGameDataAsset> GameDataPath;
+
+	UPROPERTY(Config)
+	TSoftObjectPtr<UFTGameDataAsset> MainMenuDataPath;
+	
+	UPROPERTY(Config)
+	TSoftObjectPtr<UFTGameDataAsset> HubGameDataPath;
+	
+	UPROPERTY(Config)
+	TSoftObjectPtr<UFTGameDataAsset> HubGameRaidDataPath;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTGameDataAsset> GameData = nullptr;
