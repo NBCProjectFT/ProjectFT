@@ -351,8 +351,9 @@ void UFTInventoryComponent::HandleItemPickedUpMessage(FGameplayTag Channel, cons
 	if (Payload.TargetActor == Owner || Payload.InstigatorActor == Owner ||
 		(Payload.TargetActor == nullptr && Payload.InstigatorActor == nullptr))
 	{
-		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s"), *Payload.ItemId.ToString());
-		AddItem(Payload.ItemId, 1);
+		int32 QuantityToAdd = FMath::Max(1, static_cast<int32>(Payload.Value));
+		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s, 수량: %d"), *Payload.ItemId.ToString(), QuantityToAdd);
+		AddItem(Payload.ItemId, QuantityToAdd);
 	}
 }
 
