@@ -1,16 +1,15 @@
 #include "FTLoadingGameMode.h"
 
-#include "FTGameFlowSubsystem.h"
 #include "FTLogChannels.h"
 #include "../Data/FTGameDataAsset.h"
 #include "../Manager/AssetManager/FTAssetManager.h"
 #include "../UI/FTLoadingWidget.h"
 #include "Blueprint/UserWidget.h"
-#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 
 AFTLoadingGameMode::AFTLoadingGameMode()
 {
+	MainLevelName = TEXT("Lvl_Main");
 }
 
 void AFTLoadingGameMode::StartPlay()
@@ -20,20 +19,10 @@ void AFTLoadingGameMode::StartPlay()
 	CreateLoadingWidget();
 
 	UE_LOG(LogFTFlow, Log, TEXT("Loading sequence started."));
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UFTGameFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UFTGameFlowSubsystem>())
-		{
-			FlowSubsystem->PreloadCurrentStateAssetsAsync(
-				FSimpleDelegate::CreateUObject(this, &AFTLoadingGameMode::HandlePreloadCompleted),
-				FFTAssetLoadProgressDelegate::CreateUObject(this, &AFTLoadingGameMode::HandleLoadProgress)
-			);
-			return;
-		}
-	}
-
-	UE_LOG(LogFTFlow, Error, TEXT("Loading sequence has no FlowSubsystem. Completing without preload."));
-	HandlePreloadCompleted();
+	UFTAssetManager::Get().PreloadGameDataAssetsAsync(
+		FSimpleDelegate::CreateUObject(this, &AFTLoadingGameMode::HandlePreloadCompleted),
+		FFTAssetLoadProgressDelegate::CreateUObject(this, &AFTLoadingGameMode::HandleLoadProgress)
+	);
 }
 
 void AFTLoadingGameMode::CreateLoadingWidget()
@@ -62,16 +51,6 @@ void AFTLoadingGameMode::CreateLoadingWidget()
 	LoadingWidget->AddToViewport();
 	LoadingWidget->SetPercent(0.0f);
 	LoadingWidget->SetObjectName(TEXT("Game Data"), 0, 1);
-
-	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
-	{
-		FInputModeUIOnly InputMode;
-		InputMode.SetWidgetToFocus(LoadingWidget->TakeWidget());
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		PlayerController->SetInputMode(InputMode);
-		PlayerController->bShowMouseCursor = true;
-	}
-
 	UE_LOG(LogFTUI, Log, TEXT("Loading widget created: %s"), *GetNameSafe(LoadingWidget));
 }
 
@@ -89,33 +68,19 @@ void AFTLoadingGameMode::HandleLoadProgress(const FString& AssetName, int32 Comp
 
 void AFTLoadingGameMode::HandlePreloadCompleted()
 {
-	UE_LOG(LogFTFlow, Log, TEXT("Loading sequence completed. Waiting for player confirmation."));
+	UE_LOG(LogFTFlow, Log, TEXT("Loading sequence completed. Ready to open %s."), *MainLevelName.ToString());
 
 	if (LoadingWidget)
 	{
 		LoadingWidget->ReadyToStart();
 		if (LoadingWidget->BindOnButtonClicked([this]()
 		{
-			NotifyLoadingConfirmed();
+			UGameplayStatics::OpenLevel(this, MainLevelName);
 		}))
 		{
 			return;
 		}
 	}
 
-	NotifyLoadingConfirmed();
-}
-
-void AFTLoadingGameMode::NotifyLoadingConfirmed()
-{
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UFTGameFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UFTGameFlowSubsystem>())
-		{
-			FlowSubsystem->CompleteLoadingAndOpenCurrentStateLevel();
-			return;
-		}
-	}
-
-	UE_LOG(LogFTFlow, Error, TEXT("Loading confirmation ignored because FlowSubsystem is missing."));
+	UGameplayStatics::OpenLevel(this, MainLevelName);
 }

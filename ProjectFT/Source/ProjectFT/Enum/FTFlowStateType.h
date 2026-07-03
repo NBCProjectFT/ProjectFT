@@ -6,11 +6,10 @@
 UENUM(BlueprintType)
 enum class EFTFlowStateType : uint8
 {
-	MainMenu,
 	Base,
-	RaidEntering,
+	RaidReady,
 	RaidInProgress,
 	Escaping,
-	Escaped,
+	Settlement,
 	Failed
 };

@@ -20,9 +20,11 @@ private:
 	void CreateLoadingWidget();
 	void HandleLoadProgress(const FString& AssetName, int32 CompletedCount, int32 TotalCount);
 	void HandlePreloadCompleted();
-	void NotifyLoadingConfirmed();
 
 private:
+	UPROPERTY(EditDefaultsOnly, Category = "FT|Loading")
+	FName MainLevelName;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UFTLoadingWidget> LoadingWidget;
 };
