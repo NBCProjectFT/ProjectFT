@@ -2,9 +2,9 @@
 
 #include "../../Core/FTLogChannels.h"
 #include "../../Data/FTGameDataAsset.h"
-#include "../../Data/FTUIDataAsset.h"
 #include "../../UI/FTCountdownEscapeWidget.h"
 #include "../../UI/FTEscapedRaidWidget.h"
+#include "../../UI/FTFailWidget.h"
 #include "../../UI/FTInventoryWidget.h"
 #include "../../UI/FTLoadingWidget.h"
 #include "../../UI/FTMainHUDWidget.h"
@@ -14,6 +14,7 @@
 #include "../../UI/HubUI/FTHubStorageWidget.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Blueprint/UserWidget.h"
+#include "Engine/World.h"
 #include "Materials/MaterialInterface.h"
 #include "Modules/ModuleManager.h"
 
@@ -35,7 +36,6 @@ void UFTAssetManager::StartInitialLoading()
 	Super::StartInitialLoading();
 
 	LoadGameData();
-	LoadUIData();
 }
 
 void UFTAssetManager::PreloadGameDataAssetsAsync(FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress)
@@ -94,6 +94,13 @@ void UFTAssetManager::AddLoadedAsset(const UObject* Asset)
 		return;
 	}
 
+	// Worlds/maps must not be held by the global asset cache.
+	// Keeping a UWorld here prevents old editor/PIE worlds from being garbage collected during map changes.
+	if (Asset->IsA<UWorld>() || Asset->IsA<UPackage>())
+	{
+		return;
+	}
+
 	FScopeLock LoadedAssetsLock(&LoadedAssetsCritical);
 	LoadedAssets.Add(Asset);
 }
@@ -137,6 +144,11 @@ void UFTAssetManager::AppendDirectoryAssetPaths(const TArray<FDirectoryPath>& Di
 
 	for (const FAssetData& AssetData : FoundAssets)
 	{
+		if (AssetData.AssetClassPath == UWorld::StaticClass()->GetClassPathName())
+		{
+			continue;
+		}
+
 		AddUniqueAssetPath(AssetPaths, AddedAssetPathStrings, AssetData.ToSoftObjectPath());
 	}
 }
@@ -295,21 +307,16 @@ const UFTGameDataAsset* UFTAssetManager::GetGameData()
 	return LoadGameData();
 }
 
-const UFTUIDataAsset* UFTAssetManager::GetUIData()
-{
-	return LoadUIData();
-}
-
 TSubclassOf<UFTLoadingWidget> UFTAssetManager::GetLoadingWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->LoadingWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->LoadingWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTMainMenuWidget> UFTAssetManager::GetMainMenuWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->MainMenuWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->MainMenuWidgetClass) : nullptr;
 
 	/*
 	return LoadClass<UFTMainMenuWidget>(nullptr, TEXT("/Game/UI/Menu/WBP_MainMenu.WBP_MainMenu_C"));
@@ -318,38 +325,38 @@ TSubclassOf<UFTMainMenuWidget> UFTAssetManager::GetMainMenuWidgetClass()
 
 TSubclassOf<UFTMainHUDWidget> UFTAssetManager::GetMainHUDWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->MainHUDWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->MainHUDWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTInventoryWidget> UFTAssetManager::GetInventoryWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->InventoryWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->InventoryWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTQuestListWidget> UFTAssetManager::GetQuestListWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->QuestListWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->QuestListWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTHubStorageWidget> UFTAssetManager::GetHubStorageWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->HubStorageWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->HubStorageWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTHubCraftTestWidget> UFTAssetManager::GetHubCraftWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->HubCraftWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->HubCraftWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTCountdownEscapeWidget> UFTAssetManager::GetCountdownEscapeWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->CountdownEscapeWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->CountdownEscapeWidgetClass) : nullptr;
 
 	/*
 	return LoadClass<UFTCountdownEscapeWidget>(nullptr, TEXT("/Game/UI/Escape/WBP_CountDownEscape.WBP_CountDownEscape_C"));
@@ -358,58 +365,36 @@ TSubclassOf<UFTCountdownEscapeWidget> UFTAssetManager::GetCountdownEscapeWidgetC
 
 TSubclassOf<UFTEscapedRaidWidget> UFTAssetManager::GetEscapedRaidWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->EscapedRaidWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->EscapedRaidWidgetClass) : nullptr;
 
 	/*
 	return LoadClass<UFTEscapedRaidWidget>(nullptr, TEXT("/Game/UI/Escape/BP_EscapedRaidWidget.BP_EscapedRaidWidget_C"));
 	*/
 }
 
+TSubclassOf<UFTFailWidget> UFTAssetManager::GetFailWidgetClass()
+{
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->FailWidgetClass) : nullptr;
+}
+
 TSubclassOf<UUserWidget> UFTAssetManager::GetDamageTextWidgetClass()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetSubclass(LoadedUIData->DamageTextWidgetClass) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->DamageTextWidgetClass) : nullptr;
 }
 
 UMaterialInterface* UFTAssetManager::GetDamageTextBackgroundMaterial()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetAsset(LoadedUIData->DamageTextBackgroundMaterial) : nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetAsset(LoadedGameData->DamageTextBackgroundMaterial) : nullptr;
 }
 
 UMaterialInterface* UFTAssetManager::GetPaperFlutterMaterial()
 {
-	const UFTUIDataAsset* LoadedUIData = LoadUIData();
-	return LoadedUIData ? GetAsset(LoadedUIData->PaperFlutterMaterial) : nullptr;
-}
-
-bool UFTAssetManager::UseMainMenuGameData()
-{
-	return SetActiveGameDataPath(MainMenuDataPath);
-}
-
-bool UFTAssetManager::UseHubGameData()
-{
-	return SetActiveGameDataPath(HubDataPath);
-}
-
-bool UFTAssetManager::UseRaidGameData()
-{
-	return SetActiveGameDataPath(RaidDataPath);
-}
-
-bool UFTAssetManager::SetActiveGameDataPath(const TSoftObjectPtr<UFTGameDataAsset>& NewGameDataPath)
-{
-	if (NewGameDataPath.IsNull())
-	{
-		UE_LOG(LogFTAsset, Warning, TEXT("Cannot switch game data because the requested path is not set."));
-		return false;
-	}
-
-	GameDataPath = NewGameDataPath;
-	GameData = nullptr;
-	return LoadGameData() != nullptr;
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetAsset(LoadedGameData->PaperFlutterMaterial) : nullptr;
 }
 
 UFTGameDataAsset* UFTAssetManager::LoadGameData()
@@ -432,26 +417,4 @@ UFTGameDataAsset* UFTAssetManager::LoadGameData()
 	}
 
 	return GameData;
-}
-
-UFTUIDataAsset* UFTAssetManager::LoadUIData()
-{
-	if (UIData)
-	{
-		return UIData;
-	}
-
-	if (UIDataPath.IsNull())
-	{
-		UE_LOG(LogFTAsset, Warning, TEXT("UIDataPath is not set."));
-		return nullptr;
-	}
-
-	UIData = GetAsset(UIDataPath);
-	if (!UIData)
-	{
-		UE_LOG(LogFTAsset, Error, TEXT("Failed to load UI data asset: %s"), *UIDataPath.ToString());
-	}
-
-	return UIData;
 }

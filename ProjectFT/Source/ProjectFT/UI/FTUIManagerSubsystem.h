@@ -13,6 +13,7 @@ class UFTInventoryWidget;
 class UFTMainMenuWidget;
 class UFTCountdownEscapeWidget;
 class UFTEscapedRaidWidget;
+class UFTFailWidget;
 class AFTHubStorage;
 class AFTHubWorkbench;
 class UFTHubStorageViewModel;
@@ -103,6 +104,9 @@ public:
 	void ShowFailScreen();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideFailScreen();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowSettlementScreen();
 
 private:
@@ -120,6 +124,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTEscapedRaidWidget> EscapedRaidWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTFailWidget> FailWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubStorageViewModel> HubStorageViewModel = nullptr;

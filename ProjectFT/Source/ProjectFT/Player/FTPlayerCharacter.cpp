@@ -667,10 +667,6 @@ void AFTPlayerCharacter::OnDeath()
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	MessageSubsystem.BroadcastMessage(TAG_FT_Event_PlayerDead, Payload);
-	
-	
-
-	MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	MessageSubsystem.BroadcastMessage(TAG_FT_Request_Flow_FailRaid, Payload);
 
 	// 게임오버/리스폰/레벨 전환은 GameFlow 연동으로 — 이번 스코프 밖.

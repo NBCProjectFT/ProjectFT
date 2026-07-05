@@ -95,11 +95,6 @@ void UFTGameFlowSubsystem::HandleFlowRequestMessage(FGameplayTag Channel, const 
 
 void UFTGameFlowSubsystem::RequestStartGame()
 {
-	if (!UFTAssetManager::Get().UseHubGameData())
-	{
-		UE_LOG(LogFTFlow, Warning, TEXT("Start game requested, but HubGameDataPath could not be loaded."));
-	}
-
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
@@ -155,6 +150,13 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 {
 	if (CurrentFlowState == EFTFlowStateType::Failed)
 	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				UIManager->ShowFailScreen();
+			}
+		}
 		return;
 	}
 
@@ -163,16 +165,12 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 
 void UFTGameFlowSubsystem::ReturnToBase()
 {
-	if (!UFTAssetManager::Get().UseHubGameData())
-	{
-		UE_LOG(LogFTFlow, Warning, TEXT("Return to base requested, but HubGameDataPath could not be loaded."));
-	}
-
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 		{
 			UIManager->HideEscapedRaid();
+			UIManager->HideFailScreen();
 		}
 	}
 
@@ -372,6 +370,13 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 		BroadcastFlowEvent(TAG_FT_Event_RaidEscaped);
 		break;
 	case EFTFlowStateType::Failed:
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				UIManager->ShowFailScreen();
+			}
+		}
 		BroadcastFlowEvent(TAG_FT_Event_RaidFailed);
 		break;
 	default:

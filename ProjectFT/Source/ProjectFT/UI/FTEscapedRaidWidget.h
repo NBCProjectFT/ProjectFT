@@ -10,7 +10,7 @@ class UUserWidget;
 
 /**
  * 레이드 탈출 성공 후 표시되는 결과 위젯.
- * WBP_EscapedRaid 안에 WBP_Button 인스턴스를 WBP_ReturnToBaseButton 이름으로 두고,
+ * WBP_EscapedRaid 안에 WBP_Button 인스턴스를 WBP_ReturnToBaseButton_Escape 이름으로 두고,
  * 그 내부의 FTGameButton 클릭만 C++에서 바인딩해 Flow 요청 메시지를 보낸다.
  */
 UCLASS()
