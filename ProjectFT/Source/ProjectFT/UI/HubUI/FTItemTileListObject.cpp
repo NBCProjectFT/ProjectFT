@@ -24,7 +24,7 @@ void UFTItemTileListObject::InitializeIngredient(const FTCraftIngredientStruct& 
 
 void UFTItemTileListObject::InitializeShopItem(const FTShopItemStruct& ShopItem, bool bInLocked)
 {
-	InitializeItem(ShopItem.ItemID, ShopItem.Count, ShopItem.Price, bInLocked);
+	InitializeItem(ShopItem.GetResolvedItemID(), ShopItem.Count, ShopItem.Price, bInLocked);
 }
 
 FName UFTItemTileListObject::GetItemID() const

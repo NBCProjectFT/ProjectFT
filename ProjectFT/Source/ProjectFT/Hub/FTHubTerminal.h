@@ -5,7 +5,6 @@
 #include "ProjectFT/Interface/FTInteractable.h"
 #include "FTHubTerminal.generated.h"
 
-class AFTHubShop;
 class AFTHubStorage;
 class UDataTable;
 
@@ -31,9 +30,6 @@ protected:
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Quest")
 	AFTHubStorage* HubStorage;
-
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Hub")
-	AFTHubShop* HubShop;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Quest")
 	TArray<FName> InitialQuestIDs;

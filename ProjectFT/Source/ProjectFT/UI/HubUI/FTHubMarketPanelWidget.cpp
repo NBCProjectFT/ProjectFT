@@ -7,7 +7,7 @@
 #include "FTTradePostListObject.h"
 #include "ProjectFT/ViewModel/FTMarketViewModel.h"
 
-void UFTHubMarketPanelWidget::InitializeMarketPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory)
+void UFTHubMarketPanelWidget::InitializeMarketPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
 	if (!ViewModel)
 	{
@@ -15,7 +15,7 @@ void UFTHubMarketPanelWidget::InitializeMarketPanel(AFTHubShop* InHubShop, UFTIn
 		ViewModel->OnChanged.AddDynamic(this, &UFTHubMarketPanelWidget::RefreshFromViewModel);
 	}
 
-	ViewModel->Initialize(InHubShop, InPlayerInventory);
+	ViewModel->Initialize(InShopSubsystem, InPlayerInventory);
 	RefreshFromViewModel();
 }
 

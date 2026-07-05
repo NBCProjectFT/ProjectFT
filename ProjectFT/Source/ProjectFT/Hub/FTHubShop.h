@@ -9,6 +9,7 @@
 
 class AFTHubStorage;
 class UFTInventoryComponent;
+class UFTShopSubsystem;
 
 UCLASS()
 class PROJECTFT_API AFTHubShop : public AActor, public IFTInteractable
@@ -18,7 +19,6 @@ class PROJECTFT_API AFTHubShop : public AActor, public IFTInteractable
 public:
 	AFTHubShop();
 
-	//머지용 주석
 	virtual bool Interact_Implementation(AActor* Interactor) override;
 	virtual FText GetInteractionPrompt_Implementation() const override;
 
@@ -76,39 +76,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop")
-	TArray<FTShopItemStruct> FixedShopItems;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop")
-	TArray<FTShopItemStruct> RandomItemPool;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Market")
-	TArray<FTTradePostStruct> MarketBuyPosts;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Market")
-	TArray<FTTradePostStruct> MarketSellPosts;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop")
-	int32 RandomSlotCount = 6;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop|Currency")
-	FName CurrencyItemID = TEXT("ID_Coin");
-
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Shop|Currency")
-	AFTHubStorage* HubStorage;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Shop")
-	TArray<FTShopItemStruct> CurrentShopItems;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Shop")
-	TSet<FName> UnlockedShopItemIDs;
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Shop|Compatibility")
+	AFTHubStorage* HubStorage = nullptr;
 
 private:
-	const FTShopItemStruct* FindCurrentShopItem(FName ItemID) const;
-	const FTTradePostStruct* FindMarketBuyPost(FName PostID) const;
-	const FTTradePostStruct* FindMarketSellPost(FName PostID) const;
-	bool HasCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
-	bool AddCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
-	bool RemoveCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
-	void PrintShopItems() const;
+	UFTShopSubsystem* GetShopSubsystem() const;
 };

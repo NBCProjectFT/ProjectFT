@@ -17,20 +17,6 @@ class PROJECTFT_API AFTHubStorage : public AActor,  public IFTInteractable
 public:
 	AFTHubStorage();
 
-	bool AddStorageItem(FName ItemID, int32 Count);
-
-	bool RemoveStorageItem(FName ItemID, int32 Count);
-
-	int32 GetStorageItemCount(FName ItemID) const;
-
-	const TArray<FTStorageItemStruct>& GetStorageItems() const;
-
-	bool StoreItemFromInventory(UFTInventoryComponent* SourceInventory, FName ItemID, int32 Count);
-
-	bool TakeItemToInventory(UFTInventoryComponent* TargetInventory, FName ItemID, int32 Count);
-
-	void PrintStorageItems() const;
-	
 	UFTInventoryComponent* GetStorageInventory() const;
 	
 	virtual bool Interact_Implementation(AActor* Interactor) override;
@@ -48,13 +34,6 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "Storage|Test")
 	TArray<FTStorageItemStruct> TestStorageItems;
-	
-	UPROPERTY(Transient)
-	mutable TArray<FTStorageItemStruct> CachedStorageItems;
-	
-	
-
-	
 
 	void OpenStorageWidget(AActor* Interactor);
 };

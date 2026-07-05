@@ -2,12 +2,12 @@
 
 #include "FTHubActorUtils.h"
 #include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 AFTHubTerminal::AFTHubTerminal()
 	: QuestDataTable(nullptr)
 	, HubStorage(nullptr)
-	, HubShop(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = false;
 }
@@ -43,7 +43,7 @@ void AFTHubTerminal::OpenHubWidget(AActor* Interactor)
 
 	if (UFTUIManagerSubsystem* UIManager = FTHubActorUtils::GetUIManager(this))
 	{
-		UIManager->ShowHubMain(this, HubShop, FTHubActorUtils::FindPlayerInventory(this, Interactor));
+		UIManager->ShowHubMain(this, HubStorage, FTHubActorUtils::FindPlayerInventory(this, Interactor));
 	}
 }
 
@@ -53,6 +53,12 @@ void AFTHubTerminal::ConfigureObjectiveSubsystem()
 	UFTObjectiveSubsystem* ObjectiveSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr;
 	if (ObjectiveSubsystem)
 	{
-		ObjectiveSubsystem->ConfigureHubQuests(QuestDataTable, HubStorage, HubShop, InitialQuestIDs);
+		ObjectiveSubsystem->ConfigureHubQuests(QuestDataTable, HubStorage, InitialQuestIDs);
+	}
+
+	UFTShopSubsystem* ShopSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTShopSubsystem>() : nullptr;
+	if (ShopSubsystem)
+	{
+		ShopSubsystem->ConfigureHubStorage(HubStorage);
 	}
 }

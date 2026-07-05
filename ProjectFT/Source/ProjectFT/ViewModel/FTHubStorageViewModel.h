@@ -8,6 +8,7 @@
 
 class AFTHubStorage;
 class UFTInventoryComponent;
+class UFTStorageSubsystem;
 
 UENUM(BlueprintType)
 enum class EFTHubStorageTransferSource : uint8
@@ -61,6 +62,9 @@ private:
 	void RefreshStorageItems();
 	void BindInventoryDelegates();
 	void UnbindInventoryDelegates();
+	UFTStorageSubsystem* GetStorageSubsystem() const;
+	UFTInventoryComponent* GetStorageInventory() const;
+	void GetCurrentStorageItems(TArray<FTStorageItemStruct>& OutItems) const;
 	bool ShouldShowItem(FName ItemID, EFTItemCategoryType FilterCategory) const;
 	EFTItemCategoryType GetItemCategory(FName ItemID) const;
 	bool TryReadItemObject(UObject* ItemObject, FTStorageItemStruct& OutItem) const;

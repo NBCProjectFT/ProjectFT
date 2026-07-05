@@ -93,7 +93,7 @@ private:
 	void HandlePlayerItemSelectionChanged(UObject* Item);
 	void HandleStorageItemSelectionChanged(UObject* Item);
 
-	UFUNCTION()
+		UFUNCTION()
 	void HandleCloseClicked();
 
 	UFUNCTION()

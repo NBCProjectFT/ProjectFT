@@ -4,7 +4,8 @@
 #include "Engine/DataTable.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/Hub/FTHubShop.h"
+#include "ProjectFT/Core/FTShopSubsystem.h"
+#include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -46,13 +47,11 @@ void UFTObjectiveSubsystem::NotifyEscapeReached()
 void UFTObjectiveSubsystem::ConfigureHubQuests(
 	UDataTable* InQuestDataTable,
 	AFTHubStorage* InHubStorage,
-	AFTHubShop* InHubShop,
 	const TArray<FName>& InInitialQuestIDs
 )
 {
 	QuestDataTable = InQuestDataTable;
 	HubStorage = InHubStorage;
-	HubShop = InHubShop;
 
 	for (const FName& QuestID : InInitialQuestIDs)
 	{
@@ -111,11 +110,11 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 		}
 	}
 
-	if (HubShop)
+	if (UFTShopSubsystem* ShopSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UFTShopSubsystem>() : nullptr)
 	{
 		for (const FName& ShopItemID : Quest->UnlockedShopItemIDs)
 		{
-			HubShop->UnlockShopItem(ShopItemID);
+			ShopSubsystem->UnlockShopItem(ShopItemID);
 		}
 	}
 
@@ -267,51 +266,20 @@ void UFTObjectiveSubsystem::UnlockQuest(FName QuestID)
 
 int32 UFTObjectiveSubsystem::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const
 {
-	int32 Count = 0;
+	const UFTStorageSubsystem* StorageSubsystem = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
 
-	if (PlayerInventory)
-	{
-		Count += PlayerInventory->GetItemQuantity(ItemID);
-	}
-
-	if (HubStorage)
-	{
-		Count += HubStorage->GetStorageItemCount(ItemID);
-	}
-
-	return Count;
+	return StorageSubsystem
+		? StorageSubsystem->GetCombinedItemCount(PlayerInventory, HubStorage ? HubStorage->GetStorageInventory() : nullptr, ItemID)
+		: (PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0);
 }
 
 bool UFTObjectiveSubsystem::ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count)
 {
-	if (ItemID.IsNone() || Count <= 0 || GetCombinedItemCount(PlayerInventory, ItemID) < Count)
-	{
-		return false;
-	}
+	UFTStorageSubsystem* StorageSubsystem = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
 
-	int32 RemainingCount = Count;
-
-	if (PlayerInventory)
-	{
-		const int32 PlayerCount = PlayerInventory->GetItemQuantity(ItemID);
-		const int32 RemoveFromPlayer = FMath::Min(PlayerCount, RemainingCount);
-
-		if (RemoveFromPlayer > 0 && PlayerInventory->RemoveItem(ItemID, RemoveFromPlayer))
-		{
-			RemainingCount -= RemoveFromPlayer;
-		}
-	}
-
-	if (RemainingCount > 0 && HubStorage)
-	{
-		const int32 StorageCount = HubStorage->GetStorageItemCount(ItemID);
-		const int32 RemoveFromStorage = FMath::Min(StorageCount, RemainingCount);
-
-		if (RemoveFromStorage > 0 && HubStorage->RemoveStorageItem(ItemID, RemoveFromStorage))
-		{
-			RemainingCount -= RemoveFromStorage;
-		}
-	}
-
-	return RemainingCount <= 0;
+	return StorageSubsystem && StorageSubsystem->ConsumeCombinedItem(PlayerInventory, HubStorage ? HubStorage->GetStorageInventory() : nullptr, ItemID, Count);
 }

@@ -4,10 +4,10 @@
 #include "Blueprint/UserWidget.h"
 #include "FTHubMarketPanelWidget.generated.h"
 
-class AFTHubShop;
 class UButton;
 class UFTMarketViewModel;
 class UFTInventoryComponent;
+class UFTShopSubsystem;
 class UListView;
 class UTextBlock;
 class UTileView;
@@ -19,7 +19,7 @@ class PROJECTFT_API UFTHubMarketPanelWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Market")
-	void InitializeMarketPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory);
+	void InitializeMarketPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;

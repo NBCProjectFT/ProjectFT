@@ -1,16 +1,16 @@
 #include "FTMarketViewModel.h"
 
 #include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/Hub/FTHubShop.h"
+#include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Struct/FTTradePostStruct.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 #include "ProjectFT/UI/HubUI/FTTradePostListObject.h"
 
-void UFTMarketViewModel::Initialize(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory)
+void UFTMarketViewModel::Initialize(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
 	UnbindInventoryDelegate();
 
-	HubShop = InHubShop;
+	ShopSubsystem = InShopSubsystem;
 	PlayerInventory = InPlayerInventory;
 	ClearSelection();
 
@@ -49,7 +49,7 @@ FText UFTMarketViewModel::GetSelectedPostItemText() const
 {
 	const FTTradePostStruct* Post = GetSelectedPost();
 	return Post
-		? FText::FromString(FString::Printf(TEXT("%s x%d"), *Post->ItemID.ToString(), Post->Count))
+		? FText::FromString(FString::Printf(TEXT("%s x%d"), *Post->GetResolvedItemID().ToString(), Post->Count))
 		: FText::GetEmpty();
 }
 
@@ -64,14 +64,14 @@ FText UFTMarketViewModel::GetSelectedPostPriceText() const
 bool UFTMarketViewModel::CanTradeSelectedPost() const
 {
 	const FTTradePostStruct* Post = GetSelectedPost();
-	if (!Post || !HubShop || !PlayerInventory)
+	if (!Post || !ShopSubsystem || !PlayerInventory)
 	{
 		return false;
 	}
 
 	return bBuyRequestMode
-		? HubShop->CanSellMarketItem(Post->PostID, PlayerInventory)
-		: HubShop->CanBuyMarketItem(Post->PostID, PlayerInventory);
+		? ShopSubsystem->CanSellMarketItem(Post->PostID, PlayerInventory)
+		: ShopSubsystem->CanBuyMarketItem(Post->PostID, PlayerInventory);
 }
 
 bool UFTMarketViewModel::IsBuyRequestMode() const
@@ -111,14 +111,14 @@ void UFTMarketViewModel::SelectTradePostObject(UObject* ItemObject)
 bool UFTMarketViewModel::TradeSelectedPost()
 {
 	const FTTradePostStruct* Post = GetSelectedPost();
-	if (!Post || !HubShop)
+	if (!Post || !ShopSubsystem)
 	{
 		return false;
 	}
 
 	const bool bSuccess = bBuyRequestMode
-		? HubShop->SellMarketItem(Post->PostID, PlayerInventory)
-		: HubShop->BuyMarketItem(Post->PostID, PlayerInventory);
+		? ShopSubsystem->SellMarketItem(Post->PostID, PlayerInventory)
+		: ShopSubsystem->BuyMarketItem(Post->PostID, PlayerInventory);
 
 	if (!bSuccess)
 	{
@@ -138,7 +138,7 @@ void UFTMarketViewModel::RefreshTradePosts()
 {
 	TradePostObjects.Reset();
 
-	if (!HubShop)
+	if (!ShopSubsystem)
 	{
 		return;
 	}
@@ -146,11 +146,11 @@ void UFTMarketViewModel::RefreshTradePosts()
 	TArray<FTTradePostStruct> Posts;
 	if (bBuyRequestMode)
 	{
-		HubShop->GetMarketBuyPosts(Posts);
+		ShopSubsystem->GetMarketBuyPosts(Posts);
 	}
 	else
 	{
-		HubShop->GetMarketSellPosts(Posts);
+		ShopSubsystem->GetMarketSellPosts(Posts);
 	}
 
 	for (const FTTradePostStruct& Post : Posts)
@@ -166,13 +166,13 @@ void UFTMarketViewModel::RefreshSelectedPostItems()
 	SelectedPostItemObjects.Reset();
 
 	const FTTradePostStruct* Post = GetSelectedPost();
-	if (!Post || Post->ItemID.IsNone() || Post->Count <= 0)
+	if (!Post || Post->GetResolvedItemID().IsNone() || Post->Count <= 0)
 	{
 		return;
 	}
 
 	UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-	ItemObject->InitializeItem(Post->ItemID, Post->Count, Post->Price);
+	ItemObject->InitializeItem(Post->GetResolvedItemID(), Post->Count, Post->Price);
 	SelectedPostItemObjects.Add(ItemObject);
 }
 

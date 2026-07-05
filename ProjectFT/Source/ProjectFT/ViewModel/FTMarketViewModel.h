@@ -4,8 +4,8 @@
 #include "UObject/Object.h"
 #include "FTMarketViewModel.generated.h"
 
-class AFTHubShop;
 class UFTInventoryComponent;
+class UFTShopSubsystem;
 class UFTTradePostListObject;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTMarketViewModelChanged);
@@ -16,7 +16,7 @@ class PROJECTFT_API UFTMarketViewModel : public UObject
 	GENERATED_BODY()
 
 public:
-	void Initialize(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory);
+	void Initialize(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
 	const TArray<TObjectPtr<UObject>>& GetTradePostObjects() const;
 	const TArray<TObjectPtr<UObject>>& GetSelectedPostItemObjects() const;
@@ -51,7 +51,7 @@ private:
 	void NotifyChanged();
 
 	UPROPERTY(Transient)
-	TObjectPtr<AFTHubShop> HubShop;
+	TObjectPtr<UFTShopSubsystem> ShopSubsystem;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTInventoryComponent> PlayerInventory;

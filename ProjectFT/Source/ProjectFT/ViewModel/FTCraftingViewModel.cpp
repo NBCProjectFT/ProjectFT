@@ -3,6 +3,7 @@
 #include "Engine/AssetManager.h"
 #include "Engine/Texture2D.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
@@ -150,12 +151,19 @@ void UFTCraftingViewModel::RefreshStorageItems()
 {
 	StorageItemObjects.Reset();
 
-	if (!HubWorkbench || !HubWorkbench->GetHubStorage())
+	AFTHubStorage* HubStorage = HubWorkbench ? HubWorkbench->GetHubStorage() : nullptr;
+	const UFTStorageSubsystem* StorageSubsystem = HubStorage && HubStorage->GetGameInstance()
+		? HubStorage->GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
+
+	if (!HubStorage || !StorageSubsystem)
 	{
 		return;
 	}
 
-	for (const FTStorageItemStruct& StorageItem : HubWorkbench->GetHubStorage()->GetStorageItems())
+	TArray<FTStorageItemStruct> StorageItems;
+	StorageSubsystem->GetStorageItems(HubStorage->GetStorageInventory(), StorageItems);
+	for (const FTStorageItemStruct& StorageItem : StorageItems)
 	{
 		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
 		ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
@@ -313,12 +321,14 @@ bool UFTCraftingViewModel::ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, c
 
 int32 UFTCraftingViewModel::GetOwnedIngredientCount(const FName ItemID) const
 {
-	const int32 PlayerCount = PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0;
-	const int32 StorageCount = HubWorkbench && HubWorkbench->GetHubStorage()
-		? HubWorkbench->GetHubStorage()->GetStorageItemCount(ItemID)
-		: 0;
+	AFTHubStorage* HubStorage = HubWorkbench ? HubWorkbench->GetHubStorage() : nullptr;
+	const UFTStorageSubsystem* StorageSubsystem = HubStorage && HubStorage->GetGameInstance()
+		? HubStorage->GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
 
-	return PlayerCount + StorageCount;
+	return StorageSubsystem
+		? StorageSubsystem->GetCombinedItemCount(PlayerInventory, HubStorage ? HubStorage->GetStorageInventory() : nullptr, ItemID)
+		: (PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0);
 }
 
 const UFTItemDataAsset* UFTCraftingViewModel::FindItemData(const FName ItemID) const

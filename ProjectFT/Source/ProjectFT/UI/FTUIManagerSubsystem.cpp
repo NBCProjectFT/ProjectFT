@@ -19,8 +19,8 @@
 #include "../ViewModel/FTHubStorageViewModel.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
-#include "ProjectFT/Hub/FTHubShop.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
@@ -297,10 +297,7 @@ bool UFTUIManagerSubsystem::IsInventoryOpen() const
 	return InventoryWidget && InventoryWidget->IsInViewport();
 }
 
-void UFTUIManagerSubsystem::ShowCrafting()
-{
-	UE_LOG(LogFTUI, Warning, TEXT("ShowCrafting called without a workbench context."));
-}
+
 
 void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory)
 {
@@ -373,10 +370,7 @@ void UFTUIManagerSubsystem::HideCrafting()
 	}
 }
 
-void UFTUIManagerSubsystem::ShowStorage()
-{
-	UE_LOG(LogFTUI, Warning, TEXT("ShowStorage called without a storage context."));
-}
+
 
 void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory)
 {
@@ -451,7 +445,7 @@ void UFTUIManagerSubsystem::HideStorage()
 
 void UFTUIManagerSubsystem::ShowHubMain(
 	AFTHubTerminal* HubTerminal,
-	AFTHubShop* HubShop,
+	AFTHubStorage* HubStorage,
 	UFTInventoryComponent* PlayerInventory
 )
 {
@@ -489,22 +483,46 @@ void UFTUIManagerSubsystem::ShowHubMain(
 		}
 	}
 
-	HubMainWidget->InitializeHubMain(HubTerminal, HubShop, PlayerInventory);
+	UFTShopSubsystem* ShopSubsystem = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UFTShopSubsystem>()
+		: nullptr;
+	if (ShopSubsystem)
+	{
+		ShopSubsystem->ConfigureHubStorage(HubStorage);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub shop and market panels will be empty because ShopSubsystem is missing."));
+	}
+
+	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory);
 
 	if (UFTHubQuestPanelWidget* QuestPanelWidget = HubMainWidget->GetQuestPanelWidget())
 	{
 		UGameInstance* GameInstance = GetGameInstance();
 		QuestPanelWidget->InitializeQuestPanel(GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr, PlayerInventory);
 	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub quest panel is missing from HubMainWidget."));
+	}
 
 	if (UFTHubMarketPanelWidget* MarketPanelWidget = HubMainWidget->GetMarketPanelWidget())
 	{
-		MarketPanelWidget->InitializeMarketPanel(HubShop, PlayerInventory);
+		MarketPanelWidget->InitializeMarketPanel(ShopSubsystem, PlayerInventory);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub market panel is missing from HubMainWidget."));
 	}
 
 	if (UFTHubShopPanelWidget* ShopPanelWidget = HubMainWidget->GetShopPanelWidget())
 	{
-		ShopPanelWidget->InitializeShopPanel(HubShop, PlayerInventory);
+		ShopPanelWidget->InitializeShopPanel(ShopSubsystem, PlayerInventory);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub shop panel is missing from HubMainWidget."));
 	}
 
 	HubMainWidget->AddToViewport(20);

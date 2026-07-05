@@ -20,7 +20,7 @@ void UFTTradePostEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 	{
 		TXT_PostItem->SetText(FText::FromString(FString::Printf(
 			TEXT("%s x%d"),
-			*Post.ItemID.ToString(),
+			*Post.GetResolvedItemID().ToString(),
 			Post.Count
 		)));
 	}

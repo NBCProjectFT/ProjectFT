@@ -9,6 +9,7 @@
 class AFTHubStorage;
 class UDataTable;
 class UFTInventoryComponent;
+class UFTStorageSubsystem;
 
 UCLASS()
 class PROJECTFT_API AFTHubWorkbench : public AActor, public IFTInteractable
@@ -38,20 +39,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Craft")
 	UDataTable* CraftRecipeDataTable;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Craft")
-	bool bUseDefaultCraftRecipes = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Craft")
-	TArray<FTCraftRecipeStruct> DefaultCraftRecipes;
-
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Craft")
 	AFTHubStorage* HubStorage;
 
 private:
 	void OpenCraftWidget(AActor* Interactor);
-	void PrintAllRecipes(UFTInventoryComponent* PlayerInventory) const;
 
 	const FTCraftRecipeStruct* FindRecipeByID(FName RecipeID) const;
+	UFTStorageSubsystem* GetStorageSubsystem() const;
+	UFTInventoryComponent* GetStorageInventory() const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
 };

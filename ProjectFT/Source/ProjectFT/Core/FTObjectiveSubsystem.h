@@ -6,7 +6,6 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "FTObjectiveSubsystem.generated.h"
 
-class AFTHubShop;
 class AFTHubStorage;
 class UDataTable;
 class UFTInventoryComponent;
@@ -35,7 +34,6 @@ public:
 	void ConfigureHubQuests(
 		UDataTable* InQuestDataTable,
 		AFTHubStorage* InHubStorage,
-		AFTHubShop* InHubShop,
 		const TArray<FName>& InInitialQuestIDs
 	);
 
@@ -71,9 +69,6 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AFTHubStorage> HubStorage = nullptr;
-
-	UPROPERTY(Transient)
-	TObjectPtr<AFTHubShop> HubShop = nullptr;
 
 	UPROPERTY(Transient)
 	TSet<FName> AvailableQuestIDs;

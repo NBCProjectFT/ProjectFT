@@ -12,7 +12,6 @@ class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
 class UFTCountdownEscapeWidget;
-class AFTHubShop;
 class AFTHubStorage;
 class AFTHubTerminal;
 class AFTHubWorkbench;
@@ -76,17 +75,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|UI")
 	bool IsInventoryOpen() const;
 
+	
+	
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
-	void ShowCrafting();
-
 	void ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideCrafting();
 
+	
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
-	void ShowStorage();
-
 	void ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
@@ -94,7 +92,7 @@ public:
 
 	void ShowHubMain(
 		AFTHubTerminal* HubTerminal,
-		AFTHubShop* HubShop,
+		AFTHubStorage* HubStorage,
 		UFTInventoryComponent* PlayerInventory
 	);
 

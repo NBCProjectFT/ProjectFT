@@ -7,22 +7,16 @@
 #include "ProjectFT/ViewModel/FTShopViewModel.h"
 #include "Types/SlateEnums.h"
 
-void UFTHubShopPanelWidget::InitializeShopPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory)
+void UFTHubShopPanelWidget::InitializeShopPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
 	if (!ViewModel)
 	{
 		ViewModel = NewObject<UFTShopViewModel>(this);
-<<<<<<< Updated upstream
 	}
 
 	ViewModel->OnChanged.RemoveDynamic(this, &UFTHubShopPanelWidget::RefreshFromViewModel);
 	ViewModel->OnChanged.AddDynamic(this, &UFTHubShopPanelWidget::RefreshFromViewModel);
-=======
-		ViewModel->OnChanged.AddDynamic(this, &UFTHubShopPanelWidget::RefreshFromViewModel);
-	}
-
->>>>>>> Stashed changes
-	ViewModel->Initialize(InHubShop, InPlayerInventory);
+	ViewModel->Initialize(InShopSubsystem, InPlayerInventory);
 	RefreshFromViewModel();
 }
 
@@ -76,17 +70,10 @@ void UFTHubShopPanelWidget::RefreshFromViewModel()
 		return;
 	}
 
-<<<<<<< Updated upstream
 	bRefreshingFromViewModel = true;
 	PopulateTileItems(TV_ShopItems, ViewModel->GetShopItemObjects(), ViewModel->GetSelectedShopItemObject());
 	PopulateTileItems(TV_PlayerItems, ViewModel->GetPlayerItemObjects(), ViewModel->GetSelectedPlayerItemObject());
 	bRefreshingFromViewModel = false;
-=======
-	bUpdatingSelection = true;
-	PopulateItems(TV_ShopItems, ViewModel->GetShopItemObjects(), ViewModel->GetSelectedShopItemObject());
-	PopulateItems(TV_PlayerItems, ViewModel->GetPlayerItemObjects(), ViewModel->GetSelectedPlayerItemObject());
-	bUpdatingSelection = false;
->>>>>>> Stashed changes
 
 	if (TXT_SelectedItemName)
 	{
@@ -124,11 +111,7 @@ void UFTHubShopPanelWidget::RefreshFromViewModel()
 	}
 }
 
-<<<<<<< Updated upstream
 void UFTHubShopPanelWidget::PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem)
-=======
-void UFTHubShopPanelWidget::PopulateItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem)
->>>>>>> Stashed changes
 {
 	if (!TileView)
 	{
@@ -151,11 +134,7 @@ void UFTHubShopPanelWidget::PopulateItems(UTileView* TileView, const TArray<TObj
 
 void UFTHubShopPanelWidget::HandleShopItemClicked(UObject* Item)
 {
-<<<<<<< Updated upstream
 	if (bRefreshingFromViewModel || !ViewModel)
-=======
-	if (bUpdatingSelection || !ViewModel)
->>>>>>> Stashed changes
 	{
 		return;
 	}
@@ -170,11 +149,7 @@ void UFTHubShopPanelWidget::HandleShopItemClicked(UObject* Item)
 
 void UFTHubShopPanelWidget::HandlePlayerItemClicked(UObject* Item)
 {
-<<<<<<< Updated upstream
 	if (bRefreshingFromViewModel || !ViewModel)
-=======
-	if (bUpdatingSelection || !ViewModel)
->>>>>>> Stashed changes
 	{
 		return;
 	}
@@ -223,10 +198,6 @@ void UFTHubShopPanelWidget::HandleRefreshClicked()
 {
 	if (ViewModel)
 	{
-<<<<<<< Updated upstream
-		ViewModel->RefreshShopStock();
-=======
 		ViewModel->RefreshShop();
->>>>>>> Stashed changes
 	}
 }
