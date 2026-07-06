@@ -29,6 +29,7 @@
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTInventoryViewModel.h"
 
+
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
 {
@@ -176,12 +177,8 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 
 void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 {
-	// 붙잡힘 중 시점 조작 차단.
-	if (IsCaptured())
-	{
-		return;
-	}
-
+	// 붙잡힘 중에도 시점은 자유롭게 돌릴 수 있다(DBD식 이송 시점). 몸(캡슐)은 캡처 중 bUseControllerRotationYaw를
+	// 꺼둬 경비 캡처 포즈를 따르므로, 시점만 스프링암(bUsePawnControlRotation)으로 컨트롤 회전을 따라 돈다.
 	AddControllerYawInput(LookValue.X);
 	AddControllerPitchInput(LookValue.Y);
 }
@@ -665,6 +662,16 @@ void AFTPlayerCharacter::OnDeath()
 	{
 		PC->DisableInput(PC);
 	}
+	
+	FFTMessagePayloadStruct Payload;
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_PlayerDead, Payload);
+	
+	
+
+	MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	MessageSubsystem.BroadcastMessage(TAG_FT_Request_Flow_FailRaid, Payload);
 
 	// 게임오버/리스폰/레벨 전환은 GameFlow 연동으로 — 이번 스코프 밖.
 }

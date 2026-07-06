@@ -32,10 +32,11 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UFTSecurityChaseGaugeComponent> SecurityChaseGaugeComponent;
 
-	/** 보안요원의 단일 체포 소유권과 체포/탈출 메시지를 관리한다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	/** Temporary bridge retained until ST_Security no longer references STT_TryCaptureTarget. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security", meta = (DeprecatedProperty, DeprecationMessage = "Use FT Send Gameplay Event."))
 	TObjectPtr<UFTSecurityCaptureComponent> SecurityCaptureComponent;
 
+	/** 보안요원의 단일 체포 소유권과 체포/탈출 메시지를 관리한다. */
 	UFUNCTION(BlueprintCallable, Category = "FT|Security")
 	void SetReportGauge(float NewReportGauge);
 

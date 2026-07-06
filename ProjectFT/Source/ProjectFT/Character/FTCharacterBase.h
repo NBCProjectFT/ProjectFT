@@ -7,6 +7,9 @@
 #include "GameplayTagContainer.h"
 #include "GameFramework/Character.h"
 #include "ProjectFT/Interface/FTDamageable.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "FTCharacterBase.generated.h"
 
 class UAbilitySystemComponent;

@@ -115,6 +115,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	bool bStunRequested = false;
 
+	/** 보안요원의 Grab 어빌리티가 현재 실행 중인지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bIsGrabbing = false;
+
+	/** 보안요원의 ASC가 실제 Stun 태그를 보유하고 있는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bIsStunned = false;
+
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
 	FGameplayMessageListenerHandle ChaseGaugeChangedListenerHandle;
@@ -129,6 +137,7 @@ private:
 	void OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
 	void UpdateTargetState();
+	void UpdateAbilityState();
 	void UpdateChaseGaugeTargetSeenState();
 	void UpdateReturnCollision();
 	void CompleteReturn();
