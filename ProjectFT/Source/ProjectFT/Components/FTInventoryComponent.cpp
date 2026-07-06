@@ -1,6 +1,7 @@
 #include "FTInventoryComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "Engine/AssetManager.h"
 
 UFTInventoryComponent::UFTInventoryComponent()
@@ -53,28 +54,35 @@ void UFTInventoryComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-bool UFTInventoryComponent::AddItem(FName ItemId, int32 Quantity)
+bool UFTInventoryComponent::CanAddItem(FName ItemId, int32 Quantity) const
 {
 	if (ItemId.IsNone() || Quantity <= 0) return false;
 
-	// 메타 데이터에 존재하는 아이템인지 확인
 	UFTItemDataAsset* ItemDataAsset = FindItemData(ItemId);
 	if (!ItemDataAsset)
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("아이템 획득 실패: 데이터베이스에 Item ID '%s'가 존재하지 않습니다."), *ItemId.ToString());
 		return false;
 	}
 
-	// 아이템 구조체 정보 저장
-	const FTItemDataStruct& Data = ItemDataAsset->ItemData;
-
-	// 무게 한도 검증
-	float AddWeight = Data.Weight * Quantity;
+	float AddWeight = ItemDataAsset->ItemData.Weight * Quantity;
 	if (CurrentWeight + AddWeight > MaxWeight)
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("아이템 획득 실패: 인벤토리에 추가 가능한 무게보다 아이템의 무게가 무겁습니다. 현재 무게: %f, 최대 무게: %f, 추가돼야 할 무게: %f"), CurrentWeight, MaxWeight, AddWeight);
 		return false;
 	}
+
+	return true;
+}
+
+bool UFTInventoryComponent::AddItem(FName ItemId, int32 Quantity)
+{
+	if (!CanAddItem(ItemId, Quantity))
+	{
+		UE_LOG(LogFTItem, Warning, TEXT("아이템 추가 검증 실패: '%s' (수량: %d) 추가 불가 (무게 초과 또는 아이템 없음)"), *ItemId.ToString(), Quantity);
+		return false;
+	}
+
+	UFTItemDataAsset* ItemDataAsset = FindItemData(ItemId);
+	if (!ItemDataAsset) return false;
 
 	// 기존 슬롯이 있으면 누적
 	bool bFound = false;
@@ -215,33 +223,7 @@ void UFTInventoryComponent::UpdateWeight()
 
 UFTItemDataAsset* UFTInventoryComponent::FindItemData(FName ItemId) const
 {
-	UAssetManager& AssetManager = UAssetManager::Get();
-
-	// [디버깅 로그] 에셋 매니저에 스캔된 모든 FTItemItem 목록 출력
-	TArray<FPrimaryAssetId> IdList;
-	AssetManager.GetPrimaryAssetIdList(FName("FTItemItem"), IdList);
-	//UE_LOG(LogFTItem, Warning, TEXT("=== 에셋 매니저 'FTItemItem' 목록 (총: %d개) ==="), IdList.Num());
-	//for (const FPrimaryAssetId& Id : IdList)
-	//{
-	//	UE_LOG(LogFTItem, Warning, TEXT("  - 발견된 AssetId: %s (이름: %s)"), *Id.ToString(), *Id.PrimaryAssetName.ToString());
-	//}
-
-	FPrimaryAssetId AssetId = FPrimaryAssetId(FName("FTItemItem"), ItemId);
-	
-	// 1. 이미 메모리에 로드되어 있는지 확인
-	UObject* AssetObj = AssetManager.GetPrimaryAssetObject(AssetId);
-	if (!AssetObj)
-	{
-		// 2. 로드되어 있지 않다면 에셋 매니저가 스캔한 경로를 통해 동기식으로 로드(Fallback)
-		FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetId);
-		UE_LOG(LogFTItem, Warning, TEXT("  - ItemId 검색 중: %s -> 경로: %s"), *ItemId.ToString(), *AssetPath.ToString());
-		if (AssetPath.IsValid())
-		{
-			AssetObj = AssetPath.TryLoad();
-		}
-	}
-	
-	return Cast<UFTItemDataAsset>(AssetObj);
+	return UFTItemFunctionLibrary::FindItemData(this, ItemId);
 }
 
 bool UFTInventoryComponent::SetQuickSlot(int32 SlotIndex, FName ItemId)
@@ -351,8 +333,9 @@ void UFTInventoryComponent::HandleItemPickedUpMessage(FGameplayTag Channel, cons
 	if (Payload.TargetActor == Owner || Payload.InstigatorActor == Owner ||
 		(Payload.TargetActor == nullptr && Payload.InstigatorActor == nullptr))
 	{
-		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s"), *Payload.ItemId.ToString());
-		AddItem(Payload.ItemId, 1);
+		int32 QuantityToAdd = FMath::Max(1, static_cast<int32>(Payload.Value));
+		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s, 수량: %d"), *Payload.ItemId.ToString(), QuantityToAdd);
+		AddItem(Payload.ItemId, QuantityToAdd);
 	}
 }
 
@@ -396,11 +379,13 @@ bool UFTInventoryComponent::RemoveItemsByIndices(const TArray<int32>& TargetIndi
 	TArray<int32> SortedIndices = TargetIndices;
 	SortedIndices.Sort([](const int32& A, const int32& B) { return A > B; });
 
+	TSet<FName> RemovedItemIds;
 	bool bChanged = false;
 	for (int32 Index : SortedIndices)
 	{
 		if (Items.IsValidIndex(Index))
 		{
+			RemovedItemIds.Add(Items[Index].ItemId);
 			Items.RemoveAt(Index);
 			bChanged = true;
 		}
@@ -408,6 +393,22 @@ bool UFTInventoryComponent::RemoveItemsByIndices(const TArray<int32>& TargetIndi
 
 	if (bChanged)
 	{
+		// 삭제된 아이템들의 남은 수량이 0이 되면 퀵슬롯에서도 등록 해제
+		for (FName ItemId : RemovedItemIds)
+		{
+			if (GetItemQuantity(ItemId) <= 0)
+			{
+				for (int32 SlotIdx = 0; SlotIdx < QuickSlots.Num(); ++SlotIdx)
+				{
+					if (QuickSlots[SlotIdx] == ItemId)
+					{
+						QuickSlots[SlotIdx] = NAME_None;
+						UE_LOG(LogFTItem, Log, TEXT("아이템 보유량 0 도달 (다중 제거): 퀵슬롯 %d번에서 '%s' 제거 완료"), SlotIdx, *ItemId.ToString());
+					}
+				}
+			}
+		}
+
 		UpdateWeight();
 		OnInventoryChanged.Broadcast();
 	}

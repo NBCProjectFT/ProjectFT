@@ -38,7 +38,7 @@ public:
 	TSoftObjectPtr<UTexture2D> ItemIcon;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
-	TSoftObjectPtr<UStaticMesh> ItemMesh;
+	TObjectPtr<UStaticMesh> ItemMesh;
 
 	//아이콘 만들 때 카메라 위치 조절용 변수
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") FRotator IconMeshRotation = FRotator(0.0f, -35.0f, 0.0f);
