@@ -2,6 +2,7 @@
 
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -28,6 +29,17 @@ void AFTItemActor::BeginPlay()
 bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 {
 	if (!ItemData) return false;
+
+	// 인벤토리 무게 한도 등으로 추가할 수 있는지 선검증
+	UFTInventoryComponent* InventoryComp = Interactor->FindComponentByClass<UFTInventoryComponent>();
+	if (InventoryComp)
+	{
+		if (!InventoryComp->CanAddItem(ItemData->ItemData.ItemId, 1))
+		{
+			UE_LOG(LogFTItem, Warning, TEXT("%s 획득 실패: 인벤토리 무게 한도 초과"), *ItemData->ItemData.ItemName.ToString());
+			return false;
+		}
+	}
 	
 	// GameplayMessageSubsystem을 통해 아이템 획득 메시지 전송
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
