@@ -1,6 +1,7 @@
 #include "FTInventoryComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "Engine/AssetManager.h"
 
 UFTInventoryComponent::UFTInventoryComponent()
@@ -215,27 +216,7 @@ void UFTInventoryComponent::UpdateWeight()
 
 UFTItemDataAsset* UFTInventoryComponent::FindItemData(FName ItemId) const
 {
-	UAssetManager& AssetManager = UAssetManager::Get();
-
-	TArray<FPrimaryAssetId> IdList;
-	AssetManager.GetPrimaryAssetIdList(FName("FTItemItem"), IdList);
-
-	FPrimaryAssetId AssetId = FPrimaryAssetId(FName("FTItemItem"), ItemId);
-	
-	// 이미 메모리에 로드되어 있는지 확인
-	UObject* AssetObj = AssetManager.GetPrimaryAssetObject(AssetId);
-	if (!AssetObj)
-	{
-		// 로드되어 있지 않다면 에셋 매니저가 스캔한 경로를 통해 동기식으로 로드(Fallback)
-		FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetId);
-		UE_LOG(LogFTItem, Warning, TEXT("  - ItemId 검색 중: %s -> 경로: %s"), *ItemId.ToString(), *AssetPath.ToString());
-		if (AssetPath.IsValid())
-		{
-			AssetObj = AssetPath.TryLoad();
-		}
-	}
-	
-	return Cast<UFTItemDataAsset>(AssetObj);
+	return UFTItemFunctionLibrary::FindItemData(this, ItemId);
 }
 
 bool UFTInventoryComponent::SetQuickSlot(int32 SlotIndex, FName ItemId)

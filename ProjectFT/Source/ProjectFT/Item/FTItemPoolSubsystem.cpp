@@ -3,6 +3,7 @@
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "FTItemFunctionLibrary.h"
 #include "Engine/AssetManager.h"
 #include "Engine/World.h"
 
@@ -192,45 +193,10 @@ void UFTItemPoolSubsystem::HandleDropItemMessage(FGameplayTag Channel, const FFT
 
 FVector UFTItemPoolSubsystem::CalculateDropLocation(AActor* InstigatorActor) const
 {
-	if (!InstigatorActor) return FVector::ZeroVector;
-
-	FVector StartLoc = InstigatorActor->GetActorLocation();
-	FVector ForwardDir = InstigatorActor->GetActorForwardVector();
-
-	// 전방 120cm, 좌우 -30cm ~ 30cm 오프셋
-	FVector DropOffset = (ForwardDir * FMath::FRandRange(100.0f, 140.0f)) + (InstigatorActor->GetActorRightVector() * FMath::FRandRange(-90.0f, 90.0f));
-	FVector TargetLoc = StartLoc + DropOffset;
-
-	FHitResult HitResult;
-	FVector TraceStart = TargetLoc + FVector(0.0f, 0.0f, 50.0f);
-	FVector TraceEnd = TargetLoc - FVector(0.0f, 0.0f, 500.0f);
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(InstigatorActor);
-
-	UWorld* World = GetWorld();
-	if (World && World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
-	{
-		return HitResult.Location + FVector(0.0f, 0.0f, 15.0f);
-	}
-
-	return TargetLoc;
+	return UFTItemFunctionLibrary::CalculateDropLocation(InstigatorActor);
 }
 
 UFTItemDataAsset* UFTItemPoolSubsystem::FindItemData(FName ItemId) const
 {
-	UAssetManager& AssetManager = UAssetManager::Get();
-	FPrimaryAssetId AssetId = FPrimaryAssetId(FName("FTItemItem"), ItemId);
-	
-	UObject* AssetObj = AssetManager.GetPrimaryAssetObject(AssetId);
-	if (!AssetObj)
-	{
-		FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetId);
-		if (AssetPath.IsValid())
-		{
-			AssetObj = AssetPath.TryLoad();
-		}
-	}
-	
-	return Cast<UFTItemDataAsset>(AssetObj);
+	return UFTItemFunctionLibrary::FindItemData(this, ItemId);
 }
