@@ -198,7 +198,7 @@ FLinearColor UFTInventoryViewModel::GetWeightBarColor() const
 	{
 		return FLinearColor::Red; // 90% 이상 위험
 	}
-	else if (Percent >= 0.7f)
+	else if (Percent >= 0.6f)
 	{
 		return FLinearColor::Yellow; // 70% 이상 경고
 	}
