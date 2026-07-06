@@ -25,13 +25,13 @@ void AFTNPCCharacter::BeginPlay()
 	}
 }
 
-void AFTNPCCharacter::OnStunStateChanged(bool bStunned)
+void AFTNPCCharacter::OnImmobilizedStateChanged(bool bImmobilized)
 {
-	Super::OnStunStateChanged(bStunned);
+	Super::OnImmobilizedStateChanged(bImmobilized);
 
 	if (AFTNPCAIController* NPCAIController = Cast<AFTNPCAIController>(GetController()))
 	{
-		NPCAIController->HandleStunStateChanged(bStunned);
+		NPCAIController->HandleStunStateChanged(bImmobilized);
 	}
 }
 

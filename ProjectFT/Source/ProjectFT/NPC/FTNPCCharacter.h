@@ -16,7 +16,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void OnStunStateChanged(bool bStunned) override;
+	virtual void OnImmobilizedStateChanged(bool bImmobilized) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|UI")
 	TObjectPtr<UWidgetComponent> ReportGaugeWidgetComponent;
