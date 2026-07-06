@@ -33,4 +33,5 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityDeployed, "Event.Security.Deployed")
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityReturnedToRoom, "Event.Security.ReturnedToRoom");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_PlayerDead, "Event.PlayerDead");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_DropItem, "Gameplay.Request.DropItem");

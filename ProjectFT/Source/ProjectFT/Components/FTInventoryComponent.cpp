@@ -351,8 +351,9 @@ void UFTInventoryComponent::HandleItemPickedUpMessage(FGameplayTag Channel, cons
 	if (Payload.TargetActor == Owner || Payload.InstigatorActor == Owner ||
 		(Payload.TargetActor == nullptr && Payload.InstigatorActor == nullptr))
 	{
-		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s"), *Payload.ItemId.ToString());
-		AddItem(Payload.ItemId, 1);
+		int32 QuantityToAdd = FMath::Max(1, static_cast<int32>(Payload.Value));
+		UE_LOG(LogFTItem, Log, TEXT("인벤토리 컴포넌트가 아이템 습득 메시지(Event.Item.PickedUp)를 수신했습니다. 대상 아이템: %s, 수량: %d"), *Payload.ItemId.ToString(), QuantityToAdd);
+		AddItem(Payload.ItemId, QuantityToAdd);
 	}
 }
 
@@ -396,11 +397,13 @@ bool UFTInventoryComponent::RemoveItemsByIndices(const TArray<int32>& TargetIndi
 	TArray<int32> SortedIndices = TargetIndices;
 	SortedIndices.Sort([](const int32& A, const int32& B) { return A > B; });
 
+	TSet<FName> RemovedItemIds;
 	bool bChanged = false;
 	for (int32 Index : SortedIndices)
 	{
 		if (Items.IsValidIndex(Index))
 		{
+			RemovedItemIds.Add(Items[Index].ItemId);
 			Items.RemoveAt(Index);
 			bChanged = true;
 		}
@@ -408,6 +411,22 @@ bool UFTInventoryComponent::RemoveItemsByIndices(const TArray<int32>& TargetIndi
 
 	if (bChanged)
 	{
+		// 삭제된 아이템들의 남은 수량이 0이 되면 퀵슬롯에서도 등록 해제
+		for (FName ItemId : RemovedItemIds)
+		{
+			if (GetItemQuantity(ItemId) <= 0)
+			{
+				for (int32 SlotIdx = 0; SlotIdx < QuickSlots.Num(); ++SlotIdx)
+				{
+					if (QuickSlots[SlotIdx] == ItemId)
+					{
+						QuickSlots[SlotIdx] = NAME_None;
+						UE_LOG(LogFTItem, Log, TEXT("아이템 보유량 0 도달 (다중 제거): 퀵슬롯 %d번에서 '%s' 제거 완료"), SlotIdx, *ItemId.ToString());
+					}
+				}
+			}
+		}
+
 		UpdateWeight();
 		OnInventoryChanged.Broadcast();
 	}

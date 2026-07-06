@@ -5,6 +5,7 @@
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "FTItemPoolSubsystem.h"
 
 
 AFTItemActor::AFTItemActor()
@@ -34,6 +35,7 @@ bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 	Payload.ItemId = ItemData->ItemData.ItemId;
 	Payload.InstigatorActor = Interactor;
 	Payload.TargetActor = this;
+	Payload.Value = 1.0f;
 
 	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ItemPickedUp, Payload);
 	
@@ -58,5 +60,13 @@ void AFTItemActor::UpdateAppearance()
 
 void AFTItemActor::DestroyItem()
 {
+	if (UWorld* World = GetWorld())
+	{
+		if (UFTItemPoolSubsystem* PoolSubsystem = World->GetSubsystem<UFTItemPoolSubsystem>())
+		{
+			PoolSubsystem->ReleaseItemActor(this);
+			return;
+		}
+	}
 	Destroy();
 }

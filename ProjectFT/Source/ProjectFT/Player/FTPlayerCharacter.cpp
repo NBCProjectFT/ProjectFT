@@ -3,6 +3,7 @@
 #include "FTPlayerCharacter.h"
 
 #include "AbilitySystemComponent.h"
+#include "Abilities/GameplayAbilityTypes.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PrimitiveComponent.h"
@@ -28,6 +29,7 @@
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTInventoryViewModel.h"
+
 
 // Sets default values
 AFTPlayerCharacter::AFTPlayerCharacter()
@@ -138,14 +140,15 @@ void AFTPlayerCharacter::Tick(float DeltaSeconds)
 
 void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 {
-	// 붙잡힘 중엔 이동 대신 좌우 연타를 탈출 게이지로 흘려보낸다(이동 자체는 하지 않음).
-	if (IsCaptured())
+	// '연타로 탈출 가능한' 상태(잡힘/비눗방울 등)에선 이동 대신 좌우 연타를 발버둥 입력으로 흘려보낸다.
+	// 개별 효과가 아니라 State.Escapable 하나만 보고, flip을 감지하면 Event.Struggle을 발행한다(활성 탈출들이 각자 받는다).
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 	{
-		if (CaptureEscapeComponent)
+		if (ASC->HasMatchingGameplayTag(TAG_FT_State_Escapable))
 		{
-			CaptureEscapeComponent->AddStruggleInput(MoveValue.X);
+			SendStruggleOnFlip(MoveValue.X);
+			return;
 		}
-		return;
 	}
 
 	if (!Controller)
@@ -176,12 +179,8 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 
 void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 {
-	// 붙잡힘 중 시점 조작 차단.
-	if (IsCaptured())
-	{
-		return;
-	}
-
+	// 붙잡힘 중에도 시점은 자유롭게 돌릴 수 있다(DBD식 이송 시점). 몸(캡슐)은 캡처 중 bUseControllerRotationYaw를
+	// 꺼둬 경비 캡처 포즈를 따르므로, 시점만 스프링암(bUsePawnControlRotation)으로 컨트롤 회전을 따라 돈다.
 	AddControllerYawInput(LookValue.X);
 	AddControllerPitchInput(LookValue.Y);
 }
@@ -427,6 +426,38 @@ bool AFTPlayerCharacter::IsCaptured() const
 	return CaptureEscapeComponent && CaptureEscapeComponent->IsCaptured();
 }
 
+void AFTPlayerCharacter::SendStruggleOnFlip(float MoveAxisX)
+{
+	// 데드존 밖일 때만 방향으로 인정. 직전 인정 방향과 반대가 되면 "좌우 전환(flip)" 1회로 Event.Struggle 발행.
+	float Sign = 0.0f;
+	if (MoveAxisX > StruggleInputDeadzone)
+	{
+		Sign = 1.0f;
+	}
+	else if (MoveAxisX < -StruggleInputDeadzone)
+	{
+		Sign = -1.0f;
+	}
+
+	if (Sign == 0.0f)
+	{
+		return;
+	}
+
+	if (StruggleLastSign != 0.0f && Sign != StruggleLastSign)
+	{
+		if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+		{
+			// 자기 ASC로 발행 → 이 캐릭터에 걸린 활성 탈출 효과(잡기/비눗방울 등)들이 각자 게이지를 올린다(브로드캐스트).
+			FGameplayEventData Payload;
+			Payload.EventTag = TAG_FT_Event_Struggle;
+			Payload.Instigator = this;
+			ASC->HandleGameplayEvent(TAG_FT_Event_Struggle, &Payload);
+		}
+	}
+	StruggleLastSign = Sign;
+}
+
 bool AFTPlayerCharacter::IsInventoryOpen() const
 {
 	const UFTUIManagerSubsystem* UIManager = GetUIManager();
@@ -665,6 +696,13 @@ void AFTPlayerCharacter::OnDeath()
 	{
 		PC->DisableInput(PC);
 	}
+	
+	FFTMessagePayloadStruct Payload;
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_PlayerDead, Payload);
+
+	MessageSubsystem.BroadcastMessage(TAG_FT_Request_Flow_FailRaid, Payload);
 
 	// 게임오버/리스폰/레벨 전환은 GameFlow 연동으로 — 이번 스코프 밖.
 }

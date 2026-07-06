@@ -8,6 +8,8 @@
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_BubbleStackTrap.h"
+#include "ProjectFT/AbilitySystem/Abilities/FTGA_EscapableDebuff.h"
 
 AFTCharacterBase::AFTCharacterBase()
 {
@@ -29,6 +31,7 @@ AFTCharacterBase::AFTCharacterBase()
 	{
 		Capsule->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Ignore);
 	}
+
 }
 
 UAbilitySystemComponent* AFTCharacterBase::GetAbilitySystemComponent() const
@@ -49,9 +52,32 @@ void AFTCharacterBase::BeginPlay()
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMoveSpeedAttribute())
 			.AddUObject(this, &AFTCharacterBase::OnSpeedAttributeChanged);
 
-		// 스턴 태그 부착/해제 → 공통 이동 정지/복원. 모든 캐릭터 동일하므로 베이스가 처리하고, 추가 반응은 OnStunStateChanged override.
-		AbilitySystemComponent->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Stun, EGameplayTagEventType::NewOrRemoved)
-			.AddUObject(this, &AFTCharacterBase::OnStunTagChanged);
+		// 행동불능 우산 태그 부착/해제 → 공통 이동 정지/복원. 개별 효과(스턴/마비/비눗방울 등)가 아니라
+		// 우산 태그 하나만 감시하므로, 새 행동불능 효과가 추가돼도 이 코드는 바뀌지 않는다. 추가 반응은 OnImmobilizedStateChanged override.
+		AbilitySystemComponent->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Immobilized, EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &AFTCharacterBase::OnImmobilizeTagChanged);
+
+		// 공통 어빌리티 부여. 트리거형이라 부여만으로 충분(상황에 맞게 자동 발동). 싱글이라 권한 검사 생략.
+		// 비눗방울 갇힘/탈출 어빌리티는 어떤 캐릭터든 대상이 될 수 있으므로, BP의 CommonAbilities 설정과 무관하게 여기서 '항상' 보장한다.
+		// (C++ 생성자 배열 기본값은 기존 BP에 전파가 불안정해서, 클래스 지정으로 직접 부여한다.)
+		auto GrantAbilityOnce = [this](TSubclassOf<UGameplayAbility> AbilityClass)
+		{
+			if (AbilityClass && !AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass))
+			{
+				AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AbilityClass));
+			}
+		};
+
+		for (const TSubclassOf<UGameplayAbility>& AbilityClass : CommonAbilities)
+		{
+			GrantAbilityOnce(AbilityClass);
+		}
+		GrantAbilityOnce(UFTGA_BubbleStackTrap::StaticClass());
+		GrantAbilityOnce(UFTGA_EscapableDebuff::StaticClass());
+
+		UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] %s common abilities granted. BubbleStackTrap present=%d"),
+			*GetName(),
+			AbilitySystemComponent->FindAbilitySpecFromClass(UFTGA_BubbleStackTrap::StaticClass()) != nullptr ? 1 : 0);
 	}
 
 	if (AttributeSet)
@@ -117,14 +143,19 @@ void AFTCharacterBase::OnSpeedAttributeChanged(const FOnAttributeChangeData& Dat
 	ApplyMovementSpeed();
 }
 
-void AFTCharacterBase::OnStunTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
 {
-	const bool bStunned = NewCount > 0;
+	// 우산 태그 카운트가 곧 '동시에 활성인 행동불능 수'다. 여러 효과가 겹쳐도 카운트로 합성되므로,
+	// 콜백의 NewCount(우산 태그 카운트)가 0보다 크면 여전히 봉쇄 — 전부 사라져야(0) 복원된다.
+	const bool bImmobilized = NewCount > 0;
 
-	// 공통 반응: 스턴 시작 시 즉시 정지+이동 비활성, 해제 시 보행 복원. (보행 캐릭터 기준 — 다른 이동 모드는 자식이 OnStunStateChanged에서 보정.)
+	UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] %s Immobilized -> count=%d (bImmobilized=%d)"),
+		*GetName(), NewCount, bImmobilized ? 1 : 0);
+
+	// 공통 반응: 행동불능 시작 시 즉시 정지+이동 비활성, 해제 시 보행 복원. (보행 캐릭터 기준 — 다른 이동 모드는 자식이 OnImmobilizedStateChanged에서 보정.)
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
-		if (bStunned)
+		if (bImmobilized)
 		{
 			Movement->StopMovementImmediately();
 			Movement->DisableMovement();
@@ -135,12 +166,12 @@ void AFTCharacterBase::OnStunTagChanged(const FGameplayTag CallbackTag, int32 Ne
 		}
 	}
 
-	// 스턴 '지속' 연출(GameplayCue)은 GE_Stun의 GameplayCues에 GameplayCue.State.Stun을 달아
+	// 행동불능 '지속' 연출(GameplayCue)은 각 GE(GE_Stun 등)의 GameplayCues에 달려
 	// GE 수명과 함께 자동 발동/제거된다(여기서 직접 Add/Remove하지 않는다 — 중복 발동 방지).
-	OnStunStateChanged(bStunned);
+	OnImmobilizedStateChanged(bImmobilized);
 }
 
-void AFTCharacterBase::OnStunStateChanged(bool bStunned)
+void AFTCharacterBase::OnImmobilizedStateChanged(bool bImmobilized)
 {
 	// 기본 구현 없음. 자식이 AI 로직 정지/애니 등 추가 반응을 처리한다(이동 정지/복원은 베이스가 이미 처리).
 }
