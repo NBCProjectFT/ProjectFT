@@ -179,7 +179,7 @@ FVector UFTItemPoolSubsystem::CalculateDropLocation(AActor* InstigatorActor) con
 	FVector ForwardDir = InstigatorActor->GetActorForwardVector();
 
 	// 전방 120cm, 좌우 -30cm ~ 30cm 오프셋
-	FVector DropOffset = (ForwardDir * 120.0f) + (InstigatorActor->GetActorRightVector() * FMath::FRandRange(-30.0f, 30.0f));
+	FVector DropOffset = (ForwardDir * FMath::FRandRange(100.0f, 140.0f)) + (InstigatorActor->GetActorRightVector() * FMath::FRandRange(-90.0f, 90.0f));
 	FVector TargetLoc = StartLoc + DropOffset;
 
 	FHitResult HitResult;
