@@ -94,6 +94,14 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 		return;
 	}
 
+	// 잡기 대칭 배타(B): 붙잡기 직전, 대상에게 걸린 자가 행동불능(비눗방울/스턴 등 State.Debuff.Immobilized를 부여한 GE)을 제거한다.
+	// → 잡히면 기존 자가CC가 즉시 풀리고(공존 없음), 이후 재적용은 State.Captured가 막는다(A: 트랩 GE의 적용 조건).
+	// 반드시 TryBeginCapture(이동 DisableMovement)보다 먼저 실행 — 자가CC 해제로 베이스가 MOVE_Walking으로 복원해도 캡처가 곧바로 다시 정지시킨다.
+	if (UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target))
+	{
+		TargetASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TAG_FT_State_Debuff_Immobilized));
+	}
+
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo)
 		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint, EscapeThreshold, EscapeDecayPerSecond))
 	{

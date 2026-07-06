@@ -122,7 +122,10 @@ void AFTSecurityAIController::UpdateAbilityState()
 	}
 
 	bIsGrabbing = ASC->HasMatchingGameplayTag(TAG_FT_State_Grabbing);
-	bIsStunned = ASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Stun);
+	// '멈춤' 인지는 스턴 하나가 아니라 행동불능 우산 태그로 판정한다(스턴/마비/비눗방울/빙결 전부 동일).
+	// 안 그러면 버블 등으로 CMC만 정지될 때 AI 브레인이 자기가 묶인 걸 몰라 이동 실패 후 멈춘 채로 재개하지 못한다.
+	// (StateTree는 이 플래그로 스턴처럼 정지→해제 시 재개하므로, 우산 태그로 넓히면 모든 행동불능이 동일하게 처리된다.)
+	bIsStunned = ASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized);
 	if (!bIsStunned)
 	{
 		bStunRequested = false;

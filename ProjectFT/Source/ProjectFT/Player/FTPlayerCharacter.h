@@ -154,6 +154,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Traversal")
 	bool bTryTraversalBeforeJump = true;
 
+	// 발버둥 탈출 flip으로 인정할 최소 이동 입력 크기(데드존). 작은 흔들림/노이즈 무시.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Escape", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float StruggleInputDeadzone = 0.3f;
+
 private:
 	// MoveSpeed×스프린트/앉기 배수로 MaxWalkSpeed/Crouched를 갱신한다(베이스의 기본 파생을 override).
 	virtual void ApplyMovementSpeed() override;
@@ -163,6 +167,13 @@ private:
 
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);
+
+	// 탈출 가능 상태에서 이동 입력의 좌우 전환(flip)을 감지해 Event.Struggle을 1발 발행한다.
+	// 활성인 탈출 효과(잡기/비눗방울 등)들이 각자 이 이벤트를 받아 게이지를 올린다(브로드캐스트).
+	void SendStruggleOnFlip(float MoveAxisX);
+
+	// 발버둥 flip 판정용: 마지막으로 인정된 이동 X축 방향 부호(-1/0/+1).
+	float StruggleLastSign = 0.0f;
 
 	// 플레이어 사망 후처리(베이스 HandleDeath가 태그/능력취소/이동정지를 끝낸 뒤 호출). 입력 차단까지 담당한다.
 	virtual void OnDeath() override;

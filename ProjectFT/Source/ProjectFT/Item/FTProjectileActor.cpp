@@ -22,6 +22,9 @@ AFTProjectileActor::AFTProjectileActor()
 	ProjectileCollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	ProjectileCollisionComponent->SetCollisionObjectType(ECC_WorldDynamic);
 	ProjectileCollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
+	// 카메라 붐(스프링암)은 ECC_Camera 프로브로 벽을 감지한다. 발사체가 이 채널을 Block하면 카메라가 발사체에 걸려 확 당겨지므로
+	// 발사체는 카메라 채널을 항상 무시한다(발사 지점이 카메라 근처여도 시야에 영향 없음).
+	ProjectileCollisionComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	ProjectileCollisionComponent->SetGenerateOverlapEvents(true);
 	ProjectileCollisionComponent->SetNotifyRigidBodyCollision(true);
 
@@ -239,6 +242,10 @@ void AFTProjectileActor::ConfigureProjectileCollision(const FFTProjectileActorSt
 		ProjectileCollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
 		ProjectileCollisionComponent->SetNotifyRigidBodyCollision(true);
 	}
+
+	// SetCollisionResponseToAllChannels가 위에서 카메라 응답까지 덮어썼으므로, 카메라 채널 무시를 다시 적용한다
+	// (스프링암 프로브가 발사체에 걸려 카메라가 당겨지는 것 방지).
+	ProjectileCollisionComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 }
 
 void AFTProjectileActor::OnProjectileBeginOverlap(
