@@ -39,7 +39,7 @@ bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 
 	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ItemPickedUp, Payload);
 	
-	UE_LOG(LogFTItem, Log, TEXT("Picked up item: %s"), *ItemData->ItemData.ItemName.ToString());
+	UE_LOG(LogFTItem, Log, TEXT("%s 아이템 획득"), *ItemData->ItemData.ItemName.ToString());
 	
 	DestroyItem();
 	return true;
@@ -64,9 +64,12 @@ void AFTItemActor::DestroyItem()
 	{
 		if (UFTItemPoolSubsystem* PoolSubsystem = World->GetSubsystem<UFTItemPoolSubsystem>())
 		{
+			// 파괴 권한을 서브시스템으로 양도 (풀링 반환 처리)
 			PoolSubsystem->ReleaseItemActor(this);
 			return;
 		}
 	}
+	
+	// 서브시스템이 없거나 오류 상황일 때만 직접 파괴 실행
 	Destroy();
 }

@@ -217,22 +217,16 @@ UFTItemDataAsset* UFTInventoryComponent::FindItemData(FName ItemId) const
 {
 	UAssetManager& AssetManager = UAssetManager::Get();
 
-	// [디버깅 로그] 에셋 매니저에 스캔된 모든 FTItemItem 목록 출력
 	TArray<FPrimaryAssetId> IdList;
 	AssetManager.GetPrimaryAssetIdList(FName("FTItemItem"), IdList);
-	//UE_LOG(LogFTItem, Warning, TEXT("=== 에셋 매니저 'FTItemItem' 목록 (총: %d개) ==="), IdList.Num());
-	//for (const FPrimaryAssetId& Id : IdList)
-	//{
-	//	UE_LOG(LogFTItem, Warning, TEXT("  - 발견된 AssetId: %s (이름: %s)"), *Id.ToString(), *Id.PrimaryAssetName.ToString());
-	//}
 
 	FPrimaryAssetId AssetId = FPrimaryAssetId(FName("FTItemItem"), ItemId);
 	
-	// 1. 이미 메모리에 로드되어 있는지 확인
+	// 이미 메모리에 로드되어 있는지 확인
 	UObject* AssetObj = AssetManager.GetPrimaryAssetObject(AssetId);
 	if (!AssetObj)
 	{
-		// 2. 로드되어 있지 않다면 에셋 매니저가 스캔한 경로를 통해 동기식으로 로드(Fallback)
+		// 로드되어 있지 않다면 에셋 매니저가 스캔한 경로를 통해 동기식으로 로드(Fallback)
 		FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetId);
 		UE_LOG(LogFTItem, Warning, TEXT("  - ItemId 검색 중: %s -> 경로: %s"), *ItemId.ToString(), *AssetPath.ToString());
 		if (AssetPath.IsValid())
