@@ -41,6 +41,15 @@ public:
 	UFTInventoryComponent();
 
 	/**
+	 * @brief 인벤토리에 특정 아이템을 추가할 수 있는지 무게 등을 검증합니다.
+	 * @param ItemId : 검증할 아이템의 ID
+	 * @param Quantity : 검증할 아이템의 수량
+	 * @return 추가 가능하면 true, 무게 초과 시 false
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	bool CanAddItem(FName ItemId, int32 Quantity) const;
+
+	/**
 	 * @brief 인벤토리에 특정 아이템을 수량만큼 추가합니다.
 	 * @param ItemId : 추가할 아이템의 ID
 	 * @param Quantity : 추가할 아이템의 수량

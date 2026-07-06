@@ -152,12 +152,12 @@ namespace
 
 UStaticMesh* UFTItemIconEditorLibrary::GetItemIconMesh(const UFTItemDataAsset* ItemDataAsset)
 {
-	if (!ItemDataAsset || ItemDataAsset->ItemData.ItemMesh.IsNull())
+	if (!ItemDataAsset || !ItemDataAsset->ItemData.ItemMesh)
 	{
 		return nullptr;
 	}
 
-	return ItemDataAsset->ItemData.ItemMesh.LoadSynchronous();
+	return ItemDataAsset->ItemData.ItemMesh;
 }
 
 AActor* UFTItemIconEditorLibrary::SpawnEditorPreviewActor(
