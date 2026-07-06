@@ -280,6 +280,16 @@ void AFTNPCAIController::CancelReport()
 	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Cancelled"));
 }
 
+void AFTNPCAIController::HandleStunStateChanged(bool bStunned)
+{
+	bIsStunned = bStunned;
+
+	if (bIsStunned && CurrentReportProgress > 0.0f && !bReportCompleted)
+	{
+		CancelReport();
+	}
+}
+
 void AFTNPCAIController::UpdateTargetState()
 {
 	if (!TargetActor)
@@ -315,7 +325,7 @@ void AFTNPCAIController::UpdateTargetState()
 	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	const bool bRecentlyObservedStealing = CurrentTime - LastObservedStealingTime <= ObservedStealingMemorySeconds;
 	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
-	bCanStartReportFlow = TargetActor &&
+	bCanStartReportFlow = !bIsStunned && TargetActor &&
 		((bHasSeenTarget && bIsTargetActivelyStealing) || bObservedShelfDamaged);
 
 	if (bReportCompleted && !bCanStartReportFlow)
@@ -422,6 +432,11 @@ bool AFTNPCAIController::IsTargetStealing(const AActor* Actor) const
 
 bool AFTNPCAIController::ShouldCancelReport() const
 {
+	if (bIsStunned)
+	{
+		return true;
+	}
+
 	if (!TargetActor)
 	{
 		return true;
@@ -457,6 +472,11 @@ void AFTNPCAIController::OnShelfDamaged(
 			*GetNameSafe(SuspectActor),
 			*GetNameSafe(DamagedShelf)
 		);
+		return;
+	}
+
+	if (bIsStunned)
+	{
 		return;
 	}
 

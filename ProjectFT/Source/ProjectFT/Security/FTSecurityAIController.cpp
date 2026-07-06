@@ -18,6 +18,8 @@
 #include "Perception/AIPerceptionTypes.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Core/FTGameState.h"
+#include "ProjectFT/Components/FTSecurityCoordinationComponent.h"
 #include "ProjectFT/Struct/FTSecurityResponsePayloadStruct.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
 
@@ -105,6 +107,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 
 	UpdateAbilityState();
 	UpdateTargetState();
+	UpdateTargetFocus();
 	UpdateReturnCollision();
 	DrawSightDebug();
 }
@@ -132,6 +135,14 @@ void AFTSecurityAIController::UpdateAbilityState()
 void AFTSecurityAIController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (const UWorld* World = GetWorld())
+	{
+		if (AFTGameState* GameState = World->GetGameState<AFTGameState>())
+		{
+			GameState->SecurityCoordinationComponent->RegisterSecurityController(this);
+		}
+	}
 
 	if (SightConfig && SecurityPerceptionComponent)
 	{
@@ -279,6 +290,11 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 
 void AFTSecurityAIController::SetTargetActor(AActor* NewTargetActor)
 {
+	if (TargetActor != NewTargetActor)
+	{
+		LastTargetVisibleTime = -BIG_NUMBER;
+	}
+
 	TargetActor = NewTargetActor;
 }
 
@@ -368,12 +384,20 @@ void AFTSecurityAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetInAttackRange = false;
+		LastTargetVisibleTime = -BIG_NUMBER;
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
 
 	TargetDistance = FVector::Dist(ControlledPawn->GetActorLocation(), TargetActor->GetActorLocation());
-	bHasSeenTarget = IsTargetCurrentlyVisible();
+	const bool bTargetCurrentlyVisible = IsTargetCurrentlyVisible();
+	if (bTargetCurrentlyVisible)
+	{
+		LastTargetVisibleTime = GetWorld()->GetTimeSeconds();
+	}
+
+	const float TimeSinceTargetVisible = GetWorld()->GetTimeSeconds() - LastTargetVisibleTime;
+	bHasSeenTarget = bTargetCurrentlyVisible || TimeSinceTargetVisible <= TargetSightLostGracePeriod;
 	bIsTargetInAttackRange = bHasSeenTarget && TargetDistance <= AttackRange;
 
 	if (!bSecurityCalled && bHasSeenTarget && IsTargetStealing(TargetActor))
@@ -391,6 +415,24 @@ void AFTSecurityAIController::UpdateTargetState()
 	}
 
 	UpdateChaseGaugeTargetSeenState();
+}
+
+void AFTSecurityAIController::UpdateTargetFocus()
+{
+	const bool bShouldFocusTarget = TargetActor
+		&& bSecurityCalled
+		&& bSecurityChaseActive
+		&& !bReturning
+		&& !bTargetCaptured
+		&& !bIsStunned;
+
+	if (bShouldFocusTarget)
+	{
+		SetFocus(TargetActor, EAIFocusPriority::Gameplay);
+		return;
+	}
+
+	ClearFocus(EAIFocusPriority::Gameplay);
 }
 
 void AFTSecurityAIController::UpdateChaseGaugeTargetSeenState()
@@ -435,7 +477,9 @@ void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecuri
 	SecurityChaseGauge = 0.0f;
 	bSecurityChaseActive = false;
 	bSecurityCalled = false;
+	ClearFocus(EAIFocusPriority::Gameplay);
 	TargetActor = nullptr;
+	LastTargetVisibleTime = -BIG_NUMBER;
 	TargetDistance = 0.0f;
 	bHasSeenTarget = false;
 	bIsTargetInAttackRange = false;
@@ -675,6 +719,14 @@ bool AFTSecurityAIController::IsTargetStealing(const AActor* Actor) const
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (const UWorld* World = GetWorld())
+	{
+		if (AFTGameState* GameState = World->GetGameState<AFTGameState>())
+		{
+			GameState->SecurityCoordinationComponent->UnregisterSecurityController(this);
+		}
+	}
+
 	if (bReportedTargetSeenToChaseGauge)
 	{
 		bHasSeenTarget = false;
