@@ -3,12 +3,37 @@
 #include "../Message/FTGameplayTags.h"
 #include "Engine/DataTable.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "GameFramework/Pawn.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+
+void UFTObjectiveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ItemPickedUp, this, &ThisClass::HandleItemPickedUpMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_RaidEscaped, this, &ThisClass::HandleRaidEscapedMessage));
+}
+
+void UFTObjectiveSubsystem::Deinitialize()
+{
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	for (FGameplayMessageListenerHandle& ListenerHandle : ObjectiveListenerHandles)
+	{
+		if (ListenerHandle.IsValid())
+		{
+			MessageSubsystem.UnregisterListener(ListenerHandle);
+		}
+	}
+	ObjectiveListenerHandles.Reset();
+
+	Super::Deinitialize();
+}
 
 bool UFTObjectiveSubsystem::IsObjectiveCompleted() const
 {
@@ -25,23 +50,61 @@ bool UFTObjectiveSubsystem::IsObjectiveCompleted() const
 
 void UFTObjectiveSubsystem::NotifyItemPickedUp(FName ItemId)
 {
+	if (ItemId.IsNone() || !IsItemRequiredByActiveQuest(ItemId))
+	{
+		return;
+	}
+
+	int32& PickedUpCount = PickedUpItemCounts.FindOrAdd(ItemId);
+	++PickedUpCount;
+
 	if (RequiredItems.Contains(ItemId))
 	{
 		PickedUpRequiredItems.Add(ItemId);
 	}
 
-	if (IsObjectiveCompleted())
+	for (const FName& QuestID : ActiveQuestIDs)
 	{
-		UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-		FFTMessagePayloadStruct Payload;
-		Payload.ItemId = ItemId;
-		Payload.QuestId = CurrentQuestId;
-		MessageSubsystem.BroadcastMessage(TAG_FT_Event_ObjectiveCompleted, Payload);
+		if (const FTQuestStruct* Quest = FindQuestByID(QuestID))
+		{
+			if (GetRequiredItemCountForQuest(*Quest, ItemId) > 0)
+			{
+				BroadcastQuestProgressChanged(QuestID);
+			}
+		}
 	}
 }
 
 void UFTObjectiveSubsystem::NotifyEscapeReached()
 {
+}
+
+float UFTObjectiveSubsystem::GetQuestProgress(FName QuestID) const
+{
+	const FTQuestStruct* Quest = FindQuestByID(QuestID);
+	if (!Quest)
+	{
+		return 0.0f;
+	}
+
+	const int32 RequiredTotal = GetQuestRequiredTotal(*Quest);
+	if (RequiredTotal <= 0)
+	{
+		return 1.0f;
+	}
+
+	return FMath::Clamp(static_cast<float>(GetQuestPickedUpTotal(*Quest)) / static_cast<float>(RequiredTotal), 0.0f, 1.0f);
+}
+
+FText UFTObjectiveSubsystem::GetQuestProgressText(FName QuestID) const
+{
+	const FTQuestStruct* Quest = FindQuestByID(QuestID);
+	if (!Quest)
+	{
+		return FText::GetEmpty();
+	}
+
+	return FText::FromString(FString::Printf(TEXT("%s %.0f%%"), *Quest->QuestName.ToString(), GetQuestProgress(QuestID) * 100.0f));
 }
 
 void UFTObjectiveSubsystem::ConfigureHubQuests(
@@ -127,6 +190,12 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 		UnlockQuest(NextQuestID);
 	}
 
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	FFTMessagePayloadStruct Payload;
+	Payload.QuestId = QuestID;
+	Payload.Value = 1.0f;
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ObjectiveCompleted, Payload);
+
 	UE_LOG(LogTemp, Warning, TEXT("Quest Complete Success: %s"), *QuestID.ToString());
 	return true;
 }
@@ -208,8 +277,16 @@ bool UFTObjectiveSubsystem::AcceptQuest(FName QuestID)
 		return false;
 	}
 
+	const FTQuestStruct* Quest = FindQuestByID(QuestID);
+	if (!Quest)
+	{
+		return false;
+	}
+
 	AvailableQuestIDs.Remove(QuestID);
 	ActiveQuestIDs.Add(QuestID);
+	ActivateQuestProgress(*Quest);
+	BroadcastQuestProgressChanged(QuestID);
 	UE_LOG(LogTemp, Warning, TEXT("Quest Accepted: %s"), *QuestID.ToString());
 	return true;
 }
@@ -262,6 +339,133 @@ void UFTObjectiveSubsystem::UnlockQuest(FName QuestID)
 	}
 
 	AvailableQuestIDs.Add(QuestID);
+}
+
+void UFTObjectiveSubsystem::HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	AActor* InstigatorActor = Payload.InstigatorActor.Get();
+	if (InstigatorActor)
+	{
+		LastProgressInventory = InstigatorActor->FindComponentByClass<UFTInventoryComponent>();
+	}
+
+	NotifyItemPickedUp(Payload.ItemId);
+}
+
+void UFTObjectiveSubsystem::HandleRaidEscapedMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	CompleteTrackedQuestsOnEscape();
+}
+
+void UFTObjectiveSubsystem::ActivateQuestProgress(const FTQuestStruct& Quest)
+{
+	CurrentQuestId = Quest.QuestID;
+	RequiredItems.Reset();
+	PickedUpRequiredItems.Reset();
+
+	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
+	{
+		if (!RequiredItem.ItemID.IsNone() && RequiredItem.Count > 0)
+		{
+			RequiredItems.Add(RequiredItem.ItemID);
+		}
+	}
+}
+
+void UFTObjectiveSubsystem::BroadcastQuestProgressChanged(FName QuestID) const
+{
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	FFTMessagePayloadStruct Payload;
+	Payload.QuestId = QuestID;
+	Payload.Value = GetQuestProgress(QuestID);
+	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ObjectiveProgressChanged, Payload);
+}
+
+void UFTObjectiveSubsystem::CompleteTrackedQuestsOnEscape()
+{
+	TArray<FName> QuestIDsToComplete;
+
+	for (const FName& QuestID : ActiveQuestIDs)
+	{
+		const FTQuestStruct* Quest = FindQuestByID(QuestID);
+		if (Quest && GetQuestProgress(QuestID) >= 1.0f)
+		{
+			QuestIDsToComplete.Add(QuestID);
+		}
+	}
+
+	for (const FName& QuestID : QuestIDsToComplete)
+	{
+		TryCompleteQuest(QuestID, LastProgressInventory);
+	}
+}
+
+bool UFTObjectiveSubsystem::IsItemRequiredByActiveQuest(FName ItemID) const
+{
+	if (ItemID.IsNone())
+	{
+		return false;
+	}
+
+	for (const FName& QuestID : ActiveQuestIDs)
+	{
+		if (const FTQuestStruct* Quest = FindQuestByID(QuestID))
+		{
+			if (GetRequiredItemCountForQuest(*Quest, ItemID) > 0)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+int32 UFTObjectiveSubsystem::GetRequiredItemCountForQuest(const FTQuestStruct& Quest, FName ItemID) const
+{
+	int32 RequiredCount = 0;
+	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
+	{
+		if (RequiredItem.ItemID == ItemID)
+		{
+			RequiredCount += FMath::Max(0, RequiredItem.Count);
+		}
+	}
+
+	return RequiredCount;
+}
+
+int32 UFTObjectiveSubsystem::GetPickedUpItemCount(FName ItemID) const
+{
+	if (const int32* Count = PickedUpItemCounts.Find(ItemID))
+	{
+		return *Count;
+	}
+
+	return 0;
+}
+
+int32 UFTObjectiveSubsystem::GetQuestRequiredTotal(const FTQuestStruct& Quest) const
+{
+	int32 RequiredTotal = 0;
+	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
+	{
+		RequiredTotal += FMath::Max(0, RequiredItem.Count);
+	}
+
+	return RequiredTotal;
+}
+
+int32 UFTObjectiveSubsystem::GetQuestPickedUpTotal(const FTQuestStruct& Quest) const
+{
+	int32 PickedUpTotal = 0;
+	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
+	{
+		const int32 RequiredCount = FMath::Max(0, RequiredItem.Count);
+		PickedUpTotal += FMath::Min(GetPickedUpItemCount(RequiredItem.ItemID), RequiredCount);
+	}
+
+	return PickedUpTotal;
 }
 
 int32 UFTObjectiveSubsystem::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const

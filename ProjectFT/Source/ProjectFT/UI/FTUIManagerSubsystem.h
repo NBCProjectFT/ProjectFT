@@ -1,9 +1,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "FTUIManagerSubsystem.generated.h"
 
+struct FFTMessagePayloadStruct;
 class UFTHUDViewModel;
 class UFTInventoryViewModel;
 class UFTCraftingViewModel;
@@ -28,6 +31,7 @@ class PROJECTFT_API UFTUIManagerSubsystem : public UGameInstanceSubsystem
 
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 
 	UPROPERTY(BlueprintReadOnly, Category = "FT|UI")
 	TObjectPtr<UFTHUDViewModel> HUDViewModel = nullptr;
@@ -107,6 +111,8 @@ public:
 
 private:
 	APlayerController* GetPrimaryPlayerController() const;
+	void HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 
 private:
 	UPROPERTY(Transient)
@@ -129,4 +135,6 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubCraftTestWidget> HubCraftWidget = nullptr;
+
+	TArray<FGameplayMessageListenerHandle> UIMessageListenerHandles;
 };

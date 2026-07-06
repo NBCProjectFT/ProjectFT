@@ -25,6 +25,8 @@
 #include "ProjectFT/Hub/FTHubTerminal.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/Pawn.h"
 
@@ -43,6 +45,25 @@ void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
 	QuestViewModel = NewObject<UFTQuestViewModel>(this);
 	SettlementViewModel = NewObject<UFTSettlementViewModel>(this);
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	UIMessageListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ObjectiveProgressChanged, this, &ThisClass::HandleObjectiveProgressChanged));
+	UIMessageListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ObjectiveCompleted, this, &ThisClass::HandleObjectiveCompleted));
+}
+
+void UFTUIManagerSubsystem::Deinitialize()
+{
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	for (FGameplayMessageListenerHandle& ListenerHandle : UIMessageListenerHandles)
+	{
+		if (ListenerHandle.IsValid())
+		{
+			MessageSubsystem.UnregisterListener(ListenerHandle);
+		}
+	}
+	UIMessageListenerHandles.Reset();
+
+	Super::Deinitialize();
 }
 
 void UFTUIManagerSubsystem::ShowHUD()
@@ -565,4 +586,25 @@ APlayerController* UFTUIManagerSubsystem::GetPrimaryPlayerController() const
 {
 	const UGameInstance* OwningGameInstance = GetGameInstance();
 	return OwningGameInstance ? OwningGameInstance->GetFirstLocalPlayerController() : nullptr;
+}
+
+void UFTUIManagerSubsystem::HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	if (!HUDViewModel)
+	{
+		return;
+	}
+
+	const int32 ProgressPercent = FMath::RoundToInt(FMath::Clamp(Payload.Value, 0.0f, 1.0f) * 100.0f);
+	HUDViewModel->SetObjectiveText(FText::FromString(FString::Printf(TEXT("Quest %s %d%%"), *Payload.QuestId.ToString(), ProgressPercent)));
+}
+
+void UFTUIManagerSubsystem::HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	if (!HUDViewModel)
+	{
+		return;
+	}
+
+	HUDViewModel->SetObjectiveText(FText::FromString(FString::Printf(TEXT("Quest %s Complete"), *Payload.QuestId.ToString())));
 }
