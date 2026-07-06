@@ -47,14 +47,9 @@ bool AFTItemActor::Interact_Implementation(AActor* Interactor)
 
 void AFTItemActor::UpdateAppearance()
 {
-	if (ItemData && !ItemData->ItemData.ItemMesh.IsNull())
+	if (ItemData && ItemData->ItemData.ItemMesh)
 	{
-		// 아이템 드랍 시점에 Mesh 로드(1회)
-		UStaticMesh* LoadedMesh = ItemData->ItemData.ItemMesh.LoadSynchronous();
-		if (LoadedMesh)
-		{
-			MeshComponent->SetStaticMesh(LoadedMesh);
-		}
+		MeshComponent->SetStaticMesh(ItemData->ItemData.ItemMesh);
 	}
 }
 

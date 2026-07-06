@@ -28,6 +28,16 @@ void UFTItemPoolSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		);
 		
 		UE_LOG(LogFTItem, Log, TEXT("UFTItemPoolSubsystem: DropItem 요청 구독 등록 완료 (Game World)"));
+
+		// 모든 아이템 에셋 비동기 프리로딩으로 런타임 렉(TryLoad) 방지
+		UAssetManager& AssetManager = UAssetManager::Get();
+		TArray<FPrimaryAssetId> IdList;
+		AssetManager.GetPrimaryAssetIdList(FName("FTItemItem"), IdList);
+		if (IdList.Num() > 0)
+		{
+			AssetManager.LoadPrimaryAssets(IdList, TArray<FName>(), FStreamableDelegate());
+			UE_LOG(LogFTItem, Log, TEXT("UFTItemPoolSubsystem: %d개의 아이템 에셋 비동기 프리로딩 시작"), IdList.Num());
+		}
 	}
 }
 
