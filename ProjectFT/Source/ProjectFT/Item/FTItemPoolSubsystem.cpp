@@ -38,14 +38,17 @@ void UFTItemPoolSubsystem::Deinitialize()
 	// 어차피 서브시스템과 월드가 통째로 해제되는 시점이므로 누수가 발생하지 않습니다.
 
 	// 대기 중인 풀 내부의 모든 액터 안전 소멸
-	for (TObjectPtr<AFTItemActor> Actor : InactivePool)
+	for (auto& Pair : InactivePoolsMap)
 	{
-		if (IsValid(Actor))
+		for (TObjectPtr<AFTItemActor> Actor : Pair.Value.Actors)
 		{
-			Actor->Destroy();
+			if (IsValid(Actor))
+			{
+				Actor->Destroy();
+			}
 		}
 	}
-	InactivePool.Empty();
+	InactivePoolsMap.Empty();
 
 	Super::Deinitialize();
 }
@@ -64,23 +67,25 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 
 	AFTItemActor* TargetActor = nullptr;
 
-	// 1. 풀에 재사용 가능한 유효한 액터가 있는지 확인
-	while (InactivePool.Num() > 0)
+	// 1. 해당 ItemId의 풀이 존재하고 재사용 가능한 액터가 있는지 확인
+	if (InactivePoolsMap.Contains(ItemId))
 	{
-		TObjectPtr<AFTItemActor> PooledActor = InactivePool.Pop();
-		if (IsValid(PooledActor))
+		TArray<TObjectPtr<AFTItemActor>>& ActorsList = InactivePoolsMap[ItemId].Actors;
+		while (ActorsList.Num() > 0)
 		{
-			TargetActor = PooledActor;
-			break;
+			TObjectPtr<AFTItemActor> PooledActor = ActorsList.Pop();
+			if (IsValid(PooledActor))
+			{
+				TargetActor = PooledActor;
+				break;
+			}
 		}
 	}
 
 	if (TargetActor)
 	{
-		// 2. 풀에서 꺼낸 액터 활성화
+		// 2. 풀에서 꺼낸 액터 활성화 (메시가 이미 해당 아이템에 맞게 셋팅되어 있으므로 UpdateAppearance() 생략!)
 		TargetActor->SetActorLocationAndRotation(Location, Rotation);
-		TargetActor->ItemData = ItemDataAsset;
-		TargetActor->UpdateAppearance();
 
 		TargetActor->SetActorHiddenInGame(false);
 		TargetActor->SetActorTickEnabled(true);
@@ -94,7 +99,7 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 			MeshComp->WakeRigidBody();
 		}
 
-		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 재사용 성공: '%s' 획득 완료"), *ItemId.ToString());
+		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 재사용 성공 (동일 메시 재사용): '%s' 획득 완료"), *ItemId.ToString());
 	}
 	else
 	{
@@ -108,7 +113,7 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 			TargetActor->ItemData = ItemDataAsset;
 			TargetActor->UpdateAppearance();
 
-			UE_LOG(LogFTItem, Log, TEXT("아이템 풀 신규 스폰: '%s' 생성 완료"), *ItemId.ToString());
+			UE_LOG(LogFTItem, Log, TEXT("아이템 풀 신규 스폰 (새로운 메시 설정): '%s' 생성 완료"), *ItemId.ToString());
 		}
 	}
 
@@ -119,10 +124,18 @@ void UFTItemPoolSubsystem::ReleaseItemActor(AFTItemActor* ItemActor)
 {
 	if (!ItemActor) return;
 
-	// 최대 보관 개수를 초과하면 진짜 파괴
-	if (InactivePool.Num() >= MaxPoolSize)
+	FName ItemId = (ItemActor->ItemData) ? ItemActor->ItemData->ItemData.ItemId : NAME_None;
+	if (ItemId.IsNone())
 	{
-		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 포화 상태 (현재 크기: %d): 액터 '%s'를 실제 Destroy 처리합니다."), InactivePool.Num(), *ItemActor->GetName());
+		ItemActor->Destroy();
+		return;
+	}
+
+	// 개별 아이템 풀 한도 체크 (예: 동일 아이템 종류는 최대 15개까지만 풀링 보관)
+	FFTItemActorArray& Pool = InactivePoolsMap.FindOrAdd(ItemId);
+	if (Pool.Actors.Num() >= 15)
+	{
+		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 포화 상태 (ItemId: '%s', 현재 크기: %d): 액터 '%s'를 실제 Destroy 처리합니다."), *ItemId.ToString(), Pool.Actors.Num(), *ItemActor->GetName());
 		ItemActor->Destroy();
 		return;
 	}
@@ -131,24 +144,20 @@ void UFTItemPoolSubsystem::ReleaseItemActor(AFTItemActor* ItemActor)
 	ItemActor->SetActorHiddenInGame(true);
 	ItemActor->SetActorTickEnabled(false);
 
-	// 물리 시뮬레이션 및 콜리전 끄기
+	// 물리 시뮬레이션 및 콜리전 끄기 (메시는 유지!)
 	if (UStaticMeshComponent* MeshComp = ItemActor->FindComponentByClass<UStaticMeshComponent>())
 	{
 		MeshComp->SetSimulatePhysics(false);
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		MeshComp->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		MeshComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-		MeshComp->SetStaticMesh(nullptr); // 이전 외형 에셋 해제하여 자원 절약
 	}
-
-	// 데이터 참조 해제
-	ItemActor->ItemData = nullptr;
 
 	// 안전을 위해 멀리 떨어진 공간으로 위치 이동
 	ItemActor->SetActorLocation(FVector(0.0f, 0.0f, -99999.0f));
 
-	InactivePool.Add(ItemActor);
-	UE_LOG(LogFTItem, Log, TEXT("아이템 풀 반환 완료: '%s' (현재 풀 크기: %d/%d)"), *ItemActor->GetName(), InactivePool.Num(), MaxPoolSize);
+	Pool.Actors.Add(ItemActor);
+	UE_LOG(LogFTItem, Log, TEXT("아이템 풀 반환 완료: '%s' (ItemId: '%s', 현재 풀 크기: %d)"), *ItemActor->GetName(), *ItemId.ToString(), Pool.Actors.Num());
 }
 
 void UFTItemPoolSubsystem::HandleDropItemMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
