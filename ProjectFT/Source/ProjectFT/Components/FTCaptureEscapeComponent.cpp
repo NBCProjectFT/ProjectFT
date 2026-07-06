@@ -4,6 +4,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Abilities/GameplayAbilityTypes.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Character.h"
@@ -13,25 +14,36 @@
 
 UFTCaptureEscapeComponent::UFTCaptureEscapeComponent()
 {
-	// 붙잡힌 동안에만 틱한다(게이지 자연 감소용).
+	// 붙잡힌 동안에만 틱한다(게이지 힘싸움 = 수동증가 vs 저지력).
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
+
+	// 잡기 기본값 보존: 플레이어 자연증가 1.0/s(연타 안 해도 조금씩 차오르며 AI 저지력과 힘싸움).
+	// 비눗방울(순수 연타, Passive=0)과 달리 잡기는 이 값을 기본으로 갖는다.
+	Gauge.PassiveGainPerSecond = 1.0f;
 }
 
 void UFTCaptureEscapeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// 힘싸움: 매 틱 플레이어 자연증가(StrugglePassiveGainPerSecond)와 AI 자연감소(EscapeDecayPerSecond)가 겨룬다.
-	// 순증가면 저절로 차고, 순감소면 깎인다(연타를 멈추면 AI가 되끌어내리도록). 좌우 전환의 능동 힘은 AddStruggleInput이 별도로 더한다.
+	// 힘싸움: 매 틱 플레이어 자연증가(Gauge.PassiveGainPerSecond)와 AI 자연감소(주입된 DecayPerSecond)가 겨룬다.
+	// 좌우 전환의 능동 힘은 OnStruggleEvent(Event.Struggle)가 별도로 더한다.
 	if (bCaptured && !bEscaped)
 	{
-		const float NetPerSecond = StrugglePassiveGainPerSecond - EscapeDecayPerSecond;
-		if (NetPerSecond != 0.0f)
-		{
-			SetStruggle(AccumulatedStruggle + NetPerSecond * DeltaTime);
-		}
+		Gauge.Advance(DeltaTime);
+		TryComplete();
 	}
+}
+
+void UFTCaptureEscapeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 붙잡힌 채로 파괴돼도 태그/리스너가 남지 않도록 정리.
+	if (bCaptured)
+	{
+		EndCapture();
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint, float InEscapeThreshold, float InDecayPerSecond)
@@ -43,18 +55,17 @@ bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponen
 
 	bCaptured = true;
 	bEscaped = false;
-	AccumulatedStruggle = 0.0f;
-	// 임계값(AI 붙잡는 힘). 0/음수면 즉시 탈출·0나눗셈이 되므로 최소값으로 가드.
-	EscapeThreshold = FMath::Max(InEscapeThreshold, KINDA_SMALL_NUMBER);
-	// AI 자연감소(탈출 저지력). 음수는 방지(감소 안 함 하한 0).
-	EscapeDecayPerSecond = FMath::Max(InDecayPerSecond, 0.0f);
-	LastStruggleSign = 0.0f;
+	// 공용 게이지 시작: 임계값(AI 붙잡는 힘)·저지력(AI 탈출 저지력) 주입 + 누적 리셋.
+	Gauge.Begin(InEscapeThreshold, InDecayPerSecond);
 	Captor = InCaptor;
 
-	// 붙잡힘 상태 태그(이동/시점/아이템 차단 판정의 단일 소스).
+	// 붙잡힘 상태 태그 + '연타로 탈출 가능' 태그. 후자는 플레이어 입력이 Event.Struggle을 흘려보낼지 판정하는 단일 소스.
 	if (UAbilitySystemComponent* ASC = GetOwnerAbilitySystem())
 	{
 		ASC->AddLooseGameplayTag(TAG_FT_State_Captured);
+		ASC->AddLooseGameplayTag(TAG_FT_State_Escapable);
+		StruggleEventHandle = ASC->GenericGameplayEventCallbacks.FindOrAdd(TAG_FT_Event_Struggle)
+			.AddUObject(this, &UFTCaptureEscapeComponent::OnStruggleEvent);
 	}
 
 	if (ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))
@@ -73,8 +84,7 @@ bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponen
 			Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
 
-		// 캡처 중엔 몸(캡슐 yaw)이 컨트롤 회전을 따라 돌지 않게 끈다. 그래야 부착된 캡처 포즈(경비 CapturePoint 회전)를
-		// 따르고, 플레이어가 이송 중 시점을 돌려도 몸이 제자리에서 빙빙 돌지 않는다(시점은 스프링암이 별도로 처리).
+		// 캡처 중엔 몸(캡슐 yaw)이 컨트롤 회전을 따라 돌지 않게 끈다. 그래야 부착된 캡처 포즈(경비 CapturePoint 회전)를 따른다.
 		bSavedUseControllerRotationYaw = OwnerCharacter->bUseControllerRotationYaw;
 		OwnerCharacter->bUseControllerRotationYaw = false;
 
@@ -85,9 +95,8 @@ bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponen
 		}
 	}
 
-	// 이송 중 플레이어 스프링암(카메라 붐)의 충돌 프로브(ECC_Camera)가 "잡은 경비"의 몸에 걸려
-	// 카메라를 몸속으로 당기는 문제를 막는다. 경비의 캡슐/메시를 카메라 채널에서만 잠시 Ignore로 바꾸고
-	// (벽 등 다른 충돌 판정은 그대로 유지), EndCapture에서 원래 응답으로 복구한다.
+	// 이송 중 플레이어 스프링암(카메라 붐)의 충돌 프로브(ECC_Camera)가 "잡은 경비"의 몸에 걸려 카메라를 몸속으로
+	// 당기는 문제를 막는다. 경비의 캡슐/메시를 카메라 채널에서만 잠시 Ignore로 바꾸고, EndCapture에서 복구한다.
 	if (ACharacter* CaptorCharacter = Cast<ACharacter>(InCaptor))
 	{
 		if (UCapsuleComponent* CaptorCapsule = CaptorCharacter->GetCapsuleComponent())
@@ -139,6 +148,15 @@ void UFTCaptureEscapeComponent::EndCapture()
 	if (UAbilitySystemComponent* ASC = GetOwnerAbilitySystem())
 	{
 		ASC->RemoveLooseGameplayTag(TAG_FT_State_Captured);
+		ASC->RemoveLooseGameplayTag(TAG_FT_State_Escapable);
+		if (StruggleEventHandle.IsValid())
+		{
+			if (FGameplayEventMulticastDelegate* Delegate = ASC->GenericGameplayEventCallbacks.Find(TAG_FT_Event_Struggle))
+			{
+				Delegate->Remove(StruggleEventHandle);
+			}
+			StruggleEventHandle.Reset();
+		}
 	}
 
 	// 캡터의 카메라 채널 응답 원복(TryBeginCapture에서 Ignore로 바꿔둔 경우에만). Captor가 이미 파괴됐으면 스킵.
@@ -158,45 +176,25 @@ void UFTCaptureEscapeComponent::EndCapture()
 		bCaptorCameraResponseSaved = false;
 	}
 
-	AccumulatedStruggle = 0.0f;
-	LastStruggleSign = 0.0f;
+	Gauge.Reset();
 	Captor = nullptr;
 }
 
-void UFTCaptureEscapeComponent::AddStruggleInput(float MoveAxisX)
+void UFTCaptureEscapeComponent::OnStruggleEvent(const FGameplayEventData* Payload)
 {
 	if (!bCaptured || bEscaped)
 	{
 		return;
 	}
 
-	// 데드존 밖일 때만 방향으로 인정. 직전 인정 방향과 반대가 되면 "좌우 전환(flip)"으로 게이지 상승.
-	float Sign = 0.0f;
-	if (MoveAxisX > StruggleInputDeadzone)
-	{
-		Sign = 1.0f;
-	}
-	else if (MoveAxisX < -StruggleInputDeadzone)
-	{
-		Sign = -1.0f;
-	}
-
-	if (Sign != 0.0f)
-	{
-		if (LastStruggleSign != 0.0f && Sign != LastStruggleSign)
-		{
-			SetStruggle(AccumulatedStruggle + StruggleGainPerFlip);
-		}
-		LastStruggleSign = Sign;
-	}
+	// Event.Struggle 1발 = 좌우 전환 1회(능동 탈출력). flip 판정은 입력측(플레이어)이 이미 했다.
+	Gauge.AddFlip();
+	TryComplete();
 }
 
-void UFTCaptureEscapeComponent::SetStruggle(float NewStruggle)
+void UFTCaptureEscapeComponent::TryComplete()
 {
-	// 누적 struggle을 [0, 임계값(AI 붙잡는 힘)] 범위로 클램프. 임계값에 도달하면 탈출.
-	AccumulatedStruggle = FMath::Clamp(NewStruggle, 0.0f, EscapeThreshold);
-
-	if (!bEscaped && AccumulatedStruggle >= EscapeThreshold)
+	if (!bEscaped && Gauge.IsFull())
 	{
 		bEscaped = true;
 		// 어빌리티가 이걸 받아 성공 처리(해방 + 경비 스턴)한다. EndCapture는 어빌리티가 호출한다.

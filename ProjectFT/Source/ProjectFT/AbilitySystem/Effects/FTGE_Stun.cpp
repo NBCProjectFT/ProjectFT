@@ -28,7 +28,10 @@ UFTGE_Stun::UFTGE_Stun()
 	UTargetTagsGameplayEffectComponent* TargetTagsComponent = CreateDefaultSubobject<UTargetTagsGameplayEffectComponent>(TEXT("TargetTagsComponent"));
 	GEComponents.Add(TargetTagsComponent);
 
+	// 식별 태그(State.Debuff.Stun) + 행동불능 우산 태그(State.Debuff.Immobilized)를 함께 부여한다.
+	// 우산 태그로 캐릭터가 이동을 정지하고 어빌리티가 차단된다(개별 효과를 몰라도 됨).
 	FInheritedTagContainer GrantedTags;
 	GrantedTags.Added.AddTag(TAG_FT_State_Debuff_Stun);
+	GrantedTags.Added.AddTag(TAG_FT_State_Debuff_Immobilized);
 	TargetTagsComponent->SetAndApplyTargetTagChanges(GrantedTags);
 }
