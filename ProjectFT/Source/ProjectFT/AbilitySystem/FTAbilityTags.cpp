@@ -13,9 +13,9 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Immobilized, "State.Debuff.Immobilize
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff, "State.Debuff");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Poison, "State.Debuff.Poison");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Slow, "State.Debuff.Slow");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Escapable, "State.Debuff.Escapable");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff, "State.Buff");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff_Haste, "State.Buff.Haste");
-UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Escapable, "State.Escapable");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Struggle, "Event.Struggle");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Dead, "State.Dead");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Captured, "State.Captured");

@@ -24,7 +24,7 @@ UFTGE_BubbleTrap::UFTGE_BubbleTrap()
 	StackLimitCount = 1;
 	StackDurationRefreshPolicy = EGameplayEffectStackingDurationPolicy::RefreshOnSuccessfulApplication;
 
-	// 활성인 동안 대상에게: 식별(Bubble) + 행동불능 우산(Immobilized, 이동정지+어빌리티차단) + 탈출가능(Escapable) 태그 부여.
+	// 활성인 동안 대상에게: 식별(Bubble) + 행동불능 우산(Immobilized, 이동정지+어빌리티차단) + GE 기반 탈출형(Escapable) 태그 부여.
 	// 생성자에서는 CreateDefaultSubobject + GEComponents.Add (NewObject 기반 FindOrAddComponent는 크래시).
 	UTargetTagsGameplayEffectComponent* TargetTagsComponent = CreateDefaultSubobject<UTargetTagsGameplayEffectComponent>(TEXT("TargetTagsComponent"));
 	GEComponents.Add(TargetTagsComponent);
@@ -32,7 +32,7 @@ UFTGE_BubbleTrap::UFTGE_BubbleTrap()
 	FInheritedTagContainer GrantedTags;
 	GrantedTags.Added.AddTag(TAG_FT_State_Debuff_Bubble);
 	GrantedTags.Added.AddTag(TAG_FT_State_Debuff_Immobilized);
-	GrantedTags.Added.AddTag(TAG_FT_State_Escapable);
+	GrantedTags.Added.AddTag(TAG_FT_State_Debuff_Escapable);
 	TargetTagsComponent->SetAndApplyTargetTagChanges(GrantedTags);
 
 	// 갇힘 '지속' 연출 GameplayCue. GE 수명과 함께 자동 발동/제거된다(비주얼은 GC_Bubble Notify가 담당).

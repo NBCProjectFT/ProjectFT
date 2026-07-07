@@ -75,10 +75,6 @@ void AFTCharacterBase::BeginPlay()
 		}
 		GrantAbilityOnce(UFTGA_BubbleStackTrap::StaticClass());
 		GrantAbilityOnce(UFTGA_EscapableDebuff::StaticClass());
-
-		UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] %s common abilities granted. BubbleStackTrap present=%d"),
-			*GetName(),
-			AbilitySystemComponent->FindAbilitySpecFromClass(UFTGA_BubbleStackTrap::StaticClass()) != nullptr ? 1 : 0);
 	}
 
 	if (AttributeSet)
@@ -156,20 +152,35 @@ void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, in
 	// 콜백의 NewCount(우산 태그 카운트)가 0보다 크면 여전히 봉쇄 — 전부 사라져야(0) 복원된다.
 	const bool bImmobilized = NewCount > 0;
 
-	UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] %s Immobilized -> count=%d (bImmobilized=%d)"),
-		*GetName(), NewCount, bImmobilized ? 1 : 0);
-
-	// 공통 반응: 행동불능 시작 시 즉시 정지+이동 비활성, 해제 시 보행 복원. (보행 캐릭터 기준 — 다른 이동 모드는 자식이 OnImmobilizedStateChanged에서 보정.)
+	// 공통 반응: 행동불능 시작 시 현재 이동 모드를 저장하고 즉시 정지+이동 비활성, 해제 시 저장한 이동 모드로 복원.
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		if (bImmobilized)
 		{
+			if (!bHasPreImmobilizedMovementMode)
+			{
+				PreImmobilizedMovementMode = Movement->MovementMode;
+				PreImmobilizedCustomMovementMode = Movement->CustomMovementMode;
+				bHasPreImmobilizedMovementMode = true;
+			}
 			Movement->StopMovementImmediately();
 			Movement->DisableMovement();
 		}
 		else
 		{
-			Movement->SetMovementMode(MOVE_Walking);
+			if (!bDead)
+			{
+				const EMovementMode MovementModeToRestore = bHasPreImmobilizedMovementMode
+					? PreImmobilizedMovementMode.GetValue()
+					: MOVE_Walking;
+				const uint8 CustomMovementModeToRestore = bHasPreImmobilizedMovementMode
+					? PreImmobilizedCustomMovementMode
+					: 0;
+				Movement->SetMovementMode(MovementModeToRestore, CustomMovementModeToRestore);
+			}
+			bHasPreImmobilizedMovementMode = false;
+			PreImmobilizedMovementMode = MOVE_None;
+			PreImmobilizedCustomMovementMode = 0;
 		}
 	}
 

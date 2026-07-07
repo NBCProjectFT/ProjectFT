@@ -169,7 +169,7 @@ private:
 	void UpdateStaminaRegen(float DeltaSeconds);
 
 	// 탈출 가능 상태에서 이동 입력의 좌우 전환(flip)을 감지해 Event.Struggle을 1발 발행한다.
-	// 활성인 탈출 효과(잡기/비눗방울 등)들이 각자 이 이벤트를 받아 게이지를 올린다(브로드캐스트).
+	// 캡처 컴포넌트 또는 GE 기반 탈출 GA가 이 이벤트를 받아 게이지를 올린다.
 	void SendStruggleOnFlip(float MoveAxisX);
 
 	// 발버둥 flip 판정용: 마지막으로 인정된 이동 X축 방향 부호(-1/0/+1).

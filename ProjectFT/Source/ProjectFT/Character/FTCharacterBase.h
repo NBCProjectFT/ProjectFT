@@ -6,6 +6,7 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayTagContainer.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "TimerManager.h"
 #include "ProjectFT/Interface/FTDamageable.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
@@ -111,4 +112,8 @@ private:
 	float StruggleJitterElapsed = 0.0f;
 	float StruggleJitterLastUpdateTime = 0.0f;
 	int32 StruggleJitterDirection = 1;
+
+	bool bHasPreImmobilizedMovementMode = false;
+	TEnumAsByte<EMovementMode> PreImmobilizedMovementMode = MOVE_None;
+	uint8 PreImmobilizedCustomMovementMode = 0;
 };

@@ -60,11 +60,11 @@ bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponen
 	Gauge.Begin(InEscapeThreshold, InDecayPerSecond);
 	Captor = InCaptor;
 
-	// 붙잡힘 상태 태그 + '연타로 탈출 가능' 태그. 후자는 플레이어 입력이 Event.Struggle을 흘려보낼지 판정하는 단일 소스.
+	// 붙잡힘 관계 상태 + 공통 행동불능 태그. 탈출 게이지는 이 컴포넌트가 직접 Event.Struggle을 수신해 처리한다.
 	if (UAbilitySystemComponent* ASC = GetOwnerAbilitySystem())
 	{
 		ASC->AddLooseGameplayTag(TAG_FT_State_Captured);
-		ASC->AddLooseGameplayTag(TAG_FT_State_Escapable);
+		ASC->AddLooseGameplayTag(TAG_FT_State_Debuff_Immobilized);
 		StruggleEventHandle = ASC->GenericGameplayEventCallbacks.FindOrAdd(TAG_FT_Event_Struggle)
 			.AddUObject(this, &UFTCaptureEscapeComponent::OnStruggleEvent);
 	}
@@ -136,12 +136,6 @@ void UFTCaptureEscapeComponent::EndCapture()
 			Capsule->SetCollisionEnabled(SavedCollisionEnabled);
 		}
 
-		// 이동 복구(다시 걷기 — 공중이면 낙하 후 착지).
-		if (UCharacterMovementComponent* Movement = OwnerCharacter->GetCharacterMovement())
-		{
-			Movement->SetMovementMode(MOVE_Walking);
-		}
-
 		// 캡처 중 꺼둔 몸 회전(컨트롤러 yaw 추종)을 원복한다.
 		OwnerCharacter->bUseControllerRotationYaw = bSavedUseControllerRotationYaw;
 	}
@@ -149,7 +143,7 @@ void UFTCaptureEscapeComponent::EndCapture()
 	if (UAbilitySystemComponent* ASC = GetOwnerAbilitySystem())
 	{
 		ASC->RemoveLooseGameplayTag(TAG_FT_State_Captured);
-		ASC->RemoveLooseGameplayTag(TAG_FT_State_Escapable);
+		ASC->RemoveLooseGameplayTag(TAG_FT_State_Debuff_Immobilized);
 		if (StruggleEventHandle.IsValid())
 		{
 			if (FGameplayEventMulticastDelegate* Delegate = ASC->GenericGameplayEventCallbacks.Find(TAG_FT_Event_Struggle))

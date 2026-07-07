@@ -44,15 +44,12 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Immobilized);
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff);          // 모든 디버프의 부모(질의/해독용)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Poison);   // 독: 주기적 체력 감소 (UFTGE_Poison)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Slow);     // 슬로우: 이동속도 감소 (UFTGE_Slow)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Escapable);// GE 기반 자가 탈출형 디버프(버블/빙결 등): GA_EscapableDebuff 트리거/제거 기준
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff);            // 모든 버프의 부모(질의/디스펠용)
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Buff_Haste);     // 헤이스트: 이동속도 증가 (UFTGE_Haste)
 
-// '연타로 탈출 가능' 상태의 우산 태그. 탈출형 효과(비눗방울/빙결/잡기 등)가 활성인 동안 대상에게 부여된다.
-// 플레이어 입력은 개별 효과가 아니라 이 태그만 보고 "지금 발버둥 입력을 흘려보낼지"를 판정한다(Event.Struggle 발행).
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Escapable);
-
 // 발버둥(좌우 연타) 입력 1회를 알리는 GameplayEvent. 플레이어가 flip을 감지할 때마다 자기 ASC로 발행하고,
-// 활성인 탈출 효과들이 각자 이 이벤트를 받아 자기 게이지를 올린다(브로드캐스트 — 여러 개면 동시에 기여).
+// 현재 활성인 탈출 시스템(캡처 컴포넌트 또는 GE 기반 탈출 GA)이 이 이벤트를 받아 자기 게이지를 올린다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_Struggle);
 
 // 사망 상태 태그. 체력 소진 시 AFTCharacterBase가 소유 ASC에 Loose 태그로 부여한다(GE 수명이 아닌 캐릭터 상태).

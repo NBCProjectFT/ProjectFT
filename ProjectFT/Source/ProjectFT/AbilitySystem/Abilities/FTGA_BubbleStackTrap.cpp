@@ -33,7 +33,8 @@ float UFTGA_BubbleStackTrap::ResolveBubbleDurationFromActiveStacks(const UAbilit
 	}
 
 	const FGameplayTagContainer StackTags(TAG_FT_State_Debuff_BubbleStack);
-	const TArray<FActiveGameplayEffectHandle> StackHandles = ASC->GetActiveEffectsWithAllTags(StackTags);
+	const FGameplayEffectQuery Query = FGameplayEffectQuery::MakeQuery_MatchAllOwningTags(StackTags);
+	const TArray<FActiveGameplayEffectHandle> StackHandles = ASC->GetActiveEffects(Query);
 
 	for (const FActiveGameplayEffectHandle& StackHandle : StackHandles)
 	{
@@ -78,16 +79,12 @@ void UFTGA_BubbleStackTrap::ActivateAbility(const FGameplayAbilitySpecHandle Han
 	StackCountHandle = ASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_BubbleStack, EGameplayTagEventType::AnyCountChange)
 		.AddUObject(this, &UFTGA_BubbleStackTrap::OnStackCountChanged);
 
-	UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] StackTrap ACTIVATED on %s. count=%d threshold=%d"),
-		*GetNameSafe(GetAvatarActorFromActorInfo()), ASC->GetGameplayTagCount(TAG_FT_State_Debuff_BubbleStack), BubbleTrapThreshold);
-
 	// 발동 시점에 이미 임계치를 넘겼을 수도 있으니 즉시 한 번 판정.
 	TryTrap(ASC->GetGameplayTagCount(TAG_FT_State_Debuff_BubbleStack));
 }
 
 void UFTGA_BubbleStackTrap::OnStackCountChanged(const FGameplayTag CallbackTag, int32 NewCount)
 {
-	UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] StackCount -> %d (threshold %d)"), NewCount, BubbleTrapThreshold);
 	TryTrap(NewCount);
 }
 
@@ -119,13 +116,7 @@ void UFTGA_BubbleStackTrap::TryTrap(int32 CurrentStackCount)
 			const float BubbleDuration = ResolveBubbleDurationFromActiveStacks(ASC);
 			TrapSpec.Data->SetSetByCallerMagnitude(TAG_FT_Data_BubbleDuration, BubbleDuration);
 			ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, TrapSpec);
-			UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] TRAP applied on %s (count=%d, GE duration=%.2f)"),
-				*GetNameSafe(GetAvatarActorFromActorInfo()), CurrentStackCount, TrapSpec.Data->GetDuration());
 		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[BubbleDebug] TRAP skipped: TrapEffectClass is null."));
 	}
 
 	// 쌓인 스택 GE 제거 → 카운트 리셋(갇힘 해제 직후 남은 스택으로 즉시 재갇힘 방지).
