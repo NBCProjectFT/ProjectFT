@@ -173,6 +173,21 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 		}
 	}
 
+	if (Quest->CurrencyReward > 0)
+	{
+		FName CurrencyItemID = TEXT("ID_Coin");
+		if (UFTShopSubsystem* ShopSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UFTShopSubsystem>() : nullptr)
+		{
+			CurrencyItemID = ShopSubsystem->GetCurrencyItemID();
+		}
+
+		if (CurrencyItemID.IsNone() || !PlayerInventory->AddItem(CurrencyItemID, Quest->CurrencyReward))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Quest Currency Reward Failed: %s / Amount %d"), *QuestID.ToString(), Quest->CurrencyReward);
+			return false;
+		}
+	}
+
 	if (UFTShopSubsystem* ShopSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UFTShopSubsystem>() : nullptr)
 	{
 		for (const FName& ShopItemID : Quest->UnlockedShopItemIDs)

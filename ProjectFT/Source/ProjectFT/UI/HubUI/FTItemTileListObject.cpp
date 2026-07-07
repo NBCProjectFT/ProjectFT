@@ -87,6 +87,21 @@ TSoftObjectPtr<UTexture2D> UFTItemTileListObject::GetItemIcon() const
 	return ItemIcon;
 }
 
+FText UFTItemTileListObject::GetCategoryText() const
+{
+	switch (CategoryType)
+	{
+	case EFTItemCategoryType::Common:
+		return FText::FromString(TEXT("일반"));
+	case EFTItemCategoryType::Weapon:
+		return FText::FromString(TEXT("무기"));
+	case EFTItemCategoryType::Healing:
+		return FText::FromString(TEXT("회복"));
+	default:
+		return FText::FromString(TEXT("기타"));
+	}
+}
+
 void UFTItemTileListObject::LoadItemData()
 {
 	if (ItemID.IsNone())
@@ -119,4 +134,5 @@ void UFTItemTileListObject::LoadItemData()
 	Description = ItemDataAsset->ItemData.ItemDescription;
 	ItemIcon = ItemDataAsset->ItemData.ItemIcon;
 	UnitWeight = FMath::Max(0.0f, ItemDataAsset->ItemData.Weight);
+	CategoryType = ItemDataAsset->ItemData.CategoryType;
 }

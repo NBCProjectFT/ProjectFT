@@ -25,9 +25,19 @@ public:
 	UFTQuestListObject* GetSelectedQuestObject() const;
 
 	FText GetSelectedQuestNameText() const;
+	FText GetSelectedQuestSenderText() const;
 	FText GetSelectedQuestDescriptionText() const;
+	FText GetSelectedQuestObjectiveLinesText() const;
+	FText GetSelectedQuestCurrencyRewardText() const;
+	FText GetSelectedQuestActionText() const;
+	FText GetActiveQuestCountText() const;
+	FText GetCompletedQuestCountText() const;
+	bool IsActiveQuestTabSelected() const;
+	bool IsCompletedQuestTabSelected() const;
+	bool HasSelectedQuestRequiredItems() const;
 	bool CanAcceptSelectedQuest() const;
 	bool CanCompleteSelectedQuest() const;
+	bool CanExecuteSelectedQuestAction() const;
 
 	UPROPERTY(BlueprintReadWrite, Category = "FT|Quest")
 	float ObjectiveProgress = 0.0f;
@@ -37,6 +47,7 @@ public:
 	void SelectQuestObject(UObject* ItemObject);
 	bool AcceptSelectedQuest();
 	bool CompleteSelectedQuest();
+	bool ExecuteSelectedQuestAction();
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Quest")
 	FFTQuestViewModelChanged OnChanged;
@@ -72,5 +83,5 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFTQuestListObject> SelectedQuestObject;
 
-	EFTQuestStateType CurrentQuestFilter = EFTQuestStateType::Available;
+	EFTQuestStateType CurrentQuestFilter = EFTQuestStateType::Active;
 };

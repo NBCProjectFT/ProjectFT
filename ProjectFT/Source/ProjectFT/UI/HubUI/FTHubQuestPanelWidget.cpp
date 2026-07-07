@@ -9,6 +9,24 @@
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTQuestViewModel.h"
 
+namespace
+{
+	const FLinearColor QuestTabNormalTint = FLinearColor::FromSRGBColor(FColor::FromHex(TEXT("0E1315FF")));
+	const FLinearColor QuestTabSelectedTint = FLinearColor::FromSRGBColor(FColor::FromHex(TEXT("182126FF")));
+
+	void ApplyQuestTabNormalTint(UButton* Button, const bool bSelected)
+	{
+		if (!Button)
+		{
+			return;
+		}
+
+		FButtonStyle ButtonStyle = Button->GetStyle();
+		ButtonStyle.Normal.TintColor = FSlateColor(bSelected ? QuestTabSelectedTint : QuestTabNormalTint);
+		Button->SetStyle(ButtonStyle);
+	}
+}
+
 void UFTHubQuestPanelWidget::InitializeQuestPanel(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
 	if (!ViewModel)
@@ -43,12 +61,6 @@ void UFTHubQuestPanelWidget::NativeConstruct()
 		LV_Quests->OnItemClicked().AddUObject(this, &UFTHubQuestPanelWidget::HandleQuestClicked);
 	}
 
-	if (BTN_AvailableQuestTab)
-	{
-		BTN_AvailableQuestTab->OnClicked.RemoveDynamic(this, &UFTHubQuestPanelWidget::HandleAvailableQuestTabClicked);
-		BTN_AvailableQuestTab->OnClicked.AddDynamic(this, &UFTHubQuestPanelWidget::HandleAvailableQuestTabClicked);
-	}
-
 	if (BTN_ActiveQuestTab)
 	{
 		BTN_ActiveQuestTab->OnClicked.RemoveDynamic(this, &UFTHubQuestPanelWidget::HandleActiveQuestTabClicked);
@@ -61,16 +73,10 @@ void UFTHubQuestPanelWidget::NativeConstruct()
 		BTN_CompletedQuestTab->OnClicked.AddDynamic(this, &UFTHubQuestPanelWidget::HandleCompletedQuestTabClicked);
 	}
 
-	if (BTN_CompleteQuest)
+	if (BTN_QuestAction)
 	{
-		BTN_CompleteQuest->OnClicked.RemoveDynamic(this, &UFTHubQuestPanelWidget::HandleCompleteQuestClicked);
-		BTN_CompleteQuest->OnClicked.AddDynamic(this, &UFTHubQuestPanelWidget::HandleCompleteQuestClicked);
-	}
-
-	if (BTN_AcceptQuest)
-	{
-		BTN_AcceptQuest->OnClicked.RemoveDynamic(this, &UFTHubQuestPanelWidget::HandleAcceptQuestClicked);
-		BTN_AcceptQuest->OnClicked.AddDynamic(this, &UFTHubQuestPanelWidget::HandleAcceptQuestClicked);
+		BTN_QuestAction->OnClicked.RemoveDynamic(this, &UFTHubQuestPanelWidget::HandleQuestActionClicked);
+		BTN_QuestAction->OnClicked.AddDynamic(this, &UFTHubQuestPanelWidget::HandleQuestActionClicked);
 	}
 
 	RefreshFromViewModel();
@@ -94,20 +100,76 @@ void UFTHubQuestPanelWidget::RefreshFromViewModel()
 		TXT_SelectedQuestName->SetText(ViewModel->GetSelectedQuestNameText());
 	}
 
+	if (TXT_ActiveQuestCount)
+	{
+		TXT_ActiveQuestCount->SetText(ViewModel->GetActiveQuestCountText());
+	}
+
+	if (TXT_CompletedQuestCount)
+	{
+		TXT_CompletedQuestCount->SetText(ViewModel->GetCompletedQuestCountText());
+	}
+
+	RefreshTabButtonStyles();
+
+	if (TXT_QuestSender)
+	{
+		TXT_QuestSender->SetText(ViewModel->GetSelectedQuestSenderText());
+	}
+
 	if (TXT_QuestDescription)
 	{
 		TXT_QuestDescription->SetText(ViewModel->GetSelectedQuestDescriptionText());
 	}
 
-	if (BTN_CompleteQuest)
+	if (TXT_QuestObjectiveLines)
 	{
-		BTN_CompleteQuest->SetIsEnabled(ViewModel->CanCompleteSelectedQuest());
+		TXT_QuestObjectiveLines->SetText(ViewModel->GetSelectedQuestObjectiveLinesText());
 	}
 
-	if (BTN_AcceptQuest)
+	if (TV_RequiredItems)
 	{
-		BTN_AcceptQuest->SetIsEnabled(ViewModel->CanAcceptSelectedQuest());
+		TV_RequiredItems->SetVisibility(ViewModel->HasSelectedQuestRequiredItems()
+			? ESlateVisibility::Visible
+			: ESlateVisibility::Collapsed);
 	}
+
+	if (TV_RewardItems)
+	{
+		TV_RewardItems->SetVisibility(ViewModel->GetRewardItemObjects().IsEmpty()
+			? ESlateVisibility::Collapsed
+			: ESlateVisibility::Visible);
+	}
+
+	if (TXT_QuestCurrencyReward)
+	{
+		const FText CurrencyRewardText = ViewModel->GetSelectedQuestCurrencyRewardText();
+		TXT_QuestCurrencyReward->SetText(CurrencyRewardText);
+		TXT_QuestCurrencyReward->SetVisibility(CurrencyRewardText.IsEmpty()
+			? ESlateVisibility::Collapsed
+			: ESlateVisibility::Visible);
+	}
+
+	if (BTN_QuestAction)
+	{
+		BTN_QuestAction->SetIsEnabled(ViewModel->CanExecuteSelectedQuestAction());
+	}
+
+	if (TXT_QuestAction)
+	{
+		TXT_QuestAction->SetText(ViewModel->GetSelectedQuestActionText());
+	}
+}
+
+void UFTHubQuestPanelWidget::RefreshTabButtonStyles()
+{
+	if (!ViewModel)
+	{
+		return;
+	}
+
+	ApplyQuestTabNormalTint(BTN_ActiveQuestTab, ViewModel->IsActiveQuestTabSelected());
+	ApplyQuestTabNormalTint(BTN_CompletedQuestTab, ViewModel->IsCompletedQuestTabSelected());
 }
 
 void UFTHubQuestPanelWidget::PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem)
@@ -157,27 +219,11 @@ void UFTHubQuestPanelWidget::HandleQuestClicked(UObject* Item)
 	ViewModel->SelectQuestObject(Item);
 }
 
-void UFTHubQuestPanelWidget::HandleCompleteQuestClicked()
+void UFTHubQuestPanelWidget::HandleQuestActionClicked()
 {
 	if (ViewModel)
 	{
-		ViewModel->CompleteSelectedQuest();
-	}
-}
-
-void UFTHubQuestPanelWidget::HandleAcceptQuestClicked()
-{
-	if (ViewModel)
-	{
-		ViewModel->AcceptSelectedQuest();
-	}
-}
-
-void UFTHubQuestPanelWidget::HandleAvailableQuestTabClicked()
-{
-	if (ViewModel)
-	{
-		ViewModel->SetQuestFilter(EFTQuestStateType::Available);
+		ViewModel->ExecuteSelectedQuestAction();
 	}
 }
 

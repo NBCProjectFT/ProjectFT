@@ -8,6 +8,7 @@ class UButton;
 class UFTInventoryComponent;
 class UFTShopSubsystem;
 class UFTShopViewModel;
+class UImage;
 class UTextBlock;
 class UTileView;
 
@@ -23,17 +24,38 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTileView* TV_Items;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTileView* TV_ShopItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTileView* TV_PlayerItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* IMG_SelectedItemIcon;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemName;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_ItemName;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemTag;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_Tag;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemDescription;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemOwnedCount;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_ItemCount;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemPrice;
@@ -44,11 +66,35 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemState;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TradeQuantity;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TotalPrice;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TradeAction;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_BuyMode;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_SellMode;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Buy;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Sell;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityMinus;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityPlus;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_TradeAction;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Refresh;
@@ -57,17 +103,25 @@ private:
 	UFUNCTION()
 	void RefreshFromViewModel();
 
+	UTileView* GetPrimaryTileView() const;
 	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
-	void HandleShopItemClicked(UObject* Item);
-	void HandlePlayerItemClicked(UObject* Item);
-	void HandleShopItemSelectionChanged(UObject* Item);
-	void HandlePlayerItemSelectionChanged(UObject* Item);
+	void HandleItemClicked(UObject* Item);
+	void HandleItemSelectionChanged(UObject* Item);
 
 	UFUNCTION()
-	void HandleBuyClicked();
+	void HandleBuyModeClicked();
 
 	UFUNCTION()
-	void HandleSellClicked();
+	void HandleSellModeClicked();
+
+	UFUNCTION()
+	void HandleQuantityMinusClicked();
+
+	UFUNCTION()
+	void HandleQuantityPlusClicked();
+
+	UFUNCTION()
+	void HandleTradeActionClicked();
 
 	UFUNCTION()
 	void HandleRefreshClicked();
