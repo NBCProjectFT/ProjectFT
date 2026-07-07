@@ -8,6 +8,7 @@
 
 class AFTHubStorage;
 class UFTInventoryComponent;
+class UFTStorageSubsystem;
 
 UENUM(BlueprintType)
 enum class EFTHubStorageTransferSource : uint8
@@ -25,7 +26,7 @@ class PROJECTFT_API UFTHubStorageViewModel : public UObject
 	GENERATED_BODY()
 
 public:
-	void Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory, bool bInUsePlayerTileItems, bool bInUseStorageTileItems);
+	void Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory);
 
 	const TArray<TObjectPtr<UObject>>& GetPlayerItemObjects() const;
 	const TArray<TObjectPtr<UObject>>& GetStorageItemObjects() const;
@@ -61,6 +62,9 @@ private:
 	void RefreshStorageItems();
 	void BindInventoryDelegates();
 	void UnbindInventoryDelegates();
+	UFTStorageSubsystem* GetStorageSubsystem() const;
+	UFTInventoryComponent* GetStorageInventory() const;
+	void GetCurrentStorageItems(TArray<FTStorageItemStruct>& OutItems) const;
 	bool ShouldShowItem(FName ItemID, EFTItemCategoryType FilterCategory) const;
 	EFTItemCategoryType GetItemCategory(FName ItemID) const;
 	bool TryReadItemObject(UObject* ItemObject, FTStorageItemStruct& OutItem) const;
@@ -83,6 +87,4 @@ private:
 	EFTHubStorageTransferSource SelectedSource = EFTHubStorageTransferSource::None;
 	EFTItemCategoryType PlayerFilterCategory = EFTItemCategoryType::None;
 	EFTItemCategoryType StorageFilterCategory = EFTItemCategoryType::None;
-	bool bUsePlayerTileItems = false;
-	bool bUseStorageTileItems = false;
 };

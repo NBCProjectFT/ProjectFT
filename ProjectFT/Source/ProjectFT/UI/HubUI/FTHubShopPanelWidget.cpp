@@ -1,56 +1,85 @@
 #include "FTHubShopPanelWidget.h"
 
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
+#include "Engine/Texture2D.h"
 #include "FTItemTileListObject.h"
-#include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/Hub/FTHubShop.h"
+#include "ProjectFT/ViewModel/FTShopViewModel.h"
 #include "Types/SlateEnums.h"
 
-void UFTHubShopPanelWidget::InitializeShopPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory)
+void UFTHubShopPanelWidget::InitializeShopPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
-	HubShop = InHubShop;
-	PlayerInventory = InPlayerInventory;
-	SelectedShopItem = nullptr;
-	SelectedPlayerItem = nullptr;
-	SelectedSource = EShopSelectionSourceType::None;
-	RefreshAllItems();
-	UpdateSelectedItemDetails();
+	if (!ViewModel)
+	{
+		ViewModel = NewObject<UFTShopViewModel>(this);
+	}
+
+	ViewModel->OnChanged.RemoveDynamic(this, &UFTHubShopPanelWidget::RefreshFromViewModel);
+	ViewModel->OnChanged.AddDynamic(this, &UFTHubShopPanelWidget::RefreshFromViewModel);
+	ViewModel->Initialize(InShopSubsystem, InPlayerInventory);
+	RefreshFromViewModel();
 }
 
 void UFTHubShopPanelWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (TV_ShopItems)
+	if (UTileView* PrimaryTileView = GetPrimaryTileView())
 	{
-		TV_ShopItems->SetSelectionMode(ESelectionMode::Single);
-		TV_ShopItems->OnItemClicked().RemoveAll(this);
-		TV_ShopItems->OnItemClicked().AddUObject(this, &UFTHubShopPanelWidget::HandleShopItemClicked);
-		TV_ShopItems->OnItemSelectionChanged().RemoveAll(this);
-		TV_ShopItems->OnItemSelectionChanged().AddUObject(this, &UFTHubShopPanelWidget::HandleShopItemSelectionChanged);
+		PrimaryTileView->SetSelectionMode(ESelectionMode::Single);
+		PrimaryTileView->OnItemClicked().RemoveAll(this);
+		PrimaryTileView->OnItemClicked().AddUObject(this, &UFTHubShopPanelWidget::HandleItemClicked);
+		PrimaryTileView->OnItemSelectionChanged().RemoveAll(this);
+		PrimaryTileView->OnItemSelectionChanged().AddUObject(this, &UFTHubShopPanelWidget::HandleItemSelectionChanged);
 	}
 
 	if (TV_PlayerItems)
 	{
-		TV_PlayerItems->SetSelectionMode(ESelectionMode::Single);
-		TV_PlayerItems->OnItemClicked().RemoveAll(this);
-		TV_PlayerItems->OnItemClicked().AddUObject(this, &UFTHubShopPanelWidget::HandlePlayerItemClicked);
-		TV_PlayerItems->OnItemSelectionChanged().RemoveAll(this);
-		TV_PlayerItems->OnItemSelectionChanged().AddUObject(this, &UFTHubShopPanelWidget::HandlePlayerItemSelectionChanged);
+		TV_PlayerItems->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	if (BTN_BuyMode)
+	{
+		BTN_BuyMode->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleBuyModeClicked);
+		BTN_BuyMode->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleBuyModeClicked);
 	}
 
 	if (BTN_Buy)
 	{
-		BTN_Buy->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleBuyClicked);
-		BTN_Buy->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleBuyClicked);
+		BTN_Buy->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleBuyModeClicked);
+		BTN_Buy->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleBuyModeClicked);
+	}
+
+	if (BTN_SellMode)
+	{
+		BTN_SellMode->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleSellModeClicked);
+		BTN_SellMode->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleSellModeClicked);
 	}
 
 	if (BTN_Sell)
 	{
-		BTN_Sell->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleSellClicked);
-		BTN_Sell->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleSellClicked);
+		BTN_Sell->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleSellModeClicked);
+		BTN_Sell->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleSellModeClicked);
+	}
+
+	if (BTN_QuantityMinus)
+	{
+		BTN_QuantityMinus->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleQuantityMinusClicked);
+		BTN_QuantityMinus->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleQuantityMinusClicked);
+	}
+
+	if (BTN_QuantityPlus)
+	{
+		BTN_QuantityPlus->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleQuantityPlusClicked);
+		BTN_QuantityPlus->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleQuantityPlusClicked);
+	}
+
+	if (BTN_TradeAction)
+	{
+		BTN_TradeAction->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleTradeActionClicked);
+		BTN_TradeAction->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleTradeActionClicked);
 	}
 
 	if (BTN_Refresh)
@@ -59,300 +88,195 @@ void UFTHubShopPanelWidget::NativeConstruct()
 		BTN_Refresh->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleRefreshClicked);
 	}
 
-	RefreshAllItems();
-	UpdateSelectedItemDetails();
+	RefreshFromViewModel();
 }
 
-void UFTHubShopPanelWidget::RefreshShopItems()
+void UFTHubShopPanelWidget::RefreshFromViewModel()
 {
-	if (!TV_ShopItems)
+	if (!ViewModel)
 	{
 		return;
 	}
 
-	const FName SelectedItemID = SelectedShopItem
-		? SelectedShopItem->GetItemID()
-		: NAME_None;
+	bRefreshingFromViewModel = true;
+	PopulateTileItems(GetPrimaryTileView(), ViewModel->GetCurrentItemObjects(), ViewModel->GetSelectedCurrentItemObject());
+	bRefreshingFromViewModel = false;
 
-	SelectedShopItem = nullptr;
-	TV_ShopItems->ClearListItems();
-
-	if (!HubShop)
-	{
-		return;
-	}
-
-	TArray<FTShopItemStruct> ShopItems;
-	HubShop->GetShopItems(ShopItems);
-
-	for (const FTShopItemStruct& ShopItem : ShopItems)
-	{
-		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		ItemObject->InitializeShopItem(ShopItem, !HubShop->IsShopItemUnlocked(ShopItem.ItemID));
-		TV_ShopItems->AddItem(ItemObject);
-
-		if (ShopItem.ItemID == SelectedItemID)
-		{
-			SelectedShopItem = ItemObject;
-			TV_ShopItems->SetItemSelection(ItemObject, true);
-		}
-	}
-}
-
-void UFTHubShopPanelWidget::RefreshPlayerItems()
-{
-	if (!TV_PlayerItems)
-	{
-		return;
-	}
-
-	const FName SelectedItemID = SelectedPlayerItem
-		? SelectedPlayerItem->GetItemID()
-		: NAME_None;
-
-	SelectedPlayerItem = nullptr;
-	TV_PlayerItems->ClearListItems();
-
-	if (!PlayerInventory)
-	{
-		return;
-	}
-
-	for (const FFTInventoryItem& InventoryItem : PlayerInventory->GetItems())
-	{
-		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		const int32 SellPrice = HubShop
-			? HubShop->GetShopSellPrice(InventoryItem.ItemId)
-			: 0;
-		ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity, SellPrice);
-		TV_PlayerItems->AddItem(ItemObject);
-
-		if (InventoryItem.ItemId == SelectedItemID)
-		{
-			SelectedPlayerItem = ItemObject;
-			TV_PlayerItems->SetItemSelection(ItemObject, true);
-		}
-	}
-}
-
-void UFTHubShopPanelWidget::RefreshAllItems()
-{
-	RefreshShopItems();
-	RefreshPlayerItems();
-}
-
-void UFTHubShopPanelWidget::UpdateSelectedItemDetails()
-{
-	const UFTItemTileListObject* SelectedItem = nullptr;
-	if (SelectedSource == EShopSelectionSourceType::Shop)
-	{
-		SelectedItem = SelectedShopItem;
-	}
-	else if (SelectedSource == EShopSelectionSourceType::Player)
-	{
-		SelectedItem = SelectedPlayerItem;
-	}
-
-	const bool bHasSelection = SelectedItem != nullptr;
-	const FName ItemID = bHasSelection ? SelectedItem->GetItemID() : NAME_None;
-	const bool bCanBuy = SelectedSource == EShopSelectionSourceType::Shop && HubShop && HubShop->CanBuyItem(ItemID, PlayerInventory);
-	const bool bCanSell = SelectedSource == EShopSelectionSourceType::Player && HubShop && HubShop->CanSellItemToShop(ItemID, 1, PlayerInventory);
-
+	const FText SelectedItemName = ViewModel->GetSelectedItemNameText();
 	if (TXT_SelectedItemName)
 	{
-		TXT_SelectedItemName->SetText(bHasSelection
-			? SelectedItem->GetDisplayName()
-			: FText::FromString(TEXT("Select Item")));
+		TXT_SelectedItemName->SetText(SelectedItemName);
+	}
+
+	if (TXT_ItemName)
+	{
+		TXT_ItemName->SetText(SelectedItemName);
+	}
+
+	const FText SelectedItemTag = ViewModel->GetSelectedItemTagText();
+	if (TXT_SelectedItemTag)
+	{
+		TXT_SelectedItemTag->SetText(SelectedItemTag);
+	}
+
+	if (TXT_Tag)
+	{
+		TXT_Tag->SetText(SelectedItemTag);
 	}
 
 	if (TXT_SelectedItemDescription)
 	{
-		TXT_SelectedItemDescription->SetText(bHasSelection
-			? SelectedItem->GetDescription()
-			: FText::GetEmpty());
+		TXT_SelectedItemDescription->SetText(ViewModel->GetSelectedItemDescriptionText());
+	}
+
+	const FText OwnedCountText = ViewModel->GetSelectedItemOwnedCountText();
+	if (TXT_SelectedItemOwnedCount)
+	{
+		TXT_SelectedItemOwnedCount->SetText(OwnedCountText);
+	}
+
+	if (TXT_ItemCount)
+	{
+		TXT_ItemCount->SetText(OwnedCountText);
 	}
 
 	if (TXT_SelectedItemPrice)
 	{
-		TXT_SelectedItemPrice->SetText(bHasSelection
-			? FText::FromString(FString::Printf(TEXT("Price: %d"), SelectedItem->GetPrice()))
-			: FText::GetEmpty());
+		TXT_SelectedItemPrice->SetText(ViewModel->GetSelectedItemPriceText());
 	}
 
 	if (TXT_SelectedItemCount)
 	{
-		TXT_SelectedItemCount->SetText(bHasSelection
-			? FText::FromString(FString::Printf(TEXT("Count: %d"), SelectedItem->GetCount()))
-			: FText::GetEmpty());
+		TXT_SelectedItemCount->SetText(ViewModel->GetSelectedItemCountText());
 	}
 
 	if (TXT_SelectedItemState)
 	{
-		TXT_SelectedItemState->SetText(bHasSelection
-			? (bCanBuy || bCanSell ? FText::FromString(TEXT("거래 가능")) : FText::FromString(TEXT("거래 불가")))
-			: FText::GetEmpty());
+		TXT_SelectedItemState->SetText(ViewModel->GetSelectedItemStateText());
 	}
 
-	if (BTN_Buy)
+	if (TXT_TradeQuantity)
 	{
-		BTN_Buy->SetIsEnabled(bCanBuy);
+		TXT_TradeQuantity->SetText(ViewModel->GetTradeQuantityText());
 	}
 
-	if (BTN_Sell)
+	if (TXT_TotalPrice)
 	{
-		BTN_Sell->SetIsEnabled(bCanSell);
+		TXT_TotalPrice->SetText(ViewModel->GetTradeTotalPriceText());
+	}
+
+	if (TXT_TradeAction)
+	{
+		TXT_TradeAction->SetText(ViewModel->GetTradeActionText());
+	}
+
+	if (BTN_TradeAction)
+	{
+		BTN_TradeAction->SetIsEnabled(ViewModel->CanExecuteTradeAction());
+	}
+
+	if (IMG_SelectedItemIcon)
+	{
+		if (UTexture2D* IconTexture = ViewModel->GetSelectedItemIcon().LoadSynchronous())
+		{
+			IMG_SelectedItemIcon->SetBrushFromTexture(IconTexture, true);
+			IMG_SelectedItemIcon->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			IMG_SelectedItemIcon->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 }
 
-void UFTHubShopPanelWidget::ClearTileChecks(UTileView* TileView)
+UTileView* UFTHubShopPanelWidget::GetPrimaryTileView() const
+{
+	return TV_Items ? TV_Items : TV_ShopItems;
+}
+
+void UFTHubShopPanelWidget::PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem)
 {
 	if (!TileView)
 	{
 		return;
 	}
 
-	const TArray<UObject*> ListItems = TileView->GetListItems();
-	for (UObject* ListItem : ListItems)
+	TileView->ClearListItems();
+	for (UObject* Item : Items)
 	{
-		if (UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(ListItem))
-		{
-			TileObject->SetChecked(false);
-		}
+		TileView->AddItem(Item);
+	}
+
+	if (SelectedItem)
+	{
+		TileView->SetItemSelection(SelectedItem, true);
 	}
 
 	TileView->RequestRefresh();
 }
 
-void UFTHubShopPanelWidget::HandleShopItemClicked(UObject* Item)
+void UFTHubShopPanelWidget::HandleItemClicked(UObject* Item)
 {
-	if (bUpdatingSelection)
+	if (bRefreshingFromViewModel || !ViewModel)
 	{
 		return;
 	}
 
-	SelectedShopItem = Cast<UFTItemTileListObject>(Item);
-	SelectedPlayerItem = nullptr;
-	SelectedSource = EShopSelectionSourceType::Shop;
-
-	bUpdatingSelection = true;
-
-	ClearTileChecks(TV_ShopItems);
-	ClearTileChecks(TV_PlayerItems);
-
-	if (SelectedShopItem)
-	{
-		SelectedShopItem->SetChecked(true);
-	}
-
-	if (TV_PlayerItems)
-	{
-		TV_PlayerItems->ClearSelection();
-	}
-
-	if (TV_ShopItems && SelectedShopItem)
-	{
-		TV_ShopItems->SetItemSelection(SelectedShopItem, true);
-		TV_ShopItems->RequestRefresh();
-	}
-
-	bUpdatingSelection = false;
-
-	UpdateSelectedItemDetails();
+	ViewModel->SelectCurrentItemObject(Item);
 }
 
-void UFTHubShopPanelWidget::HandlePlayerItemClicked(UObject* Item)
-{
-	if (bUpdatingSelection)
-	{
-		return;
-	}
-
-	SelectedPlayerItem = Cast<UFTItemTileListObject>(Item);
-	SelectedShopItem = nullptr;
-	SelectedSource = EShopSelectionSourceType::Player;
-
-	bUpdatingSelection = true;
-
-	ClearTileChecks(TV_ShopItems);
-	ClearTileChecks(TV_PlayerItems);
-
-	if (SelectedPlayerItem)
-	{
-		SelectedPlayerItem->SetChecked(true);
-	}
-
-	if (TV_ShopItems)
-	{
-		TV_ShopItems->ClearSelection();
-	}
-
-	if (TV_PlayerItems && SelectedPlayerItem)
-	{
-		TV_PlayerItems->SetItemSelection(SelectedPlayerItem, true);
-		TV_PlayerItems->RequestRefresh();
-	}
-
-	bUpdatingSelection = false;
-
-	UpdateSelectedItemDetails();
-}
-
-void UFTHubShopPanelWidget::HandleShopItemSelectionChanged(UObject* Item)
+void UFTHubShopPanelWidget::HandleItemSelectionChanged(UObject* Item)
 {
 	if (Item)
 	{
-		HandleShopItemClicked(Item);
+		HandleItemClicked(Item);
 	}
 }
 
-void UFTHubShopPanelWidget::HandlePlayerItemSelectionChanged(UObject* Item)
+void UFTHubShopPanelWidget::HandleBuyModeClicked()
 {
-	if (Item)
+	if (ViewModel)
 	{
-		HandlePlayerItemClicked(Item);
+		ViewModel->SetBuyMode();
 	}
 }
 
-void UFTHubShopPanelWidget::HandleBuyClicked()
+void UFTHubShopPanelWidget::HandleSellModeClicked()
 {
-	if (!HubShop || !SelectedShopItem)
+	if (ViewModel)
 	{
-		return;
-	}
-
-	if (HubShop->BuyItem(SelectedShopItem->GetItemID(), PlayerInventory))
-	{
-		RefreshAllItems();
-		UpdateSelectedItemDetails();
+		ViewModel->SetSellMode();
 	}
 }
 
-void UFTHubShopPanelWidget::HandleSellClicked()
+void UFTHubShopPanelWidget::HandleQuantityMinusClicked()
 {
-	if (!HubShop || !SelectedPlayerItem)
+	if (ViewModel)
 	{
-		return;
+		ViewModel->DecreaseTradeQuantity();
 	}
+}
 
-	if (HubShop->SellItemToShop(SelectedPlayerItem->GetItemID(), 1, PlayerInventory))
+void UFTHubShopPanelWidget::HandleQuantityPlusClicked()
+{
+	if (ViewModel)
 	{
-		SelectedPlayerItem = nullptr;
-		SelectedSource = EShopSelectionSourceType::None;
-		RefreshAllItems();
-		UpdateSelectedItemDetails();
+		ViewModel->IncreaseTradeQuantity();
+	}
+}
+
+void UFTHubShopPanelWidget::HandleTradeActionClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->ExecuteTradeAction();
 	}
 }
 
 void UFTHubShopPanelWidget::HandleRefreshClicked()
 {
-	if (!HubShop)
+	if (ViewModel)
 	{
-		return;
+		ViewModel->RefreshShop();
 	}
-
-	HubShop->RefreshShopItems();
-	SelectedShopItem = nullptr;
-	SelectedSource = EShopSelectionSourceType::None;
-	RefreshAllItems();
-	UpdateSelectedItemDetails();
 }

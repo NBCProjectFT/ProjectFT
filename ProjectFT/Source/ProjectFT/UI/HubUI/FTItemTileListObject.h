@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "ProjectFT/Enum/FTItemCategoryType.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/Struct/FTShopItemStruct.h"
 #include "FTItemTileListObject.generated.h"
@@ -29,6 +30,7 @@ public:
 	void SetChecked(bool bInChecked);
 	const FText& GetDisplayName() const;
 	const FText& GetDescription() const;
+	FText GetCategoryText() const;
 	TSoftObjectPtr<UTexture2D> GetItemIcon() const;
 
 private:
@@ -39,6 +41,7 @@ private:
 	int32 OwnedCount = INDEX_NONE;
 	int32 Price = 0;
 	float UnitWeight = 0.0f;
+	EFTItemCategoryType CategoryType = EFTItemCategoryType::None;
 	bool bLocked = false;
 	bool bChecked = false;
 	FText DisplayName;

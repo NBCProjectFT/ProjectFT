@@ -9,7 +9,6 @@
 #include "FTHubStorage.generated.h"
 
 class UFTInventoryComponent;
-class UFTHubStorageWidget;
 UCLASS()
 class PROJECTFT_API AFTHubStorage : public AActor,  public IFTInteractable
 {
@@ -18,20 +17,6 @@ class PROJECTFT_API AFTHubStorage : public AActor,  public IFTInteractable
 public:
 	AFTHubStorage();
 
-	bool AddStorageItem(FName ItemID, int32 Count);
-
-	bool RemoveStorageItem(FName ItemID, int32 Count);
-
-	int32 GetStorageItemCount(FName ItemID) const;
-
-	const TArray<FTStorageItemStruct>& GetStorageItems() const;
-
-	bool StoreItemFromInventory(UFTInventoryComponent* SourceInventory, FName ItemID, int32 Count);
-
-	bool TakeItemToInventory(UFTInventoryComponent* TargetInventory, FName ItemID, int32 Count);
-
-	void PrintStorageItems() const;
-	
 	UFTInventoryComponent* GetStorageInventory() const;
 	
 	virtual bool Interact_Implementation(AActor* Interactor) override;
@@ -42,9 +27,6 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Craft|UI")
-	TSubclassOf<UFTHubStorageWidget> HubStorageWidgetClass;
 
 private:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Storage",meta = (AllowPrivateAccess = "true"))
@@ -52,14 +34,6 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "Storage|Test")
 	TArray<FTStorageItemStruct> TestStorageItems;
-	
-	UPROPERTY(Transient)
-	mutable TArray<FTStorageItemStruct> CachedStorageItems;
-	
-	
-
-	
 
 	void OpenStorageWidget(AActor* Interactor);
-	UFTInventoryComponent* FindPlayerInventory(AActor* Interactor) const;
 };

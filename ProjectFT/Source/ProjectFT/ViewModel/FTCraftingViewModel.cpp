@@ -3,21 +3,20 @@
 #include "Engine/AssetManager.h"
 #include "Engine/Texture2D.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTCraftRecipeListObject.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
-#include "ProjectFT/UI/HubUI/FTStorageItemListObject.h"
 
-void UFTCraftingViewModel::Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, const bool bInUseStorageTileItems)
+void UFTCraftingViewModel::Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory)
 {
 	UnbindInventoryDelegates();
 
 	HubWorkbench = InHubWorkbench;
 	PlayerInventory = InPlayerInventory;
-	bUseStorageTileItems = bInUseStorageTileItems;
 	SelectedRecipeObject = nullptr;
 	SelectedRecipe = NAME_None;
 	bCanCraft = false;
@@ -152,25 +151,23 @@ void UFTCraftingViewModel::RefreshStorageItems()
 {
 	StorageItemObjects.Reset();
 
-	if (!HubWorkbench || !HubWorkbench->GetHubStorage())
+	AFTHubStorage* HubStorage = HubWorkbench ? HubWorkbench->GetHubStorage() : nullptr;
+	const UFTStorageSubsystem* StorageSubsystem = HubStorage && HubStorage->GetGameInstance()
+		? HubStorage->GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
+
+	if (!HubStorage || !StorageSubsystem)
 	{
 		return;
 	}
 
-	for (const FTStorageItemStruct& StorageItem : HubWorkbench->GetHubStorage()->GetStorageItems())
+	TArray<FTStorageItemStruct> StorageItems;
+	StorageSubsystem->GetStorageItems(HubStorage->GetStorageInventory(), StorageItems);
+	for (const FTStorageItemStruct& StorageItem : StorageItems)
 	{
-		if (bUseStorageTileItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
-			StorageItemObjects.Add(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize(StorageItem);
-			StorageItemObjects.Add(ItemObject);
-		}
+		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+		ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
+		StorageItemObjects.Add(ItemObject);
 	}
 }
 
@@ -324,12 +321,14 @@ bool UFTCraftingViewModel::ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, c
 
 int32 UFTCraftingViewModel::GetOwnedIngredientCount(const FName ItemID) const
 {
-	const int32 PlayerCount = PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0;
-	const int32 StorageCount = HubWorkbench && HubWorkbench->GetHubStorage()
-		? HubWorkbench->GetHubStorage()->GetStorageItemCount(ItemID)
-		: 0;
+	AFTHubStorage* HubStorage = HubWorkbench ? HubWorkbench->GetHubStorage() : nullptr;
+	const UFTStorageSubsystem* StorageSubsystem = HubStorage && HubStorage->GetGameInstance()
+		? HubStorage->GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
 
-	return PlayerCount + StorageCount;
+	return StorageSubsystem
+		? StorageSubsystem->GetCombinedItemCount(PlayerInventory, HubStorage ? HubStorage->GetStorageInventory() : nullptr, ItemID)
+		: (PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0);
 }
 
 const UFTItemDataAsset* UFTCraftingViewModel::FindItemData(const FName ItemID) const
