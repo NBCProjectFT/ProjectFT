@@ -21,6 +21,8 @@ class UFTMainMenuWidget;
 class UFTQuestListWidget;
 class UMaterialInterface;
 class UUserWidget;
+class UFTShopDataAsset;
+
 
 USTRUCT(BlueprintType)
 struct FFTFlowStateDefinition
