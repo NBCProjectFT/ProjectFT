@@ -105,24 +105,36 @@ void UFTQuestEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 			: FText::FromString(FString::Printf(TEXT("보상: %s"), *RewardSummary)));
 	}
 
-	const FSlateColor TextColor = QuestObject->CanComplete()
-		? FSlateColor(FLinearColor::Black)
-		: FSlateColor(FLinearColor(0.4f, 0.4f, 0.4f, 1.0f));
+	ApplySelectionVisual(IsListItemSelected());
+}
 
-	TXT_QuestName->SetColorAndOpacity(TextColor);
+void UFTQuestEntryWidget::NativeOnItemSelectionChanged(const bool bIsSelected)
+{
+	IUserObjectListEntry::NativeOnItemSelectionChanged(bIsSelected);
+	ApplySelectionVisual(bIsSelected);
+}
+
+void UFTQuestEntryWidget::ApplySelectionVisual(const bool bIsSelected)
+{
+	const float TextOpacity = bIsSelected ? 1.0f : 0.62f;
+
+	if (TXT_QuestName)
+	{
+		TXT_QuestName->SetRenderOpacity(TextOpacity);
+	}
 
 	if (TXT_QuestSender)
 	{
-		TXT_QuestSender->SetColorAndOpacity(TextColor);
+		TXT_QuestSender->SetRenderOpacity(TextOpacity);
 	}
 
 	if (TXT_QuestSummary)
 	{
-		TXT_QuestSummary->SetColorAndOpacity(TextColor);
+		TXT_QuestSummary->SetRenderOpacity(TextOpacity);
 	}
 
 	if (TXT_QuestReward)
 	{
-		TXT_QuestReward->SetColorAndOpacity(TextColor);
+		TXT_QuestReward->SetRenderOpacity(TextOpacity);
 	}
 }
