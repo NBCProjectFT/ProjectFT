@@ -7,14 +7,22 @@
 #include "FTGameDataAsset.generated.h"
 
 class UFTItemDataAsset;
-class UFTLoadingWidget;
-class UFTMainMenuWidget;
-class UFTMainHUDWidget;
-class UFTInventoryWidget;
-class UFTQuestListWidget;
+
+class UFTEscapedRaidWidget;
+class UFTFailWidget;
 class UFTHubCraftTestWidget;
+class UFTHubMainWidget;
 class UFTHubStorageWidget;
+class UFTCountdownEscapeWidget;
+class UFTInventoryWidget;
+class UFTLoadingWidget;
+class UFTMainHUDWidget;
+class UFTMainMenuWidget;
+class UFTQuestListWidget;
 class UMaterialInterface;
+class UUserWidget;
+class UFTShopDataAsset;
+
 
 USTRUCT(BlueprintType)
 struct FFTFlowStateDefinition
@@ -56,26 +64,32 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Item")
 	TArray<TSoftObjectPtr<UFTItemDataAsset>> ItemDataAssets;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Hub")
+	TSoftObjectPtr<UFTShopDataAsset> HubShopDataAsset;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
 	FName LoadingLevelName = TEXT("Lvl_Loading");
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
 	TArray<FFTFlowStateDefinition> FlowStateDefinitions;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTLoadingWidget> LoadingWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTMainMenuWidget> MainMenuWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTMainHUDWidget> MainHUDWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTInventoryWidget> InventoryWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTQuestListWidget> QuestListWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
+	TSoftClassPtr<UFTHubMainWidget> HubMainWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
 	TSoftClassPtr<UFTHubStorageWidget> HubStorageWidgetClass;
@@ -83,12 +97,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
 	TSoftClassPtr<UFTHubCraftTestWidget> HubCraftWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Escape")
+	TSoftClassPtr<UFTCountdownEscapeWidget> CountdownEscapeWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Escape")
+	TSoftClassPtr<UFTEscapedRaidWidget> EscapedRaidWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Fail")
+	TSoftClassPtr<UFTFailWidget> FailWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Damage")
 	TSoftClassPtr<UUserWidget> DamageTextWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Damage")
 	TSoftObjectPtr<UMaterialInterface> DamageTextBackgroundMaterial;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Inventory")
 	TSoftObjectPtr<UMaterialInterface> PaperFlutterMaterial;
 };

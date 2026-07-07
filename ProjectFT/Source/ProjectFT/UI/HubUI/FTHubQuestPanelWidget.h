@@ -5,10 +5,10 @@
 #include "ProjectFT/Enum/FTQuestStateType.h"
 #include "FTHubQuestPanelWidget.generated.h"
 
-class AFTHubQuestBoard;
+class UFTObjectiveSubsystem;
 class UButton;
 class UFTInventoryComponent;
-class UFTQuestListObject;
+class UFTQuestViewModel;
 class UListView;
 class UTextBlock;
 class UTileView;
@@ -20,7 +20,7 @@ class PROJECTFT_API UFTHubQuestPanelWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Quest")
-	void InitializeQuestPanel(AFTHubQuestBoard* InQuestBoard, UFTInventoryComponent* InPlayerInventory);
+	void InitializeQuestPanel(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -29,19 +29,28 @@ protected:
 	UListView* LV_Quests;
 
 	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* BTN_AvailableQuestTab;
-
-	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_ActiveQuestTab;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_CompletedQuestTab;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_ActiveQuestCount;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_CompletedQuestCount;
+
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* TXT_SelectedQuestName;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_QuestSender;
+
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* TXT_QuestDescription;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_QuestObjectiveLines;
 
 	UPROPERTY(meta = (BindWidget))
 	UTileView* TV_RequiredItems;
@@ -49,29 +58,26 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UTileView* TV_RewardItems;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_QuestCurrencyReward;
+
 	UPROPERTY(meta = (BindWidget))
-	UButton* BTN_CompleteQuest;
+	UButton* BTN_QuestAction;
 
 	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* BTN_AcceptQuest;
+	UTextBlock* TXT_QuestAction;
 
 private:
-	void RefreshQuestList();
-	void UpdateSelectedQuestDetails();
-	void RefreshRequiredItems();
-	void RefreshRewardItems();
+	UFUNCTION()
+	void RefreshFromViewModel();
+
+	void RefreshTabButtonStyles();
+	void PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items);
 	void HandleQuestClicked(UObject* Item);
 
-	void SetQuestFilter(EFTQuestStateType NewQuestFilter);
-
 	UFUNCTION()
-	void HandleCompleteQuestClicked();
-
-	UFUNCTION()
-	void HandleAcceptQuestClicked();
-
-	UFUNCTION()
-	void HandleAvailableQuestTabClicked();
+	void HandleQuestActionClicked();
 
 	UFUNCTION()
 	void HandleActiveQuestTabClicked();
@@ -80,13 +86,7 @@ private:
 	void HandleCompletedQuestTabClicked();
 
 	UPROPERTY(Transient)
-	AFTHubQuestBoard* QuestBoard;
+	TObjectPtr<UFTQuestViewModel> ViewModel;
 
-	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTQuestListObject* SelectedQuest;
-
-	EFTQuestStateType CurrentQuestFilter = EFTQuestStateType::Available;
+	bool bRefreshingFromViewModel = false;
 };

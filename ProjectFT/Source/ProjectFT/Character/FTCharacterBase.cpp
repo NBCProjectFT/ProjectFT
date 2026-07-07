@@ -4,6 +4,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
@@ -90,6 +91,12 @@ void AFTCharacterBase::BeginPlay()
 	ApplyMovementSpeed();
 }
 
+void AFTCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	StopStruggleJitter();
+	Super::EndPlay(EndPlayReason);
+}
+
 void AFTCharacterBase::HandleDeath()
 {
 	// 재진입 가드: 0 HP 상태에서 체력 변경 GE(독 DoT 등)가 다시 실행돼 OnOutOfHealth가 재통지돼도 사망 처리는 1회만.
@@ -174,4 +181,93 @@ void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, in
 void AFTCharacterBase::OnImmobilizedStateChanged(bool bImmobilized)
 {
 	// 기본 구현 없음. 자식이 AI 로직 정지/애니 등 추가 반응을 처리한다(이동 정지/복원은 베이스가 이미 처리).
+}
+
+void AFTCharacterBase::PlayStruggleJitter()
+{
+	if (bDead || StruggleJitterAmplitude <= 0.0f || StruggleJitterDuration <= 0.0f)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	USkeletalMeshComponent* CharacterMesh = GetMesh();
+	if (!World || !CharacterMesh)
+	{
+		return;
+	}
+
+	if (StruggleJitterTimerHandle.IsValid())
+	{
+		World->GetTimerManager().ClearTimer(StruggleJitterTimerHandle);
+	}
+	ApplyStruggleJitterOffset(FVector::ZeroVector);
+
+	StruggleJitterDirection *= -1;
+	StruggleJitterElapsed = 0.0f;
+	StruggleJitterLastUpdateTime = World->GetTimeSeconds();
+
+	ApplyStruggleJitterOffset(FVector(0.0f, StruggleJitterAmplitude * static_cast<float>(StruggleJitterDirection), 0.0f));
+	World->GetTimerManager().SetTimer(
+		StruggleJitterTimerHandle,
+		this,
+		&AFTCharacterBase::UpdateStruggleJitter,
+		StruggleJitterTickInterval,
+		true);
+}
+
+void AFTCharacterBase::UpdateStruggleJitter()
+{
+	UWorld* World = GetWorld();
+	if (!World || !GetMesh())
+	{
+		StopStruggleJitter();
+		return;
+	}
+
+	const float Now = World->GetTimeSeconds();
+	const float DeltaSeconds = StruggleJitterLastUpdateTime > 0.0f
+		? FMath::Max(0.0f, Now - StruggleJitterLastUpdateTime)
+		: StruggleJitterTickInterval;
+	StruggleJitterLastUpdateTime = Now;
+	StruggleJitterElapsed += DeltaSeconds;
+
+	if (StruggleJitterElapsed >= StruggleJitterDuration)
+	{
+		StopStruggleJitter();
+		return;
+	}
+
+	const float Alpha = FMath::Clamp(StruggleJitterElapsed / StruggleJitterDuration, 0.0f, 1.0f);
+	const float Decay = 1.0f - Alpha;
+	const float Oscillation = FMath::Cos(StruggleJitterElapsed * StruggleJitterFrequency * 2.0f * PI);
+	const float OffsetY = StruggleJitterAmplitude * Decay * Oscillation * static_cast<float>(StruggleJitterDirection);
+	ApplyStruggleJitterOffset(FVector(0.0f, OffsetY, 0.0f));
+}
+
+void AFTCharacterBase::StopStruggleJitter()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(StruggleJitterTimerHandle);
+	}
+
+	ApplyStruggleJitterOffset(FVector::ZeroVector);
+	StruggleJitterTimerHandle.Invalidate();
+	StruggleJitterElapsed = 0.0f;
+	StruggleJitterLastUpdateTime = 0.0f;
+}
+
+void AFTCharacterBase::ApplyStruggleJitterOffset(const FVector& NewOffset)
+{
+	USkeletalMeshComponent* CharacterMesh = GetMesh();
+	if (!CharacterMesh)
+	{
+		StruggleJitterAppliedOffset = FVector::ZeroVector;
+		return;
+	}
+
+	const FVector BaseRelativeLocation = CharacterMesh->GetRelativeLocation() - StruggleJitterAppliedOffset;
+	CharacterMesh->SetRelativeLocation(BaseRelativeLocation + NewOffset);
+	StruggleJitterAppliedOffset = NewOffset;
 }

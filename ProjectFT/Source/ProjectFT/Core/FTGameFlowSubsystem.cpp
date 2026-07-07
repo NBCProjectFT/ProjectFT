@@ -15,7 +15,7 @@ namespace
 	const FName FallbackLoadingLevelName(TEXT("Lvl_Loading"));
 	const FName FallbackMainMenuLevelName(TEXT("Lvl_MainMenu"));
 	const FName FallbackBaseLevelName(TEXT("Lvl_Hub"));
-	const FName FallbackRaidLevelName(TEXT("Lvl_Main"));
+	const FName FallbackRaidLevelName(TEXT("Market_Test"));
 }
 
 void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -95,11 +95,6 @@ void UFTGameFlowSubsystem::HandleFlowRequestMessage(FGameplayTag Channel, const 
 
 void UFTGameFlowSubsystem::RequestStartGame()
 {
-	if (!UFTAssetManager::Get().UseHubGameData())
-	{
-		UE_LOG(LogFTFlow, Warning, TEXT("Start game requested, but HubGameDataPath could not be loaded."));
-	}
-
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
@@ -155,6 +150,13 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 {
 	if (CurrentFlowState == EFTFlowStateType::Failed)
 	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				UIManager->ShowFailScreen();
+			}
+		}
 		return;
 	}
 
@@ -163,6 +165,15 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 
 void UFTGameFlowSubsystem::ReturnToBase()
 {
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->HideEscapedRaid();
+			UIManager->HideFailScreen();
+		}
+	}
+
 	TravelToState(EFTFlowStateType::Base);
 }
 
@@ -349,9 +360,23 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 		BroadcastFlowEvent(TAG_FT_Event_RaidStarted);
 		break;
 	case EFTFlowStateType::Escaped:
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				UIManager->ShowEscapedRaid();
+			}
+		}
 		BroadcastFlowEvent(TAG_FT_Event_RaidEscaped);
 		break;
 	case EFTFlowStateType::Failed:
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+			{
+				UIManager->ShowFailScreen();
+			}
+		}
 		BroadcastFlowEvent(TAG_FT_Event_RaidFailed);
 		break;
 	default:

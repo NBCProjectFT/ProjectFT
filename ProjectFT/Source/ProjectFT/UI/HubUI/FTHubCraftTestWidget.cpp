@@ -32,7 +32,7 @@ void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench,
 
 	if (ViewModel)
 	{
-		ViewModel->Initialize(HubWorkbench, InPlayerInventory, TV_StorageItems != nullptr);
+		ViewModel->Initialize(HubWorkbench, InPlayerInventory);
 	}
 
 	RefreshFromViewModel();
@@ -143,7 +143,7 @@ void UFTHubCraftTestWidget::RefreshFromViewModel()
 
 UListView* UFTHubCraftTestWidget::GetStorageItemsView() const
 {
-	return TV_StorageItems ? Cast<UListView>(TV_StorageItems) : LV_StorageItems;
+	return Cast<UListView>(TV_StorageItems);
 }
 
 UCheckBox* UFTHubCraftTestWidget::GetCraftableOnlyCheckBox() const

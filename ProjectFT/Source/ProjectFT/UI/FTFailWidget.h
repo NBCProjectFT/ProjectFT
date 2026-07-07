@@ -4,6 +4,9 @@
 #include "Blueprint/UserWidget.h"
 #include "FTFailWidget.generated.h"
 
+class UButton;
+class UUserWidget;
+
 UCLASS()
 class PROJECTFT_API UFTFailWidget : public UUserWidget
 {
@@ -21,4 +24,20 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Fail")
 	void RequestReturnToBase();
+
+protected:
+	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
+
+private:
+	UFUNCTION()
+	void HandleReturnToBaseClicked();
+
+	UButton* ResolveReturnToBaseButton() const;
+	UButton* ResolveButtonInsideWidget(UUserWidget* UserWidget, FName ButtonName) const;
+	void BindReturnToBaseButton();
+	void UnbindReturnToBaseButton();
+
+	UPROPERTY(Transient)
+	TObjectPtr<UButton> CachedReturnToBaseButton = nullptr;
 };

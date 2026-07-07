@@ -4,10 +4,11 @@
 #include "Blueprint/UserWidget.h"
 #include "FTHubShopPanelWidget.generated.h"
 
-class AFTHubShop;
 class UButton;
 class UFTInventoryComponent;
-class UFTItemTileListObject;
+class UFTShopSubsystem;
+class UFTShopViewModel;
+class UImage;
 class UTextBlock;
 class UTileView;
 
@@ -18,22 +19,43 @@ class PROJECTFT_API UFTHubShopPanelWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Shop")
-	void InitializeShopPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory);
+	void InitializeShopPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTileView* TV_Items;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTileView* TV_ShopItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTileView* TV_PlayerItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* IMG_SelectedItemIcon;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemName;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_ItemName;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemTag;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_Tag;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemDescription;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemOwnedCount;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_ItemCount;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemPrice;
@@ -44,54 +66,68 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemState;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TradeQuantity;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TotalPrice;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TradeAction;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_BuyMode;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_SellMode;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Buy;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Sell;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityMinus;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityPlus;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_TradeAction;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Refresh;
 
 private:
-	enum class EShopSelectionSourceType : uint8
-	{
-		None,
-		Shop,
-		Player
-	};
+	UFUNCTION()
+	void RefreshFromViewModel();
 
-	void RefreshShopItems();
-	void RefreshPlayerItems();
-	void RefreshAllItems();
-	void UpdateSelectedItemDetails();
-	void ClearTileChecks(UTileView* TileView);
-	void HandleShopItemClicked(UObject* Item);
-	void HandlePlayerItemClicked(UObject* Item);
-	void HandleShopItemSelectionChanged(UObject* Item);
-	void HandlePlayerItemSelectionChanged(UObject* Item);
+	UTileView* GetPrimaryTileView() const;
+	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+	void HandleItemClicked(UObject* Item);
+	void HandleItemSelectionChanged(UObject* Item);
 
 	UFUNCTION()
-	void HandleBuyClicked();
+	void HandleBuyModeClicked();
 
 	UFUNCTION()
-	void HandleSellClicked();
+	void HandleSellModeClicked();
+
+	UFUNCTION()
+	void HandleQuantityMinusClicked();
+
+	UFUNCTION()
+	void HandleQuantityPlusClicked();
+
+	UFUNCTION()
+	void HandleTradeActionClicked();
 
 	UFUNCTION()
 	void HandleRefreshClicked();
 
 	UPROPERTY(Transient)
-	AFTHubShop* HubShop;
+	TObjectPtr<UFTShopViewModel> ViewModel;
 
-	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTItemTileListObject* SelectedShopItem;
-
-	UPROPERTY(Transient)
-	UFTItemTileListObject* SelectedPlayerItem;
-
-	EShopSelectionSourceType SelectedSource = EShopSelectionSourceType::None;
-	bool bUpdatingSelection = false;
+	bool bRefreshingFromViewModel = false;
 };

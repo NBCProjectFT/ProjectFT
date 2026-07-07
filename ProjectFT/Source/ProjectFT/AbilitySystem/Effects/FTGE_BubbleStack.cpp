@@ -11,9 +11,11 @@ UFTGE_BubbleStack::UFTGE_BubbleStack()
 {
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
 
-	// 스택 유지 창(고정 3초). 이 창 안에 임계 스택수만큼 몰아 맞으면 갇힌다.
-	// 스턴/마비와 달리 창 길이는 아이템별이 아니라 메커니즘 고정값이라 SetByCaller 대신 상수 지속을 쓴다.
-	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(3.0f));
+	// 스택 유지 창. 이 창 안에 임계 스택수만큼 몰아 맞으면 갇힌다.
+	// 아이템/투사체 DA의 EffectMagnitudes에서 Data.Duration으로 주입한다.
+	FSetByCallerFloat DurationByCaller;
+	DurationByCaller.DataTag = TAG_FT_Data_Duration;
+	DurationMagnitude = FGameplayEffectModifierMagnitude(DurationByCaller);
 
 	// 스태킹을 두지 않는다: 적용마다 독립 인스턴스 → 태그 카운트가 곧 "동시에 살아있는 스택 수"가 된다.
 	// 활성 동안 대상에게 State.Debuff.BubbleStack 부여(카운트 +1). 갇힘 판정은 UFTGA_BubbleStackTrap이 이 카운트로 한다.

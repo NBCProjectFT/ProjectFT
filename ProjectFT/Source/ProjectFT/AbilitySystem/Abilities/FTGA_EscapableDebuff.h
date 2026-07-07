@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Abilities/GameplayAbilityTypes.h"
 #include "FTGameplayAbility.h"
+#include "TimerManager.h"
 #include "ProjectFT/Struct/FTStruggleGaugeStruct.h"
 #include "FTGA_EscapableDebuff.generated.h"
 
@@ -27,13 +28,43 @@ public:
 	UFTGA_EscapableDebuff();
 
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Escape")
+	float GetEscapeProgress() const { return Gauge.GetProgress(); }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Escape")
+	float GetAccumulatedStruggle() const { return Gauge.GetAccumulated(); }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Escape")
+	float GetEscapeThreshold() const { return Gauge.GetThreshold(); }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Escape")
+	float GetRemainingEscapeTime() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Escape")
+	float GetTotalEscapeTime() const { return AutoEscapeDurationSeconds; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Escape")
+	static bool GetActiveEscapableDebuffInfo(AActor* TargetActor, float& OutProgress, float& OutRemainingTime, float& OutTotalTime, float& OutAccumulatedStruggle, float& OutEscapeThreshold);
 
 protected:
-	// 탈출에 필요한 총 struggle(좌우 연타 누적). 갇힘 시작 시 공용 게이지에 주입된다.
+	// 탈출에 필요한 총 struggle 양. 자동 해제 시간 동안 자연 증가로 이 값까지 차고, 좌우 연타가 추가로 가속한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Escape", meta = (ClampMin = "0.0"))
 	float EscapeThreshold = 12.0f;
 
-	// 연타 탈출 게이지(능동 GainPerFlip). 자가 상태이상은 저지력/자연증가 없이 순수 연타(Passive/Decay=0).
+	// 자동 해제 시간 정보를 못 읽었을 때 쓰는 fallback. 정상 버블은 UFTGE_BubbleTrap Duration을 사용한다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Escape", meta = (ClampMin = "0.01"))
+	float FallbackAutoEscapeSeconds = 5.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Escape", meta = (ClampMin = "0.01"))
+	float EscapeTickInterval = 0.05f;
+
+	// Event.Struggle 1회가 자동 탈출 시간을 몇 초 앞당기는지. 기본 0.2초.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Escape", meta = (ClampMin = "0.0"))
+	float SecondsReducedPerStruggleInput = 0.2f;
+
+	// 연타 탈출 게이지. PassiveGainPerSecond는 활성 시점의 Escapable GE Duration에 맞춰 계산된다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Escape")
 	FTStruggleGaugeStruct Gauge;
 
@@ -41,4 +72,17 @@ private:
 	// Event.Struggle(발버둥 1회) 수신 → 게이지 상승. 가득 차면 Escapable을 부여한 GE 제거 후 종료.
 	UFUNCTION()
 	void OnStruggleEvent(FGameplayEventData Payload);
+
+	void TickEscapeGauge();
+	void TryCompleteEscape();
+	void RemoveEscapableEffects();
+	void StartEscapeTick();
+	float ResolveAutoEscapeDurationSeconds(const UAbilitySystemComponent* ASC) const;
+
+	static UFTGA_EscapableDebuff* FindActiveEscapableDebuffAbility(AActor* TargetActor);
+
+	FTimerHandle EscapeTickTimerHandle;
+	float AutoEscapeDurationSeconds = 0.0f;
+	float PassiveEscapeGainPerSecond = 0.0f;
+	float LastEscapeTickTime = 0.0f;
 };

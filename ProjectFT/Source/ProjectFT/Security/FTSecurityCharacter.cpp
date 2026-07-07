@@ -5,10 +5,15 @@
 #include "Abilities/GameplayAbility.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "TimerManager.h"
 
 AFTSecurityCharacter::AFTSecurityCharacter()
 {
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->bUseControllerDesiredRotation = true;
+
 	CapturePoint = CreateDefaultSubobject<USceneComponent>(TEXT("CapturePoint"));
 	CapturePoint->SetupAttachment(GetRootComponent());
 }

@@ -7,6 +7,7 @@
 
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/AbilitySystem/FTUseDataEffectLibrary.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -32,34 +33,13 @@ const UFTItemDataAsset* UFTGA_ItemAbility::CacheActiveItem(const FGameplayEventD
 
 void UFTGA_ItemAbility::ApplyUseEffects(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayAbilityTargetDataHandle* TargetData)
 {
-	// UseEffects를 순서대로 적용한다. EffectMagnitudes는 SetByCaller로 각 스펙에 주입(각 GE는 필요한 태그만 사용).
-	for (const TSubclassOf<UGameplayEffect>& EffectClass : ActiveUseData.UseEffects)
-	{
-		if (!EffectClass)
-		{
-			continue;
-		}
-		const FGameplayEffectSpecHandle EffectSpec = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, EffectClass, GetAbilityLevel(Handle, ActorInfo));
-		if (!EffectSpec.IsValid())
-		{
-			continue;
-		}
-		for (const TPair<FGameplayTag, float>& Magnitude : ActiveUseData.EffectMagnitudes)
-		{
-			EffectSpec.Data->SetSetByCallerMagnitude(Magnitude.Key, Magnitude.Value);
-		}
-
-		if (TargetData)
-		{
-			// 트레이스/투사체 등으로 맞힌 대상에게 적용한다(ASC 없는 대상이면 자동 무시).
-			ApplyGameplayEffectSpecToTarget(Handle, ActorInfo, ActivationInfo, EffectSpec, *TargetData);
-		}
-		else
-		{
-			// 자신(Owner)에게 적용한다.
-			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpec);
-		}
-	}
+	UFTUseDataEffectLibrary::ApplyUseEffectsFromAbility(
+		this,
+		Handle,
+		ActorInfo,
+		ActivationInfo,
+		ActiveUseData,
+		TargetData);
 }
 
 void UFTGA_ItemAbility::ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const
@@ -106,5 +86,5 @@ void UFTGA_ItemAbility::OnItemConsumed()
 
 FGameplayTag UFTGA_ItemAbility::ResolveCooldownTag(const FTItemUseStruct& UseData)
 {
-	return UseData.CooldownTag.IsValid() ? UseData.CooldownTag : TAG_FT_Cooldown_ItemUse;
+	return UFTUseDataEffectLibrary::ResolveCooldownTag(UseData);
 }

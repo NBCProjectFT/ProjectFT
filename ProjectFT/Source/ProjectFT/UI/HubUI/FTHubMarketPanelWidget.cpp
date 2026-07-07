@@ -4,18 +4,19 @@
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
-#include "FTItemTileListObject.h"
 #include "FTTradePostListObject.h"
-#include "ProjectFT/Components/FTInventoryComponent.h"
-#include "ProjectFT/Hub/FTHubShop.h"
+#include "ProjectFT/ViewModel/FTMarketViewModel.h"
 
-void UFTHubMarketPanelWidget::InitializeMarketPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory)
+void UFTHubMarketPanelWidget::InitializeMarketPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
-	HubShop = InHubShop;
-	PlayerInventory = InPlayerInventory;
-	SelectedPost = nullptr;
-	RefreshTradePosts();
-	UpdateSelectedPostDetails();
+	if (!ViewModel)
+	{
+		ViewModel = NewObject<UFTMarketViewModel>(this);
+		ViewModel->OnChanged.AddDynamic(this, &UFTHubMarketPanelWidget::RefreshFromViewModel);
+	}
+
+	ViewModel->Initialize(InShopSubsystem, InPlayerInventory);
+	RefreshFromViewModel();
 }
 
 void UFTHubMarketPanelWidget::NativeConstruct()
@@ -46,162 +47,114 @@ void UFTHubMarketPanelWidget::NativeConstruct()
 		BTN_Trade->OnClicked.AddDynamic(this, &UFTHubMarketPanelWidget::HandleTradeClicked);
 	}
 
-	RefreshTradePosts();
-	UpdateSelectedPostDetails();
-	RefreshSelectedPostItems();
+	RefreshFromViewModel();
 }
 
-void UFTHubMarketPanelWidget::RefreshTradePosts()
+void UFTHubMarketPanelWidget::RefreshFromViewModel()
 {
-	if (!LV_TradePosts)
+	if (!ViewModel)
 	{
 		return;
 	}
 
-	const FName SelectedPostID = SelectedPost
-		? SelectedPost->GetTradePost().PostID
-		: NAME_None;
-
-	SelectedPost = nullptr;
-	LV_TradePosts->ClearListItems();
-
-	if (!HubShop)
-	{
-		return;
-	}
-
-	TArray<FTTradePostStruct> Posts;
-	if (bBuyRequestMode)
-	{
-		HubShop->GetMarketBuyPosts(Posts);
-	}
-	else
-	{
-		HubShop->GetMarketSellPosts(Posts);
-	}
-
-	for (const FTTradePostStruct& Post : Posts)
-	{
-		UFTTradePostListObject* PostObject = NewObject<UFTTradePostListObject>(this);
-		PostObject->Initialize(Post);
-		LV_TradePosts->AddItem(PostObject);
-
-		if (Post.PostID == SelectedPostID)
-		{
-			SelectedPost = PostObject;
-			LV_TradePosts->SetItemSelection(PostObject, true);
-		}
-	}
-}
-
-void UFTHubMarketPanelWidget::UpdateSelectedPostDetails()
-{
-	const bool bHasSelection = SelectedPost != nullptr;
-	const FTTradePostStruct* Post = bHasSelection
-		? &SelectedPost->GetTradePost()
-		: nullptr;
+	bRefreshingFromViewModel = true;
+	PopulateListItems(LV_TradePosts, ViewModel->GetTradePostObjects(), ViewModel->GetSelectedPostObject());
+	PopulateTileItems(TV_SelectedPostItems, ViewModel->GetSelectedPostItemObjects());
+	bRefreshingFromViewModel = false;
 
 	if (TXT_SelectedPostTitle)
 	{
-		TXT_SelectedPostTitle->SetText(Post ? Post->Title : FText::FromString(TEXT("Select Post")));
+		TXT_SelectedPostTitle->SetText(ViewModel->GetSelectedPostTitleText());
 	}
 
 	if (TXT_SelectedPostDescription)
 	{
-		TXT_SelectedPostDescription->SetText(Post ? Post->Description : FText::GetEmpty());
+		TXT_SelectedPostDescription->SetText(ViewModel->GetSelectedPostDescriptionText());
 	}
 
 	if (TXT_SelectedPostItem)
 	{
-		TXT_SelectedPostItem->SetText(Post
-			? FText::FromString(FString::Printf(TEXT("%s x%d"), *Post->ItemID.ToString(), Post->Count))
-			: FText::GetEmpty());
+		TXT_SelectedPostItem->SetText(ViewModel->GetSelectedPostItemText());
 	}
 
 	if (TXT_SelectedPostPrice)
 	{
-		TXT_SelectedPostPrice->SetText(Post
-			? FText::FromString(FString::Printf(TEXT("Price: %d"), Post->Price))
-			: FText::GetEmpty());
+		TXT_SelectedPostPrice->SetText(ViewModel->GetSelectedPostPriceText());
 	}
 
 	if (BTN_Trade)
 	{
-		const bool bCanTrade = Post && HubShop && PlayerInventory
-			? (bBuyRequestMode
-				? HubShop->CanSellMarketItem(Post->PostID, PlayerInventory)
-				: HubShop->CanBuyMarketItem(Post->PostID, PlayerInventory))
-			: false;
-		BTN_Trade->SetIsEnabled(bCanTrade);
+		BTN_Trade->SetIsEnabled(ViewModel->CanTradeSelectedPost());
 	}
-
-	RefreshSelectedPostItems();
 }
 
-void UFTHubMarketPanelWidget::RefreshSelectedPostItems()
+void UFTHubMarketPanelWidget::PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem)
 {
-	if (!TV_SelectedPostItems)
+	if (!ListView)
 	{
 		return;
 	}
 
-	TV_SelectedPostItems->ClearListItems();
-
-	if (!SelectedPost)
+	ListView->ClearListItems();
+	for (UObject* Item : Items)
 	{
-		return;
+		ListView->AddItem(Item);
 	}
 
-	const FTTradePostStruct& Post = SelectedPost->GetTradePost();
-	if (Post.ItemID.IsNone() || Post.Count <= 0)
+	if (SelectedItem)
 	{
-		return;
+		ListView->SetItemSelection(SelectedItem, true);
 	}
 
-	UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-	ItemObject->InitializeItem(Post.ItemID, Post.Count, Post.Price);
-	TV_SelectedPostItems->AddItem(ItemObject);
+	ListView->RequestRefresh();
 }
 
-void UFTHubMarketPanelWidget::SetBuyRequestMode(bool bInBuyRequestMode)
+void UFTHubMarketPanelWidget::PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items)
 {
-	bBuyRequestMode = bInBuyRequestMode;
-	SelectedPost = nullptr;
-	RefreshTradePosts();
-	UpdateSelectedPostDetails();
+	if (!TileView)
+	{
+		return;
+	}
+
+	TileView->ClearListItems();
+	for (UObject* Item : Items)
+	{
+		TileView->AddItem(Item);
+	}
+
+	TileView->RequestRefresh();
 }
 
 void UFTHubMarketPanelWidget::HandleTradePostClicked(UObject* Item)
 {
-	SelectedPost = Cast<UFTTradePostListObject>(Item);
-	UpdateSelectedPostDetails();
-}
-
-void UFTHubMarketPanelWidget::HandleBuyRequestsTabClicked()
-{
-	SetBuyRequestMode(true);
-}
-
-void UFTHubMarketPanelWidget::HandleSellOffersTabClicked()
-{
-	SetBuyRequestMode(false);
-}
-
-void UFTHubMarketPanelWidget::HandleTradeClicked()
-{
-	if (!HubShop || !SelectedPost)
+	if (bRefreshingFromViewModel || !ViewModel)
 	{
 		return;
 	}
 
-	const FName PostID = SelectedPost->GetTradePost().PostID;
-	const bool bSuccess = bBuyRequestMode
-		? HubShop->SellMarketItem(PostID, PlayerInventory)
-		: HubShop->BuyMarketItem(PostID, PlayerInventory);
+	ViewModel->SelectTradePostObject(Item);
+}
 
-	if (bSuccess)
+void UFTHubMarketPanelWidget::HandleBuyRequestsTabClicked()
+{
+	if (ViewModel)
 	{
-		RefreshTradePosts();
-		UpdateSelectedPostDetails();
+		ViewModel->SetBuyRequestMode(true);
+	}
+}
+
+void UFTHubMarketPanelWidget::HandleSellOffersTabClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetBuyRequestMode(false);
+	}
+}
+
+void UFTHubMarketPanelWidget::HandleTradeClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->TradeSelectedPost();
 	}
 }

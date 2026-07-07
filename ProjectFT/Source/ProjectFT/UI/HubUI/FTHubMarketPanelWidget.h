@@ -4,11 +4,10 @@
 #include "Blueprint/UserWidget.h"
 #include "FTHubMarketPanelWidget.generated.h"
 
-class AFTHubShop;
 class UButton;
+class UFTMarketViewModel;
 class UFTInventoryComponent;
-class UFTItemTileListObject;
-class UFTTradePostListObject;
+class UFTShopSubsystem;
 class UListView;
 class UTextBlock;
 class UTileView;
@@ -20,7 +19,7 @@ class PROJECTFT_API UFTHubMarketPanelWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Market")
-	void InitializeMarketPanel(AFTHubShop* InHubShop, UFTInventoryComponent* InPlayerInventory);
+	void InitializeMarketPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -53,10 +52,11 @@ protected:
 	UButton* BTN_Trade;
 
 private:
-	void RefreshTradePosts();
-	void UpdateSelectedPostDetails();
-	void RefreshSelectedPostItems();
-	void SetBuyRequestMode(bool bInBuyRequestMode);
+	UFUNCTION()
+	void RefreshFromViewModel();
+
+	void PopulateListItems(UListView* ListView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
+	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items);
 	void HandleTradePostClicked(UObject* Item);
 
 	UFUNCTION()
@@ -69,13 +69,7 @@ private:
 	void HandleTradeClicked();
 
 	UPROPERTY(Transient)
-	AFTHubShop* HubShop;
+	TObjectPtr<UFTMarketViewModel> ViewModel;
 
-	UPROPERTY(Transient)
-	UFTInventoryComponent* PlayerInventory;
-
-	UPROPERTY(Transient)
-	UFTTradePostListObject* SelectedPost;
-
-	bool bBuyRequestMode = true;
+	bool bRefreshingFromViewModel = false;
 };

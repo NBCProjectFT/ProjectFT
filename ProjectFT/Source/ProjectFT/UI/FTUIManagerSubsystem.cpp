@@ -2,9 +2,15 @@
 
 #include "Blueprint/UserWidget.h"
 #include "FTCountdownEscapeWidget.h"
+#include "FTEscapedRaidWidget.h"
+#include "FTFailWidget.h"
 #include "FTInventoryWidget.h"
 #include "FTMainMenuWidget.h"
 #include "HubUI/FTHubCraftTestWidget.h"
+#include "HubUI/FTHubMainWidget.h"
+#include "HubUI/FTHubMarketPanelWidget.h"
+#include "HubUI/FTHubQuestPanelWidget.h"
+#include "HubUI/FTHubShopPanelWidget.h"
 #include "HubUI/FTHubStorageWidget.h"
 #include "Framework/Application/SlateApplication.h"
 #include "../ViewModel/FTCraftingViewModel.h"
@@ -14,17 +20,20 @@
 #include "../ViewModel/FTSettlementViewModel.h"
 #include "../ViewModel/FTHubStorageViewModel.h"
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
+#include "ProjectFT/Hub/FTHubTerminal.h"
 #include "ProjectFT/Hub/FTHubWorkbench.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/Pawn.h"
 
 namespace
 {
-	// Temporary fallback path. This should move to FTUIDataAsset when UI config is separated.
-	const TCHAR* CountdownEscapeWidgetFallbackPath = TEXT("/Game/UI/Escaping/WBP_CountDownEscape.WBP_CountDownEscape_C");
 }
 
 void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -36,6 +45,25 @@ void UFTUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
 	QuestViewModel = NewObject<UFTQuestViewModel>(this);
 	SettlementViewModel = NewObject<UFTSettlementViewModel>(this);
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	UIMessageListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ObjectiveProgressChanged, this, &ThisClass::HandleObjectiveProgressChanged));
+	UIMessageListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ObjectiveCompleted, this, &ThisClass::HandleObjectiveCompleted));
+}
+
+void UFTUIManagerSubsystem::Deinitialize()
+{
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	for (FGameplayMessageListenerHandle& ListenerHandle : UIMessageListenerHandles)
+	{
+		if (ListenerHandle.IsValid())
+		{
+			MessageSubsystem.UnregisterListener(ListenerHandle);
+		}
+	}
+	UIMessageListenerHandles.Reset();
+
+	Super::Deinitialize();
 }
 
 void UFTUIManagerSubsystem::ShowHUD()
@@ -58,22 +86,10 @@ void UFTUIManagerSubsystem::ShowMainMenu()
 
 	if (!MainMenuWidget)
 	{
-		TSubclassOf<UFTMainMenuWidget> MainMenuWidgetClass = nullptr;
-		if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
-		{
-			MainMenuWidgetClass = UFTAssetManager::GetSubclass(GameData->MainMenuWidgetClass);
-		}
-
+		TSubclassOf<UFTMainMenuWidget> MainMenuWidgetClass = UFTAssetManager::Get().GetMainMenuWidgetClass();
 		if (!MainMenuWidgetClass)
 		{
-			MainMenuWidgetClass = LoadClass<UFTMainMenuWidget>(
-				nullptr,
-				TEXT("/Game/UI/WBP_MainMenu.WBP_MainMenu_C"));
-		}
-
-		if (!MainMenuWidgetClass)
-		{
-			UE_LOG(LogFTUI, Warning, TEXT("Main menu widget class is not set."));
+			UE_LOG(LogFTUI, Warning, TEXT("Main menu widget class is not set in UI data."));
 			return;
 		}
 
@@ -142,12 +158,10 @@ void UFTUIManagerSubsystem::ShowCountdownEscape()
 
 	if (!CountdownEscapeWidget)
 	{
-		TSubclassOf<UFTCountdownEscapeWidget> CountdownEscapeWidgetClass =
-			LoadClass<UFTCountdownEscapeWidget>(nullptr, CountdownEscapeWidgetFallbackPath);
+		TSubclassOf<UFTCountdownEscapeWidget> CountdownEscapeWidgetClass = UFTAssetManager::Get().GetCountdownEscapeWidgetClass();
 		if (!CountdownEscapeWidgetClass)
 		{
-			UE_LOG(LogFTUI, Warning, TEXT("Countdown escape widget class could not be loaded. Path=%s"),
-				CountdownEscapeWidgetFallbackPath);
+			UE_LOG(LogFTUI, Warning, TEXT("Countdown escape widget class is not set in UI data."));
 			return;
 		}
 
@@ -183,6 +197,69 @@ void UFTUIManagerSubsystem::SetCountdownEscapeRemainingTime(float RemainingTime)
 	}
 }
 
+void UFTUIManagerSubsystem::ShowEscapedRaid()
+{
+	if (EscapedRaidWidget && EscapedRaidWidget->IsInViewport())
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Escaped raid widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	if (!EscapedRaidWidget)
+	{
+		TSubclassOf<UFTEscapedRaidWidget> EscapedRaidWidgetClass = UFTAssetManager::Get().GetEscapedRaidWidgetClass();
+		if (!EscapedRaidWidgetClass)
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Escaped raid widget class is not set in UI data."));
+			return;
+		}
+
+		EscapedRaidWidget = CreateWidget<UFTEscapedRaidWidget>(PlayerController, EscapedRaidWidgetClass);
+		if (!EscapedRaidWidget)
+		{
+			return;
+		}
+	}
+
+	HideCountdownEscape();
+	EscapedRaidWidget->AddToViewport(40);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(EscapedRaidWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+
+	UE_LOG(LogFTUI, Log, TEXT("Escaped raid widget shown. Widget=%s Class=%s"),
+		*GetNameSafe(EscapedRaidWidget),
+		*GetNameSafe(EscapedRaidWidget->GetClass()));
+}
+
+void UFTUIManagerSubsystem::HideEscapedRaid()
+{
+	if (EscapedRaidWidget)
+	{
+		EscapedRaidWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
+}
+
 void UFTUIManagerSubsystem::ShowInventory()
 {
 	if (IsInventoryOpen())
@@ -196,19 +273,12 @@ void UFTUIManagerSubsystem::ShowInventory()
 		return;
 	}
 
-	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
-	if (!GameData)
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Inventory widget was not created because game data is missing."));
-		return;
-	}
-
 	if (!InventoryWidget)
 	{
-		TSubclassOf<UFTInventoryWidget> InventoryWidgetClass = UFTAssetManager::GetSubclass(GameData->InventoryWidgetClass);
+		TSubclassOf<UFTInventoryWidget> InventoryWidgetClass = UFTAssetManager::Get().GetInventoryWidgetClass();
 		if (!InventoryWidgetClass)
 		{
-			UE_LOG(LogFTUI, Warning, TEXT("Inventory widget class is not set in game data."));
+			UE_LOG(LogFTUI, Warning, TEXT("Inventory widget class is not set in UI data."));
 			return;
 		}
 
@@ -217,8 +287,6 @@ void UFTUIManagerSubsystem::ShowInventory()
 		{
 			return;
 		}
-
-		// InventoryWidget->SetPaperMaterial(GameData->PaperFlutterMaterial.LoadSynchronous());
 	}
 
 	// 뷰모델을 현재 플레이어의 인벤토리 컴포넌트에 연결한다. 이 연결이 없으면 위젯은 떠도 아이템이 항상 비어 있다
@@ -290,12 +358,9 @@ bool UFTUIManagerSubsystem::IsInventoryOpen() const
 	return InventoryWidget && InventoryWidget->IsInViewport();
 }
 
-void UFTUIManagerSubsystem::ShowCrafting()
-{
-	UE_LOG(LogFTUI, Warning, TEXT("ShowCrafting called without a workbench context."));
-}
 
-void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubCraftTestWidget> FallbackWidgetClass)
+
+void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory)
 {
 	if (!HubWorkbench)
 	{
@@ -316,20 +381,11 @@ void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInven
 		return;
 	}
 
-	TSubclassOf<UFTHubCraftTestWidget> CraftWidgetClass = nullptr;
-	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
-	{
-		CraftWidgetClass = UFTAssetManager::GetSubclass(GameData->HubCraftWidgetClass);
-	}
+	TSubclassOf<UFTHubCraftTestWidget> CraftWidgetClass = UFTAssetManager::Get().GetHubCraftWidgetClass();
 
 	if (!CraftWidgetClass)
 	{
-		CraftWidgetClass = FallbackWidgetClass;
-	}
-
-	if (!CraftWidgetClass)
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Craft widget class is not set in game data or fallback actor."));
+		UE_LOG(LogFTUI, Warning, TEXT("Craft widget class is not set in UI data."));
 		return;
 	}
 
@@ -371,12 +427,9 @@ void UFTUIManagerSubsystem::HideCrafting()
 	}
 }
 
-void UFTUIManagerSubsystem::ShowStorage()
-{
-	UE_LOG(LogFTUI, Warning, TEXT("ShowStorage called without a storage context."));
-}
 
-void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory, TSubclassOf<UFTHubStorageWidget> FallbackWidgetClass)
+
+void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryComponent* PlayerInventory)
 {
 	if (!HubStorage)
 	{
@@ -397,20 +450,11 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 		return;
 	}
 
-	TSubclassOf<UFTHubStorageWidget> StorageWidgetClass = nullptr;
-	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
-	{
-		StorageWidgetClass = UFTAssetManager::GetSubclass(GameData->HubStorageWidgetClass);
-	}
+	TSubclassOf<UFTHubStorageWidget> StorageWidgetClass = UFTAssetManager::Get().GetHubStorageWidgetClass();
 
 	if (!StorageWidgetClass)
 	{
-		StorageWidgetClass = FallbackWidgetClass;
-	}
-
-	if (!StorageWidgetClass)
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Storage widget class is not set in game data or fallback actor."));
+		UE_LOG(LogFTUI, Warning, TEXT("Storage widget class is not set in UI data."));
 		return;
 	}
 
@@ -452,12 +496,178 @@ void UFTUIManagerSubsystem::HideStorage()
 	}
 }
 
-void UFTUIManagerSubsystem::ShowQuestBoard()
+void UFTUIManagerSubsystem::ShowHubMain(
+	AFTHubTerminal* HubTerminal,
+	AFTHubStorage* HubStorage,
+	UFTInventoryComponent* PlayerInventory
+)
 {
+	if (HubMainWidget && HubMainWidget->IsInViewport())
+	{
+		HideHubMain();
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub main widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	TSubclassOf<UFTHubMainWidget> HubMainWidgetClass = nullptr;
+	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
+	{
+		HubMainWidgetClass = UFTAssetManager::GetSubclass(GameData->HubMainWidgetClass);
+	}
+
+	if (!HubMainWidgetClass)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub main widget class is not set in game data."));
+		return;
+	}
+
+	if (!HubMainWidget || !HubMainWidget->IsA(HubMainWidgetClass))
+	{
+		HubMainWidget = CreateWidget<UFTHubMainWidget>(PlayerController, HubMainWidgetClass);
+		if (!HubMainWidget)
+		{
+			return;
+		}
+	}
+
+	UFTShopSubsystem* ShopSubsystem = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UFTShopSubsystem>()
+		: nullptr;
+	if (ShopSubsystem)
+	{
+		ShopSubsystem->ConfigureHubStorage(HubStorage);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub shop and market panels will be empty because ShopSubsystem is missing."));
+	}
+
+	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory);
+
+	if (UFTHubQuestPanelWidget* QuestPanelWidget = HubMainWidget->GetQuestPanelWidget())
+	{
+		UGameInstance* GameInstance = GetGameInstance();
+		QuestPanelWidget->InitializeQuestPanel(GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr, PlayerInventory);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub quest panel is missing from HubMainWidget."));
+	}
+
+	if (UFTHubMarketPanelWidget* MarketPanelWidget = HubMainWidget->GetMarketPanelWidget())
+	{
+		MarketPanelWidget->InitializeMarketPanel(ShopSubsystem, PlayerInventory);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub market panel is missing from HubMainWidget."));
+	}
+
+	if (UFTHubShopPanelWidget* ShopPanelWidget = HubMainWidget->GetShopPanelWidget())
+	{
+		ShopPanelWidget->InitializeShopPanel(ShopSubsystem, PlayerInventory);
+	}
+	else
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Hub shop panel is missing from HubMainWidget."));
+	}
+
+	HubMainWidget->AddToViewport(20);
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetWidgetToFocus(HubMainWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+}
+
+void UFTUIManagerSubsystem::HideHubMain()
+{
+	if (HubMainWidget)
+	{
+		HubMainWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
 }
 
 void UFTUIManagerSubsystem::ShowFailScreen()
 {
+	if (FailWidget && FailWidget->IsInViewport())
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Fail widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	if (!FailWidget)
+	{
+		TSubclassOf<UFTFailWidget> FailWidgetClass = UFTAssetManager::Get().GetFailWidgetClass();
+		if (!FailWidgetClass)
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Fail widget class is not set in active game data. Set DA_FTGameData.FailWidgetClass to WBP_FailWidget."));
+			return;
+		}
+
+		FailWidget = CreateWidget<UFTFailWidget>(PlayerController, FailWidgetClass);
+		if (!FailWidget)
+		{
+			return;
+		}
+	}
+
+	HideCountdownEscape();
+	HideEscapedRaid();
+	FailWidget->AddToViewport(40);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(FailWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+
+	UE_LOG(LogFTUI, Log, TEXT("Fail widget shown. Widget=%s Class=%s"),
+		*GetNameSafe(FailWidget),
+		*GetNameSafe(FailWidget->GetClass()));
+}
+
+void UFTUIManagerSubsystem::HideFailScreen()
+{
+	if (FailWidget)
+	{
+		FailWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
 }
 
 void UFTUIManagerSubsystem::ShowSettlementScreen()
@@ -468,4 +678,25 @@ APlayerController* UFTUIManagerSubsystem::GetPrimaryPlayerController() const
 {
 	const UGameInstance* OwningGameInstance = GetGameInstance();
 	return OwningGameInstance ? OwningGameInstance->GetFirstLocalPlayerController() : nullptr;
+}
+
+void UFTUIManagerSubsystem::HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	if (!HUDViewModel)
+	{
+		return;
+	}
+
+	const int32 ProgressPercent = FMath::RoundToInt(FMath::Clamp(Payload.Value, 0.0f, 1.0f) * 100.0f);
+	HUDViewModel->SetObjectiveText(FText::FromString(FString::Printf(TEXT("Quest %s %d%%"), *Payload.QuestId.ToString(), ProgressPercent)));
+}
+
+void UFTUIManagerSubsystem::HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	if (!HUDViewModel)
+	{
+		return;
+	}
+
+	HUDViewModel->SetObjectiveText(FText::FromString(FString::Printf(TEXT("Quest %s Complete"), *Payload.QuestId.ToString())));
 }

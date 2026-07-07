@@ -96,6 +96,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bReportCancelled = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	bool bIsStunned = false;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bObservedShelfDamaged = false;
@@ -111,6 +114,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Report")
 	void CancelReport();
+
+	void HandleStunStateChanged(bool bStunned);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Target")
 	void UpdateTargetState();

@@ -8,16 +8,20 @@
 #include "Engine/World.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "HAL/IConsoleManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTSecurityChaseGaugePayloadStruct.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AIPerceptionTypes.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Core/FTGameState.h"
+#include "ProjectFT/Components/FTSecurityCoordinationComponent.h"
 #include "ProjectFT/Struct/FTSecurityResponsePayloadStruct.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
 
@@ -105,6 +109,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 
 	UpdateAbilityState();
 	UpdateTargetState();
+	UpdateTargetFocus();
 	UpdateReturnCollision();
 	DrawSightDebug();
 }
@@ -135,6 +140,14 @@ void AFTSecurityAIController::UpdateAbilityState()
 void AFTSecurityAIController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (const UWorld* World = GetWorld())
+	{
+		if (AFTGameState* GameState = World->GetGameState<AFTGameState>())
+		{
+			GameState->SecurityCoordinationComponent->RegisterSecurityController(this);
+		}
+	}
 
 	if (SightConfig && SecurityPerceptionComponent)
 	{
@@ -174,6 +187,11 @@ void AFTSecurityAIController::BeginPlay()
 		TAG_FT_Event_SecurityTargetEscaped,
 		this,
 		&ThisClass::OnSecurityTargetEscaped
+	);
+	ShelfDamagedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_ShelfDamaged,
+		this,
+		&ThisClass::OnShelfDamaged
 	);
 
 	if (APawn* ControlledPawn = GetPawn())
@@ -282,6 +300,11 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 
 void AFTSecurityAIController::SetTargetActor(AActor* NewTargetActor)
 {
+	if (TargetActor != NewTargetActor)
+	{
+		LastTargetVisibleTime = -BIG_NUMBER;
+	}
+
 	TargetActor = NewTargetActor;
 }
 
@@ -349,6 +372,57 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 	// UE_LOG(LogTemp, Log, TEXT("Security AI: Investigating location %s, result %d"), *InvestigateLocation.ToString(), static_cast<int32>(MoveResult));
 }
 
+void AFTSecurityAIController::OnShelfDamaged(
+	FGameplayTag Channel,
+	const FFTMessagePayloadStruct& Payload)
+{
+	if (bTargetCaptured || bIsStunned)
+	{
+		return;
+	}
+
+	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
+	AActor* DamagedShelf = Payload.TargetActor;
+	if (!SuspectActor)
+	{
+		// TODO: 공격 측에서 DamageCauser를 정상 전달하면 싱글플레이용 fallback을 제거한다.
+		SuspectActor = UGameplayStatics::GetPlayerPawn(this, 0);
+	}
+
+	if (!SuspectActor || !DamagedShelf)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Warning,
+			TEXT("Security AI ignored shelf damage: Instigator=%s Player=%s Shelf=%s"),
+			*GetNameSafe(Payload.InstigatorActor),
+			*GetNameSafe(SuspectActor),
+			*GetNameSafe(DamagedShelf));
+		return;
+	}
+
+	SetTargetActor(SuspectActor);
+	const bool bCanSeePlayer = IsTargetCurrentlyVisible();
+	const bool bCanSeeDamagedShelf = LineOfSightTo(DamagedShelf);
+	if (!bCanSeePlayer || !bCanSeeDamagedShelf)
+	{
+		return;
+	}
+
+	bReturning = false;
+	bReturnRequested = false;
+	bSecurityCalled = true;
+	InvestigateLocation = SuspectActor->GetActorLocation();
+	UpdateTargetState();
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Security AI '%s' witnessed shelf damage, chasing %s"),
+		*GetName(),
+		*GetNameSafe(SuspectActor));
+}
+
 AActor* AFTSecurityAIController::GetTargetActor() const
 {
 	return TargetActor;
@@ -371,12 +445,20 @@ void AFTSecurityAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetInAttackRange = false;
+		LastTargetVisibleTime = -BIG_NUMBER;
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
 
 	TargetDistance = FVector::Dist(ControlledPawn->GetActorLocation(), TargetActor->GetActorLocation());
-	bHasSeenTarget = IsTargetCurrentlyVisible();
+	const bool bTargetCurrentlyVisible = IsTargetCurrentlyVisible();
+	if (bTargetCurrentlyVisible)
+	{
+		LastTargetVisibleTime = GetWorld()->GetTimeSeconds();
+	}
+
+	const float TimeSinceTargetVisible = GetWorld()->GetTimeSeconds() - LastTargetVisibleTime;
+	bHasSeenTarget = bTargetCurrentlyVisible || TimeSinceTargetVisible <= TargetSightLostGracePeriod;
 	bIsTargetInAttackRange = bHasSeenTarget && TargetDistance <= AttackRange;
 
 	if (!bSecurityCalled && bHasSeenTarget && IsTargetStealing(TargetActor))
@@ -394,6 +476,24 @@ void AFTSecurityAIController::UpdateTargetState()
 	}
 
 	UpdateChaseGaugeTargetSeenState();
+}
+
+void AFTSecurityAIController::UpdateTargetFocus()
+{
+	const bool bShouldFocusTarget = TargetActor
+		&& bSecurityCalled
+		&& bSecurityChaseActive
+		&& !bReturning
+		&& !bTargetCaptured
+		&& !bIsStunned;
+
+	if (bShouldFocusTarget)
+	{
+		SetFocus(TargetActor, EAIFocusPriority::Gameplay);
+		return;
+	}
+
+	ClearFocus(EAIFocusPriority::Gameplay);
 }
 
 void AFTSecurityAIController::UpdateChaseGaugeTargetSeenState()
@@ -438,7 +538,9 @@ void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecuri
 	SecurityChaseGauge = 0.0f;
 	bSecurityChaseActive = false;
 	bSecurityCalled = false;
+	ClearFocus(EAIFocusPriority::Gameplay);
 	TargetActor = nullptr;
+	LastTargetVisibleTime = -BIG_NUMBER;
 	TargetDistance = 0.0f;
 	bHasSeenTarget = false;
 	bIsTargetInAttackRange = false;
@@ -656,6 +758,27 @@ bool AFTSecurityAIController::IsPlayerActor(const AActor* Actor) const
 	return TargetPawn && TargetPawn->IsPlayerControlled();
 }
 
+AActor* AFTSecurityAIController::ResolvePlayerActor(AActor* DamageCauser) const
+{
+	AActor* CurrentActor = DamageCauser;
+	for (int32 OwnerDepth = 0; CurrentActor && OwnerDepth < 4; ++OwnerDepth)
+	{
+		if (IsPlayerActor(CurrentActor))
+		{
+			return CurrentActor;
+		}
+
+		if (APawn* InstigatorPawn = CurrentActor->GetInstigator(); IsPlayerActor(InstigatorPawn))
+		{
+			return InstigatorPawn;
+		}
+
+		CurrentActor = CurrentActor->GetOwner();
+	}
+
+	return nullptr;
+}
+
 bool AFTSecurityAIController::IsTargetStealing(const AActor* Actor) const
 {
 	if (!Actor)
@@ -678,6 +801,14 @@ bool AFTSecurityAIController::IsTargetStealing(const AActor* Actor) const
 
 void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (const UWorld* World = GetWorld())
+	{
+		if (AFTGameState* GameState = World->GetGameState<AFTGameState>())
+		{
+			GameState->SecurityCoordinationComponent->UnregisterSecurityController(this);
+		}
+	}
+
 	if (bReportedTargetSeenToChaseGauge)
 	{
 		bHasSeenTarget = false;
@@ -707,6 +838,10 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (SecurityTargetEscapedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(SecurityTargetEscapedListenerHandle);
+	}
+	if (ShelfDamagedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfDamagedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);

@@ -26,7 +26,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "FT|Crafting")
 	bool bCanCraft = false;
 
-	void Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, bool bInUseStorageTileItems);
+	void Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory);
 
 	const TArray<TObjectPtr<UObject>>& GetStorageItemObjects() const;
 	const TArray<TObjectPtr<UObject>>& GetRecipeObjects() const;
@@ -101,5 +101,4 @@ private:
 	FText ResultItemText;
 	FText SearchText;
 	bool bCraftableOnly = false;
-	bool bUseStorageTileItems = false;
 };

@@ -26,3 +26,22 @@ FGameplayTag UFTGameplayAbility::GetTriggerEventTag() const
 	}
 	return FGameplayTag();
 }
+
+FActiveGameplayEffectHandle UFTGameplayAbility::ApplyGameplayEffectSpecToOwnerPublic(
+	const FGameplayAbilitySpecHandle AbilityHandle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEffectSpecHandle SpecHandle) const
+{
+	return ApplyGameplayEffectSpecToOwner(AbilityHandle, ActorInfo, ActivationInfo, SpecHandle);
+}
+
+TArray<FActiveGameplayEffectHandle> UFTGameplayAbility::ApplyGameplayEffectSpecToTargetPublic(
+	const FGameplayAbilitySpecHandle AbilityHandle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEffectSpecHandle SpecHandle,
+	const FGameplayAbilityTargetDataHandle& TargetData) const
+{
+	return ApplyGameplayEffectSpecToTarget(AbilityHandle, ActorInfo, ActivationInfo, SpecHandle, TargetData);
+}
