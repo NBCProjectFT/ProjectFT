@@ -3,6 +3,7 @@
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Cooldown_ItemUse, "Cooldown.ItemUse");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Cooldown, "Data.Cooldown");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Duration, "Data.Duration");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_BubbleDuration, "Data.BubbleDuration");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_UsingItem, "State.UsingItem");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse, "Ability.ItemUse");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse_Channeled, "Ability.ItemUse.Channeled");

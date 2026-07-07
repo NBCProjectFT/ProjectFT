@@ -14,6 +14,10 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Cooldown);
 // 한 아이템에서 효과별 지속시간을 다르게 줘야 하는 경우에는 Data.StunDuration 같은 전용 태그를 별도로 쓴다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_Duration);
 
+// 버블에 실제로 갇혀 있는 시간(UFTGE_BubbleTrap)을 SetByCaller로 주입할 때 쓰는 데이터 태그.
+// 버블 스택 유지 시간은 공용 Data.Duration을 쓰고, 같은 DA에서 갇힘 시간까지 함께 줘야 하므로 별도 태그로 분리한다.
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Data_BubbleDuration);
+
 // 아이템 사용 어빌리티가 시전/조준(활성) 중인 동안 소유자에게 부여되는 상태 태그(ActivationOwnedTags).
 // "아이템 동작 진행 중?"의 값싼 가드 질의(HasMatchingGameplayTag)에 쓴다. 실제 취소 매칭은 아래 Ability.ItemUse.* AssetTags로 한다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_UsingItem);

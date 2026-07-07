@@ -11,6 +11,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Character/FTCharacterBase.h"
 
 UFTCaptureEscapeComponent::UFTCaptureEscapeComponent()
 {
@@ -189,6 +190,10 @@ void UFTCaptureEscapeComponent::OnStruggleEvent(const FGameplayEventData* Payloa
 
 	// Event.Struggle 1발 = 좌우 전환 1회(능동 탈출력). flip 판정은 입력측(플레이어)이 이미 했다.
 	Gauge.AddFlip();
+	if (AFTCharacterBase* OwnerCharacter = Cast<AFTCharacterBase>(GetOwner()))
+	{
+		OwnerCharacter->PlayStruggleJitter();
+	}
 	TryComplete();
 }
 
