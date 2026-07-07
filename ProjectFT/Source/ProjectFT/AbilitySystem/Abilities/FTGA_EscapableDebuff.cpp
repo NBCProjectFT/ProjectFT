@@ -14,9 +14,9 @@
 
 UFTGA_EscapableDebuff::UFTGA_EscapableDebuff()
 {
-	// State.Escapable이 붙는 순간 자동 발동, 사라지면(타이머 만료/외부 제거) 자동 종료.
+	// State.Debuff.Escapable이 붙는 순간 자동 발동, 사라지면(타이머 만료/외부 제거) 자동 종료.
 	FAbilityTriggerData Trigger;
-	Trigger.TriggerTag = TAG_FT_State_Escapable;
+	Trigger.TriggerTag = TAG_FT_State_Debuff_Escapable;
 	Trigger.TriggerSource = EGameplayAbilityTriggerSource::OwnedTagPresent;
 	AbilityTriggers.Add(Trigger);
 
@@ -36,16 +36,23 @@ void UFTGA_EscapableDebuff::ActivateAbility(const FGameplayAbilitySpecHandle Han
 	}
 
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	AutoEscapeDurationSeconds = ResolveAutoEscapeDurationSeconds(ASC);
-	PassiveEscapeGainPerSecond = AutoEscapeDurationSeconds > KINDA_SMALL_NUMBER
-		? EscapeThreshold / AutoEscapeDurationSeconds
-		: 0.0f;
+	if (!ASC)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
 
-	// 공용 게이지 시작: 자동 해제 시간 동안 자연 증가하고, 좌우 연타가 추가로 가속한다.
-	Gauge.PassiveGainPerSecond = PassiveEscapeGainPerSecond;
-	Gauge.GainPerFlip = PassiveEscapeGainPerSecond * SecondsReducedPerStruggleInput;
-	Gauge.Begin(EscapeThreshold, /*DecayPerSecond=*/0.0f);
+	TrackedEscapableEffectHandle = KeepNewestEscapableEffect(ASC);
+	if (!TrackedEscapableEffectHandle.IsValid())
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+	InitializeEscapeGauge(ASC);
 	StartEscapeTick();
+
+	EscapableTagCountHandle = ASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Escapable, EGameplayTagEventType::AnyCountChange)
+		.AddUObject(this, &ThisClass::OnEscapableTagCountChanged);
 
 	// 발버둥 입력(Event.Struggle)을 계속 수신(OnlyTriggerOnce=false).
 	UAbilityTask_WaitGameplayEvent* WaitStruggle = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
@@ -66,6 +73,16 @@ void UFTGA_EscapableDebuff::EndAbility(
 		World->GetTimerManager().ClearTimer(EscapeTickTimerHandle);
 	}
 
+	if (EscapableTagCountHandle.IsValid())
+	{
+		if (UAbilitySystemComponent* ASC = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr)
+		{
+			ASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Escapable, EGameplayTagEventType::AnyCountChange).Remove(EscapableTagCountHandle);
+		}
+		EscapableTagCountHandle.Reset();
+	}
+	TrackedEscapableEffectHandle = FActiveGameplayEffectHandle();
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -78,6 +95,29 @@ void UFTGA_EscapableDebuff::OnStruggleEvent(FGameplayEventData Payload)
 		Character->PlayStruggleJitter();
 	}
 	TryCompleteEscape();
+}
+
+void UFTGA_EscapableDebuff::OnEscapableTagCountChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (!ASC || NewCount <= 0)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
+	const FActiveGameplayEffectHandle NewestEscapableEffectHandle = KeepNewestEscapableEffect(ASC);
+	if (!NewestEscapableEffectHandle.IsValid())
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
+	if (NewestEscapableEffectHandle != TrackedEscapableEffectHandle)
+	{
+		TrackedEscapableEffectHandle = NewestEscapableEffectHandle;
+		InitializeEscapeGauge(ASC);
+	}
 }
 
 float UFTGA_EscapableDebuff::GetRemainingEscapeTime() const
@@ -127,7 +167,7 @@ bool UFTGA_EscapableDebuff::GetActiveEscapableDebuffInfo(
 void UFTGA_EscapableDebuff::TickEscapeGauge()
 {
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	if (!ASC || !ASC->HasMatchingGameplayTag(TAG_FT_State_Escapable))
+	if (!ASC || !ASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Escapable))
 	{
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
@@ -164,8 +204,83 @@ void UFTGA_EscapableDebuff::RemoveEscapableEffects()
 {
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 	{
-		ASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TAG_FT_State_Escapable));
+		if (EscapableTagCountHandle.IsValid())
+		{
+			ASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Escapable, EGameplayTagEventType::AnyCountChange).Remove(EscapableTagCountHandle);
+			EscapableTagCountHandle.Reset();
+		}
+
+		if (TrackedEscapableEffectHandle.IsValid() && ASC->GetActiveGameplayEffect(TrackedEscapableEffectHandle))
+		{
+			ASC->RemoveActiveGameplayEffect(TrackedEscapableEffectHandle);
+			TrackedEscapableEffectHandle = FActiveGameplayEffectHandle();
+			return;
+		}
+
+		ASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TAG_FT_State_Debuff_Escapable));
 	}
+}
+
+void UFTGA_EscapableDebuff::InitializeEscapeGauge(const UAbilitySystemComponent* ASC)
+{
+	AutoEscapeDurationSeconds = ResolveAutoEscapeDurationSeconds(ASC);
+	PassiveEscapeGainPerSecond = AutoEscapeDurationSeconds > KINDA_SMALL_NUMBER
+		? EscapeThreshold / AutoEscapeDurationSeconds
+		: 0.0f;
+
+	// 공용 게이지 시작: 자동 해제 시간 동안 자연 증가하고, 좌우 연타가 추가로 가속한다.
+	Gauge.PassiveGainPerSecond = PassiveEscapeGainPerSecond;
+	Gauge.GainPerFlip = PassiveEscapeGainPerSecond * SecondsReducedPerStruggleInput;
+	Gauge.Begin(EscapeThreshold, /*DecayPerSecond=*/0.0f);
+
+	if (UWorld* World = GetWorld())
+	{
+		LastEscapeTickTime = World->GetTimeSeconds();
+	}
+}
+
+FActiveGameplayEffectHandle UFTGA_EscapableDebuff::KeepNewestEscapableEffect(UAbilitySystemComponent* ASC) const
+{
+	if (!ASC)
+	{
+		return FActiveGameplayEffectHandle();
+	}
+
+	const FGameplayTagContainer EscapableTags(TAG_FT_State_Debuff_Escapable);
+	const FGameplayEffectQuery Query = FGameplayEffectQuery::MakeQuery_MatchAllOwningTags(EscapableTags);
+	const TArray<FActiveGameplayEffectHandle> EscapableHandles = ASC->GetActiveEffects(Query);
+
+	FActiveGameplayEffectHandle NewestHandle;
+	float NewestStartWorldTime = -TNumericLimits<float>::Max();
+	for (const FActiveGameplayEffectHandle& Handle : EscapableHandles)
+	{
+		const FActiveGameplayEffect* ActiveEffect = ASC->GetActiveGameplayEffect(Handle);
+		if (!ActiveEffect)
+		{
+			continue;
+		}
+
+		if (ActiveEffect->StartWorldTime >= NewestStartWorldTime)
+		{
+			NewestHandle = Handle;
+			NewestStartWorldTime = ActiveEffect->StartWorldTime;
+		}
+	}
+
+	if (!NewestHandle.IsValid())
+	{
+		return FActiveGameplayEffectHandle();
+	}
+
+	for (const FActiveGameplayEffectHandle& Handle : EscapableHandles)
+	{
+		if (Handle != NewestHandle)
+		{
+			ASC->RemoveActiveGameplayEffect(Handle);
+		}
+	}
+
+	return NewestHandle;
 }
 
 void UFTGA_EscapableDebuff::StartEscapeTick()
@@ -193,7 +308,7 @@ float UFTGA_EscapableDebuff::ResolveAutoEscapeDurationSeconds(const UAbilitySyst
 	}
 
 	FGameplayTagContainer Tags;
-	Tags.AddTag(TAG_FT_State_Escapable);
+	Tags.AddTag(TAG_FT_State_Debuff_Escapable);
 	const FGameplayEffectQuery Query = FGameplayEffectQuery::MakeQuery_MatchAllOwningTags(Tags);
 	const TArray<TPair<float, float>> Times = ASC->GetActiveEffectsTimeRemainingAndDuration(Query);
 
@@ -217,7 +332,7 @@ UFTGA_EscapableDebuff* UFTGA_EscapableDebuff::FindActiveEscapableDebuffAbility(A
 	}
 
 	UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
-	if (!ASC || !ASC->HasMatchingGameplayTag(TAG_FT_State_Escapable))
+	if (!ASC || !ASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Escapable))
 	{
 		return nullptr;
 	}

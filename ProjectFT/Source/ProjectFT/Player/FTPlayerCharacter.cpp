@@ -140,11 +140,12 @@ void AFTPlayerCharacter::Tick(float DeltaSeconds)
 
 void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 {
-	// '연타로 탈출 가능한' 상태(잡힘/비눗방울 등)에선 이동 대신 좌우 연타를 발버둥 입력으로 흘려보낸다.
-	// 개별 효과가 아니라 State.Escapable 하나만 보고, flip을 감지하면 Event.Struggle을 발행한다(활성 탈출들이 각자 받는다).
+	// '연타로 탈출 가능한' 상태에서는 이동 대신 좌우 연타를 발버둥 입력으로 흘려보낸다.
+	// 캡처는 State.Captured, GE 기반 탈출형 디버프(버블/빙결 등)는 State.Debuff.Escapable로 분리해 판정한다.
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 	{
-		if (ASC->HasMatchingGameplayTag(TAG_FT_State_Escapable))
+		if (ASC->HasMatchingGameplayTag(TAG_FT_State_Captured)
+			|| ASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Escapable))
 		{
 			SendStruggleOnFlip(MoveValue.X);
 			return;
@@ -448,7 +449,7 @@ void AFTPlayerCharacter::SendStruggleOnFlip(float MoveAxisX)
 	{
 		if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 		{
-			// 자기 ASC로 발행 → 이 캐릭터에 걸린 활성 탈출 효과(잡기/비눗방울 등)들이 각자 게이지를 올린다(브로드캐스트).
+			// 자기 ASC로 발행 → 현재 활성인 탈출 시스템(캡처 컴포넌트 또는 GE 기반 탈출 GA)이 게이지를 올린다.
 			FGameplayEventData Payload;
 			Payload.EventTag = TAG_FT_Event_Struggle;
 			Payload.Instigator = this;

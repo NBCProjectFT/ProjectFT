@@ -15,7 +15,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTOnCaptureEscaped);
 
 /**
  * 플레이어가 경비에게 "붙잡힌" 상태를 소유하는 컴포넌트(두-바디 상호작용).
- *  - BeginCapture: State.Captured/State.Escapable 부여 + 붙잡은 액터의 지점(CapturePoint)에 attach + 이동/충돌 정지
+ *  - BeginCapture: State.Captured/State.Debuff.Immobilized 부여 + 붙잡은 액터의 지점(CapturePoint)에 attach + 이동/충돌 정지
  *  - 좌우 연타 탈출: 플레이어 입력 → Event.Struggle → 공용 게이지(FTStruggleGaugeStruct)가 채워지고, 가득 차면 OnEscaped 통지
  *  - EndCapture: 부착 해제 + 이동/충돌/태그 원복
  *
