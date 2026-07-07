@@ -6,6 +6,18 @@
 #include "FTAssetManager.generated.h"
 
 class UFTGameDataAsset;
+class UFTEscapedRaidWidget;
+class UFTFailWidget;
+class UFTHubCraftTestWidget;
+class UFTHubStorageWidget;
+class UFTCountdownEscapeWidget;
+class UFTInventoryWidget;
+class UFTLoadingWidget;
+class UFTMainHUDWidget;
+class UFTMainMenuWidget;
+class UFTQuestListWidget;
+class UMaterialInterface;
+class UUserWidget;
 struct FStreamableHandle;
 
 DECLARE_DELEGATE_ThreeParams(FFTAssetLoadProgressDelegate, const FString&, int32, int32);
@@ -35,10 +47,19 @@ public:
 	static void DumpLoadedAssets();
 
 	const UFTGameDataAsset* GetGameData();
-	bool UseMainMenuGameData();
-	bool UseHubGameData();
-	bool UseRaidGameData();
-	bool SetActiveGameDataPath(const TSoftObjectPtr<UFTGameDataAsset>& NewGameDataPath);
+	TSubclassOf<UFTLoadingWidget> GetLoadingWidgetClass();
+	TSubclassOf<UFTMainMenuWidget> GetMainMenuWidgetClass();
+	TSubclassOf<UFTMainHUDWidget> GetMainHUDWidgetClass();
+	TSubclassOf<UFTInventoryWidget> GetInventoryWidgetClass();
+	TSubclassOf<UFTQuestListWidget> GetQuestListWidgetClass();
+	TSubclassOf<UFTHubStorageWidget> GetHubStorageWidgetClass();
+	TSubclassOf<UFTHubCraftTestWidget> GetHubCraftWidgetClass();
+	TSubclassOf<UFTCountdownEscapeWidget> GetCountdownEscapeWidgetClass();
+	TSubclassOf<UFTEscapedRaidWidget> GetEscapedRaidWidgetClass();
+	TSubclassOf<UFTFailWidget> GetFailWidgetClass();
+	TSubclassOf<UUserWidget> GetDamageTextWidgetClass();
+	UMaterialInterface* GetDamageTextBackgroundMaterial();
+	UMaterialInterface* GetPaperFlutterMaterial();
 
 protected:
 	virtual void StartInitialLoading() override;
@@ -64,15 +85,6 @@ private:
 private:
 	UPROPERTY(Config)
 	TSoftObjectPtr<UFTGameDataAsset> GameDataPath;
-
-	UPROPERTY(Config)
-	TSoftObjectPtr<UFTGameDataAsset> MainMenuDataPath;
-	
-	UPROPERTY(Config)
-	TSoftObjectPtr<UFTGameDataAsset> HubGameDataPath;
-	
-	UPROPERTY(Config)
-	TSoftObjectPtr<UFTGameDataAsset> HubGameRaidDataPath;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTGameDataAsset> GameData = nullptr;

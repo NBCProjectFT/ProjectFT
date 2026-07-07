@@ -15,6 +15,8 @@ class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
 class UFTCountdownEscapeWidget;
+class UFTEscapedRaidWidget;
+class UFTFailWidget;
 class AFTHubStorage;
 class AFTHubTerminal;
 class AFTHubWorkbench;
@@ -67,6 +69,12 @@ public:
 	void SetCountdownEscapeRemainingTime(float RemainingTime);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowEscapedRaid();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideEscapedRaid();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowInventory();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
@@ -107,6 +115,9 @@ public:
 	void ShowFailScreen();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideFailScreen();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowSettlementScreen();
 
 private:
@@ -124,6 +135,12 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UFTEscapedRaidWidget> EscapedRaidWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTFailWidget> FailWidget = nullptr;
+	
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubMainWidget> HubMainWidget = nullptr;
 
