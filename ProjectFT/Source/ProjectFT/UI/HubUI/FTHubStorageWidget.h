@@ -26,12 +26,6 @@ protected:
 	virtual void NativeConstruct() override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
-	UListView* LV_PlayerItems;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UListView* LV_StorageItems;
-
-	UPROPERTY(meta = (BindWidgetOptional))
 	UTileView* TV_PlayerItems;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -99,7 +93,7 @@ private:
 	void HandlePlayerItemSelectionChanged(UObject* Item);
 	void HandleStorageItemSelectionChanged(UObject* Item);
 
-	UFUNCTION()
+		UFUNCTION()
 	void HandleCloseClicked();
 
 	UFUNCTION()

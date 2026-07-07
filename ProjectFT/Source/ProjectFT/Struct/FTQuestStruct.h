@@ -17,13 +17,22 @@ struct PROJECTFT_API FTQuestStruct : public FTableRowBase
 	FText QuestName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FText SenderName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText Description;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FText> ObjectiveLines;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FTCraftIngredientStruct> RequiredItems;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FTCraftIngredientStruct> RewardItems;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 CurrencyReward = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FName> UnlockedShopItemIDs;

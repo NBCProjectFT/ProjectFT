@@ -11,8 +11,10 @@ class UFTLoadingWidget;
 class UFTMainMenuWidget;
 class UFTMainHUDWidget;
 class UFTInventoryWidget;
+class UFTShopDataAsset;
 class UFTQuestListWidget;
 class UFTHubCraftTestWidget;
+class UFTHubMainWidget;
 class UFTHubStorageWidget;
 class UMaterialInterface;
 
@@ -56,6 +58,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Item")
 	TArray<TSoftObjectPtr<UFTItemDataAsset>> ItemDataAssets;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Hub")
+	TSoftObjectPtr<UFTShopDataAsset> HubShopDataAsset;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
 	FName LoadingLevelName = TEXT("Lvl_Loading");
 
@@ -76,6 +81,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI")
 	TSoftClassPtr<UFTQuestListWidget> QuestListWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
+	TSoftClassPtr<UFTHubMainWidget> HubMainWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
 	TSoftClassPtr<UFTHubStorageWidget> HubStorageWidgetClass;

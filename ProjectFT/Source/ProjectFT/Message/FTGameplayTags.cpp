@@ -17,6 +17,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemConsumed, "Event.Item.Consumed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ReportGaugeChanged, "Event.ReportGauge.Changed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityCalled, "Event.Security.Called");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ObjectiveCompleted, "Event.Objective.Completed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ObjectiveProgressChanged, "Event.Objective.ProgressChanged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCDetectedPlayer, "Event.NPC.DetectedPlayer");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportStarted, "Event.NPC.ReportStarted");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_NPCReportProgress, "Event.NPC.ReportProgress");
