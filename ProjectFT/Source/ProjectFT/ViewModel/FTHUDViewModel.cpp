@@ -1,11 +1,83 @@
 #include "FTHUDViewModel.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
+#include "ProjectFT/AbilitySystem/FTAttributeSet.h"
+#include "ProjectFT/AbilitySystem/FTPlayerAttributeSet.h"
+
 UFTHUDViewModel::UFTHUDViewModel()
 {	
 }
 
 UFTHUDViewModel::~UFTHUDViewModel()
 {
+	ClearPlayerBinding();
+}
+
+void UFTHUDViewModel::InitializeFromPlayer(APawn* PlayerPawn)
+{
+	if (!PlayerPawn)
+	{
+		return;
+	}
+
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(PlayerPawn);
+	if (!AbilitySystemInterface)
+	{
+		return;
+	}
+
+	InitializeFromAbilitySystem(AbilitySystemInterface->GetAbilitySystemComponent());
+}
+
+void UFTHUDViewModel::ClearPlayerBinding()
+{
+	UAbilitySystemComponent* AbilitySystemComponent = BoundAbilitySystemComponent.Get();
+	if (!AbilitySystemComponent)
+	{
+		BoundAbilitySystemComponent.Reset();
+		HealthChangedHandle.Reset();
+		MaxHealthChangedHandle.Reset();
+		StaminaChangedHandle.Reset();
+		MaxStaminaChangedHandle.Reset();
+		return;
+	}
+
+	if (HealthChangedHandle.IsValid())
+	{
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetHealthAttribute()).Remove(HealthChangedHandle);
+	}
+
+	if (MaxHealthChangedHandle.IsValid())
+	{
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMaxHealthAttribute()).Remove(MaxHealthChangedHandle);
+	}
+
+	if (StaminaChangedHandle.IsValid())
+	{
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetStaminaAttribute()).Remove(StaminaChangedHandle);
+	}
+
+	if (MaxStaminaChangedHandle.IsValid())
+	{
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetMaxStaminaAttribute()).Remove(MaxStaminaChangedHandle);
+	}
+
+	BoundAbilitySystemComponent.Reset();
+	HealthChangedHandle.Reset();
+	MaxHealthChangedHandle.Reset();
+	StaminaChangedHandle.Reset();
+	MaxStaminaChangedHandle.Reset();
+}
+
+bool UFTHUDViewModel::IsPlayerBound() const
+{
+	return BoundAbilitySystemComponent.IsValid();
+}
+
+void UFTHUDViewModel::RefreshPlayerAttributes()
+{
+	RefreshAttributeValues();
 }
 
 void UFTHUDViewModel::NotifyChanged()
@@ -116,4 +188,65 @@ float UFTHUDViewModel::NormalizePercent(float Value) const
 	}
 
 	return FMath::Clamp(Value, 0.0f, 1.0f);
+}
+
+void UFTHUDViewModel::InitializeFromAbilitySystem(UAbilitySystemComponent* AbilitySystemComponent)
+{
+	if (!AbilitySystemComponent || BoundAbilitySystemComponent.Get() == AbilitySystemComponent)
+	{
+		RefreshAttributeValues();
+		return;
+	}
+
+	ClearPlayerBinding();
+
+	BoundAbilitySystemComponent = AbilitySystemComponent;
+
+	HealthChangedHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetHealthAttribute())
+		.AddUObject(this, &ThisClass::OnHealthAttributeChanged);
+	MaxHealthChangedHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTAttributeSet::GetMaxHealthAttribute())
+		.AddUObject(this, &ThisClass::OnMaxHealthAttributeChanged);
+	StaminaChangedHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetStaminaAttribute())
+		.AddUObject(this, &ThisClass::OnStaminaAttributeChanged);
+	MaxStaminaChangedHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UFTPlayerAttributeSet::GetMaxStaminaAttribute())
+		.AddUObject(this, &ThisClass::OnMaxStaminaAttributeChanged);
+
+	RefreshAttributeValues();
+}
+
+void UFTHUDViewModel::RefreshAttributeValues()
+{
+	const UAbilitySystemComponent* AbilitySystemComponent = BoundAbilitySystemComponent.Get();
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	SetHPValue(
+		AbilitySystemComponent->GetNumericAttribute(UFTAttributeSet::GetHealthAttribute()),
+		AbilitySystemComponent->GetNumericAttribute(UFTAttributeSet::GetMaxHealthAttribute()));
+
+	SetStamina(
+		AbilitySystemComponent->GetNumericAttribute(UFTPlayerAttributeSet::GetStaminaAttribute()),
+		AbilitySystemComponent->GetNumericAttribute(UFTPlayerAttributeSet::GetMaxStaminaAttribute()));
+}
+
+void UFTHUDViewModel::OnHealthAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	RefreshAttributeValues();
+}
+
+void UFTHUDViewModel::OnMaxHealthAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	RefreshAttributeValues();
+}
+
+void UFTHUDViewModel::OnStaminaAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	RefreshAttributeValues();
+}
+
+void UFTHUDViewModel::OnMaxStaminaAttributeChanged(const FOnAttributeChangeData& Data)
+{
+	RefreshAttributeValues();
 }

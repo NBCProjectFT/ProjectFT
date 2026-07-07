@@ -4,7 +4,10 @@
 #include "UObject/Object.h"
 #include "FTHUDViewModel.generated.h"
 
+class APawn;
+class UAbilitySystemComponent;
 class UTexture2D;
+struct FOnAttributeChangeData;
 
 UCLASS(BlueprintType)
 class PROJECTFT_API UFTItemSlotDataObject : public UObject
@@ -39,7 +42,6 @@ public:
 	UFTHUDViewModel();
 	~UFTHUDViewModel();
 private:
-	//TODO Player로 부터 Stat 가져오기.
 	UPROPERTY(BlueprintReadWrite, Category = "FT|HUD", meta=(AllowPrivateAccess = "true"))
 	float HP = 100.0f;
 
@@ -67,7 +69,27 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = "FT|HUD|ItemSlot", meta=(AllowPrivateAccess = "true"))
 	TArray<TObjectPtr<UFTItemSlotDataObject>> ItemSlotObjects;
 
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UAbilitySystemComponent> BoundAbilitySystemComponent;
+
+	FDelegateHandle HealthChangedHandle;
+	FDelegateHandle MaxHealthChangedHandle;
+	FDelegateHandle StaminaChangedHandle;
+	FDelegateHandle MaxStaminaChangedHandle;
+
 public:
+	UFUNCTION(BlueprintCallable, Category = "FT|HUD")
+	void InitializeFromPlayer(APawn* PlayerPawn);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|HUD")
+	void ClearPlayerBinding();
+
+	UFUNCTION(BlueprintPure, Category = "FT|HUD")
+	bool IsPlayerBound() const;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|HUD")
+	void RefreshPlayerAttributes();
+
 	UFUNCTION(BlueprintCallable, Category = "FT|HUD")
 	void NotifyChanged();
 
@@ -101,4 +123,10 @@ public:
 private:
 	UFTItemSlotDataObject* GetOrCreateItemSlot(int32 SlotIndex);
 	float NormalizePercent(float Value) const;
+	void InitializeFromAbilitySystem(UAbilitySystemComponent* AbilitySystemComponent);
+	void RefreshAttributeValues();
+	void OnHealthAttributeChanged(const FOnAttributeChangeData& Data);
+	void OnMaxHealthAttributeChanged(const FOnAttributeChangeData& Data);
+	void OnStaminaAttributeChanged(const FOnAttributeChangeData& Data);
+	void OnMaxStaminaAttributeChanged(const FOnAttributeChangeData& Data);
 };

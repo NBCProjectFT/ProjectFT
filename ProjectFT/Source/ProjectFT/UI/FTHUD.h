@@ -36,7 +36,7 @@ private:
 	FTimerHandle HUDDrainTestTimerHandle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|HUD|Test", meta = (AllowPrivateAccess = "true"))
-	bool bEnableHUDDrainTest = true;
+	bool bEnableHUDDrainTest = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|HUD|Test", meta = (AllowPrivateAccess = "true", ClampMin = "0.01"))
 	float HUDDrainTestInterval = 0.25f;

@@ -19,11 +19,17 @@ void UFTMainHUDWidget::NativeConstruct()
 
 	ResolveHUDBarWidgets();
 	ResolveHUDViewModel();
+	if (HUDViewModel)
+	{
+		HUDViewModel->InitializeFromPlayer(GetOwningPlayerPawn());
+	}
 
 	const float InitialHPPercent = HUDViewModel ? HUDViewModel->GetTargetHPPercent() : 1.0f;
 	CurrentHPFrontPercent = InitialHPPercent;
 	CurrentHPBackPercent = InitialHPPercent;
-	CurrentStaminaFrontPercent = HUDViewModel ? HUDViewModel->GetTargetStaminaPercent() : 1.0f;
+	const float InitialStaminaPercent = HUDViewModel ? HUDViewModel->GetTargetStaminaPercent() : 1.0f;
+	CurrentStaminaFrontPercent = InitialStaminaPercent;
+	CurrentStaminaBackPercent = InitialStaminaPercent;
 	UpdateHPBars(0.0f);
 	UpdateStaminaBar(0.0f);
 }
@@ -32,7 +38,15 @@ void UFTMainHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	// TODO Player의 체력이 생기면 Add Listener로 변경
+	if (HUDViewModel)
+	{
+		if (!HUDViewModel->IsPlayerBound())
+		{
+			HUDViewModel->InitializeFromPlayer(GetOwningPlayerPawn());
+		}
+		HUDViewModel->RefreshPlayerAttributes();
+	}
+
 	UpdateHPBars(InDeltaTime);
 	UpdateStaminaBar(InDeltaTime);
 	
@@ -152,7 +166,7 @@ void UFTMainHUDWidget::UpdateStaminaBar(float DeltaTime)
 
 void UFTMainHUDWidget::ResolveHUDBarWidgets()
 {
-	if (IMG_HPBar && MID_HPBar && IMG_StaminaBar)
+	if (IMG_HPBar && MID_HPBar && IMG_StaminaBar && MID_StaminaBar)
 	{
 		return;
 	}
