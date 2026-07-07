@@ -3,16 +3,20 @@
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Cooldown_ItemUse, "Cooldown.ItemUse");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Cooldown, "Data.Cooldown");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Duration, "Data.Duration");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_BubbleDuration, "Data.BubbleDuration");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_UsingItem, "State.UsingItem");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse, "Ability.ItemUse");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse_Channeled, "Ability.ItemUse.Channeled");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse_Aimed, "Ability.ItemUse.Aimed");
 
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Immobilized, "State.Debuff.Immobilized");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff, "State.Debuff");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Poison, "State.Debuff.Poison");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Slow, "State.Debuff.Slow");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff, "State.Buff");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Buff_Haste, "State.Buff.Haste");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Escapable, "State.Escapable");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Struggle, "Event.Struggle");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Dead, "State.Dead");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Captured, "State.Captured");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Stealing, "State.Stealing");
@@ -27,9 +31,13 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Heal, "Data.Heal");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UseTaser, "Event.UseTaser");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Stun, "State.Debuff.Stun");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_StunDuration, "Data.StunDuration");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Paralyzed, "State.Debuff.Paralyzed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_BubbleStack, "State.Debuff.BubbleStack");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Bubble, "State.Debuff.Bubble");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Hit, "GameplayCue.Taser.Hit");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Start, "GameplayCue.Taser.Start");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Stun, "GameplayCue.State.Stun");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Bubble, "GameplayCue.State.Bubble");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowItem, "Event.ThrowItem");
 

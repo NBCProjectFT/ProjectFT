@@ -12,6 +12,7 @@ class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class AActor;
 struct FFTNPCReportPayloadStruct;
+struct FFTMessagePayloadStruct;
 struct FFTSecurityChaseGaugePayloadStruct;
 struct FFTSecurityResponsePayloadStruct;
 UCLASS()
@@ -66,6 +67,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	float AttackRange = 150.0f;
+
+	/** 짧은 가림이나 이동 회전으로 시야가 끊겨도 추격 상태를 유지하는 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
+	float TargetSightLostGracePeriod = 0.75f;
 	
 	UFUNCTION(BlueprintPure, Category = "FT|Security")
 	AActor* GetTargetActor() const;
@@ -123,6 +128,18 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	bool bIsStunned = false;
 
+	/** True only for the security selected to approach and capture the current target. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
+	bool bIsAttackLeader = false;
+
+	/** Coordination Component가 이 보안요원에게 배정한 포위 이동 위치다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
+	FVector EncircleSlotLocation = FVector::ZeroVector;
+
+	/** StateTree가 EncircleSlotLocation을 이동 목표로 사용할 수 있는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
+	bool bHasEncircleSlot = false;
+
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
 	FGameplayMessageListenerHandle ChaseGaugeChangedListenerHandle;
@@ -130,13 +147,16 @@ private:
 	FGameplayMessageListenerHandle SecurityDeployedListenerHandle;
 	FGameplayMessageListenerHandle SecurityTargetCapturedListenerHandle;
 	FGameplayMessageListenerHandle SecurityTargetEscapedListenerHandle;
+	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void OnShelfDamaged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void OnSecurityTargetCaptured(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnSecurityTargetEscaped(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnChaseGaugeChanged(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
 	void UpdateTargetState();
+	void UpdateTargetFocus();
 	void UpdateAbilityState();
 	void UpdateChaseGaugeTargetSeenState();
 	void UpdateReturnCollision();
@@ -144,10 +164,12 @@ private:
 	bool bReportedTargetSeenToChaseGauge = false;
 	bool bReturnFailureLogged = false;
 	bool bReturnCollisionIgnored = false;
+	float LastTargetVisibleTime = -BIG_NUMBER;
 
 	UPROPERTY()
 	TObjectPtr<AActor> SecurityRoomActor;
 	bool IsPlayerActor(const AActor* Actor) const;
+	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsTargetStealing(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;
 	void DrawSightDebug() const;

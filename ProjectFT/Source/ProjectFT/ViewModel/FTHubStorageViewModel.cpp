@@ -2,19 +2,17 @@
 
 #include "Engine/AssetManager.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
-#include "ProjectFT/UI/HubUI/FTStorageItemListObject.h"
 
-void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory, const bool bInUsePlayerTileItems, const bool bInUseStorageTileItems)
+void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
 {
 	UnbindInventoryDelegates();
 
 	HubStorage = InHubStorage;
 	PlayerInventory = InPlayerInventory;
-	bUsePlayerTileItems = bInUsePlayerTileItems;
-	bUseStorageTileItems = bInUseStorageTileItems;
 	ClearSelection();
 
 	BindInventoryDelegates();
@@ -78,7 +76,9 @@ bool UFTHubStorageViewModel::CanStoreAll() const
 
 bool UFTHubStorageViewModel::CanTakeAll() const
 {
-	return HubStorage && !HubStorage->GetStorageItems().IsEmpty();
+	TArray<FTStorageItemStruct> StorageItems;
+	GetCurrentStorageItems(StorageItems);
+	return !StorageItems.IsEmpty();
 }
 
 void UFTHubStorageViewModel::RefreshAll()
@@ -171,18 +171,9 @@ void UFTHubStorageViewModel::RefreshPlayerItems()
 			continue;
 		}
 
-		if (bUsePlayerTileItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity);
-			PlayerItemObjects.Add(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize({ InventoryItem.ItemId, InventoryItem.Quantity });
-			PlayerItemObjects.Add(ItemObject);
-		}
+		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+		ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity);
+		PlayerItemObjects.Add(ItemObject);
 	}
 }
 
@@ -195,25 +186,18 @@ void UFTHubStorageViewModel::RefreshStorageItems()
 		return;
 	}
 
-	for (const FTStorageItemStruct& StorageItem : HubStorage->GetStorageItems())
+	TArray<FTStorageItemStruct> StorageItems;
+	GetCurrentStorageItems(StorageItems);
+	for (const FTStorageItemStruct& StorageItem : StorageItems)
 	{
 		if (!ShouldShowItem(StorageItem.ItemID, StorageFilterCategory))
 		{
 			continue;
 		}
 
-		if (bUseStorageTileItems)
-		{
-			UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-			ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
-			StorageItemObjects.Add(ItemObject);
-		}
-		else
-		{
-			UFTStorageItemListObject* ItemObject = NewObject<UFTStorageItemListObject>(this);
-			ItemObject->Initialize(StorageItem);
-			StorageItemObjects.Add(ItemObject);
-		}
+		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
+		ItemObject->InitializeItem(StorageItem.ItemID, StorageItem.Count);
+		StorageItemObjects.Add(ItemObject);
 	}
 }
 
@@ -225,10 +209,10 @@ void UFTHubStorageViewModel::BindInventoryDelegates()
 		PlayerInventory->OnInventoryChanged.AddDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
 	}
 
-	if (HubStorage && HubStorage->GetStorageInventory())
+	if (UFTInventoryComponent* StorageInventory = GetStorageInventory())
 	{
-		HubStorage->GetStorageInventory()->OnInventoryChanged.RemoveDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
-		HubStorage->GetStorageInventory()->OnInventoryChanged.AddDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
+		StorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
+		StorageInventory->OnInventoryChanged.AddDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
 	}
 }
 
@@ -239,9 +223,31 @@ void UFTHubStorageViewModel::UnbindInventoryDelegates()
 		PlayerInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
 	}
 
-	if (HubStorage && HubStorage->GetStorageInventory())
+	if (UFTInventoryComponent* StorageInventory = GetStorageInventory())
 	{
-		HubStorage->GetStorageInventory()->OnInventoryChanged.RemoveDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
+		StorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubStorageViewModel::HandleInventoryChanged);
+	}
+}
+
+UFTStorageSubsystem* UFTHubStorageViewModel::GetStorageSubsystem() const
+{
+	return HubStorage && HubStorage->GetGameInstance()
+		? HubStorage->GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
+}
+
+UFTInventoryComponent* UFTHubStorageViewModel::GetStorageInventory() const
+{
+	return HubStorage ? HubStorage->GetStorageInventory() : nullptr;
+}
+
+void UFTHubStorageViewModel::GetCurrentStorageItems(TArray<FTStorageItemStruct>& OutItems) const
+{
+	OutItems.Reset();
+
+	if (const UFTStorageSubsystem* StorageSubsystem = GetStorageSubsystem())
+	{
+		StorageSubsystem->GetStorageItems(GetStorageInventory(), OutItems);
 	}
 }
 
@@ -290,19 +296,15 @@ bool UFTHubStorageViewModel::TryReadItemObject(UObject* ItemObject, FTStorageIte
 		return !OutItem.ItemID.IsNone() && OutItem.Count > 0;
 	}
 
-	if (const UFTStorageItemListObject* StorageObject = Cast<UFTStorageItemListObject>(ItemObject))
-	{
-		OutItem = StorageObject->GetStorageItem();
-		return !OutItem.ItemID.IsNone() && OutItem.Count > 0;
-	}
-
 	OutItem = {};
 	return false;
 }
 
 bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSource SourceType)
 {
-	if (!HubStorage || !PlayerInventory || SourceType == EFTHubStorageTransferSource::None || SelectedSource != SourceType)
+	UFTStorageSubsystem* StorageSubsystem = GetStorageSubsystem();
+	UFTInventoryComponent* StorageInventory = GetStorageInventory();
+	if (!StorageSubsystem || !StorageInventory || !PlayerInventory || SourceType == EFTHubStorageTransferSource::None || SelectedSource != SourceType)
 	{
 		return false;
 	}
@@ -316,8 +318,8 @@ bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSo
 		}
 
 		const bool bMoved = SourceType == EFTHubStorageTransferSource::Player
-			? HubStorage->StoreItemFromInventory(PlayerInventory, SelectedItem.ItemID, SelectedItem.Count)
-			: HubStorage->TakeItemToInventory(PlayerInventory, SelectedItem.ItemID, SelectedItem.Count);
+			? StorageSubsystem->StoreItemFromInventory(StorageInventory, PlayerInventory, SelectedItem.ItemID, SelectedItem.Count)
+			: StorageSubsystem->TakeItemToInventory(StorageInventory, PlayerInventory, SelectedItem.ItemID, SelectedItem.Count);
 
 		bMovedAnyItem = bMovedAnyItem || bMoved;
 	}
@@ -333,7 +335,9 @@ bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSo
 
 bool UFTHubStorageViewModel::TransferAllItems(const EFTHubStorageTransferSource SourceType)
 {
-	if (!HubStorage || !PlayerInventory || SourceType == EFTHubStorageTransferSource::None)
+	UFTStorageSubsystem* StorageSubsystem = GetStorageSubsystem();
+	UFTInventoryComponent* StorageInventory = GetStorageInventory();
+	if (!StorageSubsystem || !StorageInventory || !PlayerInventory || SourceType == EFTHubStorageTransferSource::None)
 	{
 		return false;
 	}
@@ -348,7 +352,7 @@ bool UFTHubStorageViewModel::TransferAllItems(const EFTHubStorageTransferSource 
 	}
 	else
 	{
-		ItemsToMove = HubStorage->GetStorageItems();
+		StorageSubsystem->GetStorageItems(StorageInventory, ItemsToMove);
 	}
 
 	bool bMovedAnyItem = false;
@@ -360,8 +364,8 @@ bool UFTHubStorageViewModel::TransferAllItems(const EFTHubStorageTransferSource 
 		}
 
 		const bool bMoved = SourceType == EFTHubStorageTransferSource::Player
-			? HubStorage->StoreItemFromInventory(PlayerInventory, Item.ItemID, Item.Count)
-			: HubStorage->TakeItemToInventory(PlayerInventory, Item.ItemID, Item.Count);
+			? StorageSubsystem->StoreItemFromInventory(StorageInventory, PlayerInventory, Item.ItemID, Item.Count)
+			: StorageSubsystem->TakeItemToInventory(StorageInventory, PlayerInventory, Item.ItemID, Item.Count);
 
 		bMovedAnyItem = bMovedAnyItem || bMoved;
 	}

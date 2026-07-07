@@ -10,6 +10,16 @@
 class AFTItemActor;
 class UFTItemDataAsset;
 
+USTRUCT(BlueprintType)
+struct FFTItemActorArray
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY()
+	TArray<TObjectPtr<AFTItemActor>> Actors;
+};
+
 /**
  * @brief 아이템 풀링 및 필드 드롭 아이템 스폰을 전역 관리하는 월드 서브시스템
  */
@@ -52,10 +62,9 @@ private:
 	/** @brief 드롭 요청 메시지 리스너 핸들 */
 	FGameplayMessageListenerHandle DropItemListenerHandle;
 
-	/** @brief 비활성화되어 재사용 대기 중인 아이템 액터 풀 */
+	/** @brief 비활성화되어 재사용 대기 중인 아이템 액터 풀 (아이템 ID별로 나누어 관리) */
 	UPROPERTY()
-	TArray<TObjectPtr<AFTItemActor>> InactivePool;
+	TMap<FName, FFTItemActorArray> InactivePoolsMap;
 
-	/** @brief 풀이 유지할 최대 비활성 액터 개수 */
-	int32 MaxPoolSize = 50;
+
 };

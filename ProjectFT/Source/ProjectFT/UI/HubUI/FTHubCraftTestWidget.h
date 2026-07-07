@@ -29,9 +29,6 @@ protected:
 	virtual void NativeConstruct() override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
-	UListView* LV_StorageItems;
-
-	UPROPERTY(meta = (BindWidgetOptional))
 	UListView* LV_CraftRecipes;
 
 	UPROPERTY(meta = (BindWidgetOptional))

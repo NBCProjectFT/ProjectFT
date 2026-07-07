@@ -18,9 +18,12 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* TXT_QuestName;
 
-	UPROPERTY(meta = (BindWidget))
-	UTextBlock* TXT_RequiredItems;
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_QuestSender;
 
-	UPROPERTY(meta = (BindWidget))
-	UTextBlock* TXT_RewardItems;
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_QuestSummary;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_QuestReward;
 };

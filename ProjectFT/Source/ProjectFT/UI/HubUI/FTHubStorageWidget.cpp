@@ -30,7 +30,7 @@ void UFTHubStorageWidget::InitializeStorageWidget(AFTHubStorage* InHubStorage, U
 
 	if (ViewModel)
 	{
-		ViewModel->Initialize(HubStorage, InPlayerInventory, TV_PlayerItems != nullptr, TV_StorageItems != nullptr);
+		ViewModel->Initialize(HubStorage, InPlayerInventory);
 	}
 
 	RefreshFromViewModel();
@@ -194,12 +194,12 @@ void UFTHubStorageWidget::RefreshFromViewModel()
 
 UListView* UFTHubStorageWidget::GetPlayerItemsView() const
 {
-	return TV_PlayerItems ? Cast<UListView>(TV_PlayerItems) : LV_PlayerItems;
+	return Cast<UListView>(TV_PlayerItems);
 }
 
 UListView* UFTHubStorageWidget::GetStorageItemsView() const
 {
-	return TV_StorageItems ? Cast<UListView>(TV_StorageItems) : LV_StorageItems;
+	return Cast<UListView>(TV_StorageItems);
 }
 
 void UFTHubStorageWidget::PopulateItems(UListView* ItemsView, const TArray<TObjectPtr<UObject>>& Items)
