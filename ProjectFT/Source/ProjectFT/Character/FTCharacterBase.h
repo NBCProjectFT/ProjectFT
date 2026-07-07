@@ -6,6 +6,7 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayTagContainer.h"
 #include "GameFramework/Character.h"
+#include "TimerManager.h"
 #include "ProjectFT/Interface/FTDamageable.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
@@ -40,8 +41,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|GAS")
 	bool IsDead() const { return bDead; }
 
+	// 발버둥 입력이 유효하게 처리됐을 때 메시만 짧게 흔든다. 캡슐/Actor 위치는 건드리지 않는다.
+	UFUNCTION(BlueprintCallable, Category = "FT|Feedback")
+	void PlayStruggleJitter();
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	// 체력이 0에 도달했을 때 호출(공용 속성셋의 OnOutOfHealth 통지). 공통 사망 처리를 담당한다:
 	// 재진입 가드(bDead) + State.Dead 태그 부여 + 진행 중 능력 취소 + 이동 정지. 이후 확장 훅 OnDeath()를 부른다.
@@ -80,6 +86,29 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS")
 	TArray<TSubclassOf<UGameplayAbility>> CommonAbilities;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.0"))
+	float StruggleJitterAmplitude = 8.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.01"))
+	float StruggleJitterDuration = 0.14f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.01"))
+	float StruggleJitterFrequency = 18.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.005"))
+	float StruggleJitterTickInterval = 0.016f;
+
 	// 사망 처리 완료 플래그이자 재진입 가드. 0 HP에서 독 DoT 등이 계속 틱해 OnOutOfHealth가 재통지돼도 HandleDeath는 1회만 실행된다.
 	bool bDead = false;
+
+private:
+	void UpdateStruggleJitter();
+	void StopStruggleJitter();
+	void ApplyStruggleJitterOffset(const FVector& NewOffset);
+
+	FTimerHandle StruggleJitterTimerHandle;
+	FVector StruggleJitterAppliedOffset = FVector::ZeroVector;
+	float StruggleJitterElapsed = 0.0f;
+	float StruggleJitterLastUpdateTime = 0.0f;
+	int32 StruggleJitterDirection = 1;
 };

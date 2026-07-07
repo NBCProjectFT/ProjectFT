@@ -11,9 +11,11 @@ UFTGE_BubbleTrap::UFTGE_BubbleTrap()
 {
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
 
-	// 자동 해제 타이머 = 지속시간(고정 5초). 스택 GE(고정 3초)와 동일하게 메커니즘 상수로 둔다.
-	// (SetByCaller 주입은 스펙 재계산 타이밍 때문에 불안정했음 — 튜닝은 이 값 또는 BP 서브클래스로.)
-	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(5.0f));
+	// 자동 해제 타이머. 버블 투사체 DA의 EffectMagnitudes에서 Data.BubbleDuration으로 주입하고,
+	// UFTGA_BubbleStackTrap이 살아 있는 BubbleStack GE의 SetByCaller 값을 TrapSpec에 전달한다.
+	FSetByCallerFloat DurationByCaller;
+	DurationByCaller.DataTag = TAG_FT_Data_BubbleDuration;
+	DurationMagnitude = FGameplayEffectModifierMagnitude(DurationByCaller);
 
 	// 상태는 '있다/없다'라 누적 금지: 대상당 1스택, 재적용 시 지속시간만 갱신. (모든 디버프 공통 정책.)
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS

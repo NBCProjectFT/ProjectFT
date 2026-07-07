@@ -20,4 +20,17 @@ public:
 	// 이 어빌리티가 GameplayEvent로 발동될 때의 트리거 태그(첫 GameplayEvent 트리거). 캐릭터가 사용 시 이 태그로 이벤트를 보낸다.
 	UFUNCTION(BlueprintCallable, Category = "FT|Ability")
 	FGameplayTag GetTriggerEventTag() const;
+
+	FActiveGameplayEffectHandle ApplyGameplayEffectSpecToOwnerPublic(
+		const FGameplayAbilitySpecHandle AbilityHandle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo,
+		const FGameplayEffectSpecHandle SpecHandle) const;
+
+	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpecToTargetPublic(
+		const FGameplayAbilitySpecHandle AbilityHandle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo,
+		const FGameplayEffectSpecHandle SpecHandle,
+		const FGameplayAbilityTargetDataHandle& TargetData) const;
 };
