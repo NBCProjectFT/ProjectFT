@@ -8,6 +8,7 @@
 class UFTReportGaugeComponent;
 class UFTSecurityCaptureComponent;
 class UFTSecurityChaseGaugeComponent;
+class UFTSecurityCoordinationComponent;
 
 UCLASS()
 class PROJECTFT_API AFTGameState : public AGameStateBase
@@ -31,6 +32,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UFTSecurityChaseGaugeComponent> SecurityChaseGaugeComponent;
+
+	/** Coordinates encirclement and selects one security attack leader. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	TObjectPtr<UFTSecurityCoordinationComponent> SecurityCoordinationComponent;
 
 	/** Temporary bridge retained until ST_Security no longer references STT_TryCaptureTarget. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security", meta = (DeprecatedProperty, DeprecationMessage = "Use FT Send Gameplay Event."))

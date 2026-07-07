@@ -1,6 +1,7 @@
 #include "FTNPCCharacter.h"
 
 #include "Components/WidgetComponent.h"
+#include "ProjectFT/NPC/FTNPCAIController.h"
 #include "ProjectFT/UI/FTNPCReportGaugeWidget.h"
 
 AFTNPCCharacter::AFTNPCCharacter()
@@ -21,6 +22,16 @@ void AFTNPCCharacter::BeginPlay()
 	if (UFTNPCReportGaugeWidget* ReportGaugeWidget = Cast<UFTNPCReportGaugeWidget>(ReportGaugeWidgetComponent->GetWidget()))
 	{
 		ReportGaugeWidget->SetReportOwnerActor(this);
+	}
+}
+
+void AFTNPCCharacter::OnImmobilizedStateChanged(bool bImmobilized)
+{
+	Super::OnImmobilizedStateChanged(bImmobilized);
+
+	if (AFTNPCAIController* NPCAIController = Cast<AFTNPCAIController>(GetController()))
+	{
+		NPCAIController->HandleStunStateChanged(bImmobilized);
 	}
 }
 

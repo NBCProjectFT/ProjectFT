@@ -3,11 +3,13 @@
 #include "ProjectFT/Components/FTReportGaugeComponent.h"
 #include "ProjectFT/Components/FTSecurityCaptureComponent.h"
 #include "ProjectFT/Components/FTSecurityChaseGaugeComponent.h"
+#include "ProjectFT/Components/FTSecurityCoordinationComponent.h"
 
 AFTGameState::AFTGameState()
 {
 	ReportGaugeComponent = CreateDefaultSubobject<UFTReportGaugeComponent>(TEXT("ReportGaugeComponent"));
 	SecurityChaseGaugeComponent = CreateDefaultSubobject<UFTSecurityChaseGaugeComponent>(TEXT("SecurityChaseGaugeComponent"));
+	SecurityCoordinationComponent = CreateDefaultSubobject<UFTSecurityCoordinationComponent>(TEXT("SecurityCoordinationComponent"));
 	SecurityCaptureComponent = CreateDefaultSubobject<UFTSecurityCaptureComponent>(TEXT("SecurityCaptureComponent"));
 }
 
