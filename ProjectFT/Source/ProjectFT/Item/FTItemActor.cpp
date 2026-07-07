@@ -62,6 +62,7 @@ void AFTItemActor::UpdateAppearance()
 	if (ItemData && ItemData->ItemData.ItemMesh)
 	{
 		MeshComponent->SetStaticMesh(ItemData->ItemData.ItemMesh);
+		MeshComponent->SetRelativeScale3D(ItemData->ItemData.DropMeshScale);
 	}
 }
 
