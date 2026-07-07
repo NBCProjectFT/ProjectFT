@@ -12,6 +12,7 @@ class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class AActor;
 struct FFTNPCReportPayloadStruct;
+struct FFTMessagePayloadStruct;
 struct FFTSecurityChaseGaugePayloadStruct;
 struct FFTSecurityResponsePayloadStruct;
 UCLASS()
@@ -146,7 +147,9 @@ private:
 	FGameplayMessageListenerHandle SecurityDeployedListenerHandle;
 	FGameplayMessageListenerHandle SecurityTargetCapturedListenerHandle;
 	FGameplayMessageListenerHandle SecurityTargetEscapedListenerHandle;
+	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void OnShelfDamaged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void OnSecurityTargetCaptured(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnSecurityTargetEscaped(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnChaseGaugeChanged(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
@@ -166,6 +169,7 @@ private:
 	UPROPERTY()
 	TObjectPtr<AActor> SecurityRoomActor;
 	bool IsPlayerActor(const AActor* Actor) const;
+	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsTargetStealing(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;
 	void DrawSightDebug() const;
