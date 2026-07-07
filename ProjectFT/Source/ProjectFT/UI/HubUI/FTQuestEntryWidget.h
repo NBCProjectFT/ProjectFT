@@ -14,6 +14,9 @@ class PROJECTFT_API UFTQuestEntryWidget : public UUserWidget, public IUserObject
 
 protected:
 	virtual void NativeOnListItemObjectSet(UObject* ListItemObject) override;
+	virtual void NativeOnItemSelectionChanged(bool bIsSelected) override;
+
+	void ApplySelectionVisual(bool bIsSelected);
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* TXT_QuestName;
