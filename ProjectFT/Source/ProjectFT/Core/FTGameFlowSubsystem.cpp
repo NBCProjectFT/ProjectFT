@@ -15,7 +15,7 @@ namespace
 	const FName FallbackLoadingLevelName(TEXT("Lvl_Loading"));
 	const FName FallbackMainMenuLevelName(TEXT("Lvl_MainMenu"));
 	const FName FallbackBaseLevelName(TEXT("Lvl_Hub"));
-	const FName FallbackRaidLevelName(TEXT("Lvl_Main"));
+	const FName FallbackRaidLevelName(TEXT("Market_Test"));
 }
 
 void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
