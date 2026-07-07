@@ -580,7 +580,7 @@ void UFTUIManagerSubsystem::ShowHubMain(
 
 	HubMainWidget->AddToViewport(20);
 
-	FInputModeGameAndUI InputMode;
+	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(HubMainWidget->TakeWidget());
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	PlayerController->SetInputMode(InputMode);
