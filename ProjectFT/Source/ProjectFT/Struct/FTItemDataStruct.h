@@ -40,6 +40,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	TObjectPtr<UStaticMesh> ItemMesh;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Appearance")
+	FVector DropMeshScale = FVector(1.0f, 1.0f, 1.0f);
+
 	//아이콘 만들 때 카메라 위치 조절용 변수
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") FRotator IconMeshRotation = FRotator(0.0f, -35.0f, 0.0f);
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Icon") FVector IconMeshLocationOffset = FVector::ZeroVector;
