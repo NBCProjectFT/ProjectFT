@@ -136,6 +136,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bIsAttackLeader = false;
 
+	/** 현재 보안요원이 추격 상태에 참여하고 있는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|Coordination")
+	bool bParticipatingInChase = false;
+
 	/** Coordination Component가 이 보안요원에게 배정한 포위 이동 위치다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	FVector EncircleSlotLocation = FVector::ZeroVector;
