@@ -483,6 +483,7 @@ void AFTSecurityAIController::UpdateTargetFocus()
 	const bool bShouldFocusTarget = TargetActor
 		&& bSecurityCalled
 		&& bSecurityChaseActive
+		&& bHasSeenTarget
 		&& !bReturning
 		&& !bTargetCaptured
 		&& !bIsStunned;
