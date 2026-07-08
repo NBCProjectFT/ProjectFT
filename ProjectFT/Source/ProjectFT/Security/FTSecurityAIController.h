@@ -90,6 +90,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Return", meta = (ClampMin = "0.0"))
 	float ReturnCollisionIgnoreDistance = 250.0f;
 
+	/** 복귀 이동 성공을 실제 복귀 완료로 인정할 최대 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Return", meta = (ClampMin = "0.0"))
+	float ReturnCompletionDistance = 250.0f;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|ChaseGauge")
 	float SecurityChaseGauge = 0.0f;
 

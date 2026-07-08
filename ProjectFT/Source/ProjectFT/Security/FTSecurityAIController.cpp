@@ -545,6 +545,13 @@ void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecuri
 	bHasSeenTarget = false;
 	bIsTargetInAttackRange = false;
 	bReportedTargetSeenToChaseGauge = false;
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Security AI '%s' requested return to %s"),
+		*GetName(),
+		*ReturnLocation.ToString());
 }
 
 void AFTSecurityAIController::OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload)
@@ -687,12 +694,42 @@ void AFTSecurityAIController::OnMoveCompleted(FAIRequestID RequestID, const FPat
 		return;
 	}
 
+	// 추격 또는 EQS 이동을 중단한 결과는 복귀 이동 실패가 아니다.
+	if (Result.Code == EPathFollowingResult::Aborted)
+	{
+		return;
+	}
+
 	if (!Result.IsSuccess())
 	{
 		if (!bReturnFailureLogged)
 		{
 			bReturnFailureLogged = true;
 			UE_LOG(LogFTSecurity, Warning, TEXT("Security AI '%s' failed to return"), *GetName());
+		}
+		return;
+	}
+
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn)
+	{
+		return;
+	}
+
+	const float DistanceToReturnLocation = FVector::Dist2D(
+		ControlledPawn->GetActorLocation(),
+		ReturnLocation);
+	if (DistanceToReturnLocation > ReturnCompletionDistance)
+	{
+		if (!bReturnFailureLogged)
+		{
+			bReturnFailureLogged = true;
+			UE_LOG(
+				LogFTSecurity,
+				Warning,
+				TEXT("Security AI '%s' completed an unrelated move while returning: Distance=%.1f"),
+				*GetName(),
+				DistanceToReturnLocation);
 		}
 		return;
 	}
