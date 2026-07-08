@@ -144,6 +144,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bHasEncircleSlot = false;
 
+	/** Chase에서 Encircle로 전환할 최대 타겟 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination", meta = (ClampMin = "0.0"))
+	float EncircleEnterDistance = 900.0f;
+
+	/** Encircle에서 Chase로 전환할 타겟 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination", meta = (ClampMin = "0.0"))
+	float EncircleExitDistance = 1100.0f;
+
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
 	FGameplayMessageListenerHandle ChaseGaugeChangedListenerHandle;
