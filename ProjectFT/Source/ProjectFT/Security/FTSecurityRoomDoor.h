@@ -63,6 +63,7 @@ protected:
 
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
+	FGameplayMessageListenerHandle SecurityTargetCapturedListenerHandle;
 	FGameplayMessageListenerHandle ChaseEndedListenerHandle;
 	FGameplayMessageListenerHandle SecurityReturnedListenerHandle;
 	FTimerHandle SpawnTimerHandle;
@@ -76,6 +77,7 @@ private:
 	bool bDoorOpen = false;
 
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void OnSecurityTargetCaptured(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnSecurityReturned(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
 	void SetDoorOpen(bool bOpen);

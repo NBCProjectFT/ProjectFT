@@ -39,6 +39,11 @@ void AFTSecurityRoomDoor::BeginPlay()
 		this,
 		&ThisClass::OnSecurityCalled
 	);
+	SecurityTargetCapturedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_SecurityTargetCaptured,
+		this,
+		&ThisClass::OnSecurityTargetCaptured
+	);
 	ChaseEndedListenerHandle = MessageSubsystem.RegisterListener(
 		TAG_FT_Event_SecurityChaseEnded,
 		this,
@@ -59,6 +64,10 @@ void AFTSecurityRoomDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (SecurityCalledListenerHandle.IsValid())
 	{
 		MessageSubsystem.UnregisterListener(SecurityCalledListenerHandle);
+	}
+	if (SecurityTargetCapturedListenerHandle.IsValid())
+	{
+		MessageSubsystem.UnregisterListener(SecurityTargetCapturedListenerHandle);
 	}
 	if (ChaseEndedListenerHandle.IsValid())
 	{
@@ -104,6 +113,26 @@ void AFTSecurityRoomDoor::OnSecurityCalled(FGameplayTag Channel, const FFTNPCRep
 		SpawnDelay,
 		false
 	);
+}
+
+void AFTSecurityRoomDoor::OnSecurityTargetCaptured(
+	FGameplayTag Channel,
+	const FFTNPCReportPayloadStruct& Payload)
+{
+	if (!Payload.TargetActor || (PendingTargetActor && Payload.TargetActor != PendingTargetActor))
+	{
+		return;
+	}
+
+	bResponseActive = false;
+	GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Security room '%s' stopped deployment because target '%s' was captured"),
+		*GetName(),
+		*GetNameSafe(Payload.TargetActor));
 }
 
 void AFTSecurityRoomDoor::OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload)
