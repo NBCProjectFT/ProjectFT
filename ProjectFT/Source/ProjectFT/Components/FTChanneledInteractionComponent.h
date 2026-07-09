@@ -46,6 +46,10 @@ public:
 	// 스킬체크 입력. 활성 스킬체크가 있으면 현재 커서 위치로 판정한다.
 	void NotifySkillCheckInput();
 
+	// 작업 완료까지 걸리는 시간(초) 설정
+	UFUNCTION(BlueprintCallable, Category = "FT|Interaction")
+	void SetRequiredSeconds(float NewSeconds) { RequiredSeconds = FMath::Max(0.01f, NewSeconds); }
+
 	//~ UI 폴링용 getter (연속값)
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetProgress() const { return Progress; }
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") bool IsChanneling() const { return bIsChanneling; }
