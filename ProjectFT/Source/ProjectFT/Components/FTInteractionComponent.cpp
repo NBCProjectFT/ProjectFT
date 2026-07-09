@@ -71,23 +71,30 @@ void UFTInteractionComponent::TryInteract()
 		return;
 	}
 
-	// 채널형(꾹 눌러 게이지) 대상이면 채널링을 시작한다(즉시 상호작용은 하지 않음).
+	// 채널형(꾹 눌러 게이지) 대상이며 활성화 상태인 경우 채널링을 시작한다(즉시 상호작용은 하지 않음).
 	if (UFTChanneledInteractionComponent* Channel = Target->FindComponentByClass<UFTChanneledInteractionComponent>())
 	{
-		SetActiveChannel(Channel);
-
-		// 플레이어 손재주(Dexterity 속성)를 작업 속도 배수로 넘긴다(없으면 1.0 기본).
-		float WorkSpeed = 1.0f;
-		if (const IAbilitySystemInterface* AbilityOwner = Cast<IAbilitySystemInterface>(GetOwner()))
+		if (Channel->IsActive())
 		{
-			if (UAbilitySystemComponent* ASC = AbilityOwner->GetAbilitySystemComponent())
-			{
-				WorkSpeed = ASC->GetNumericAttribute(UFTPlayerAttributeSet::GetDexterityAttribute());
-			}
-		}
+			SetActiveChannel(Channel);
 
-		Channel->StartChannel(GetOwner(), WorkSpeed);
-		return;
+			// 플레이어 손재주(Dexterity 속성)를 작업 속도 배수로 넘긴다(없으면 1.0 기본).
+			float WorkSpeed = 1.0f;
+			if (const IAbilitySystemInterface* AbilityOwner = Cast<IAbilitySystemInterface>(GetOwner()))
+			{
+				if (UAbilitySystemComponent* ASC = AbilityOwner->GetAbilitySystemComponent())
+				{
+					WorkSpeed = ASC->GetNumericAttribute(UFTPlayerAttributeSet::GetDexterityAttribute());
+				}
+			}
+
+			Channel->StartChannel(GetOwner(), WorkSpeed);
+			return;
+		}
+		else
+		{
+			UE_LOG(LogFTPlayer, Warning, TEXT("TryInteract: Channeled component on %s is NOT active!"), *GetNameSafe(Target));
+		}
 	}
 
 	// 그 외엔 즉시 상호작용. BP/C++ 양쪽 구현을 위해 Execute_ 경로로 호출한다(직접 Cast 금지).
