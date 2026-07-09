@@ -2,17 +2,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AIController.h"
 #include "Perception/AIPerceptionTypes.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "ProjectFT/AI/FTAIControllerBase.h"
 #include "FTNPCAIController.generated.h"
 
 class UAIPerceptionComponent;
 class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
+class UFTNPCReportComponent;
 struct FFTMessagePayloadStruct;
 UCLASS()
-class PROJECTFT_API AFTNPCAIController : public AAIController
+class PROJECTFT_API AFTNPCAIController : public AFTAIControllerBase
 {
 	GENERATED_BODY()
 
@@ -32,6 +33,9 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
 	TObjectPtr<UAISenseConfig_Sight> SightConfig;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	TObjectPtr<UFTNPCReportComponent> NPCReportComponent;
 
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
@@ -71,22 +75,13 @@ public:
 	bool PickRandomWanderTarget();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
-	float ReportDuration = 3.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
-	float ReportDecayDuration = 2.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
-	float ReportAmount = 10.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
-	float ReportCancelDistance = 1800.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ObservedStealingMemorySeconds = 2.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Debug")
-	bool bDrawSightDebug = true;
+	bool bLogShoppingDebug = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Debug")
+	bool bLogReportDebug = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float CurrentReportProgress = 0.0f;
@@ -125,9 +120,6 @@ public:
 
 
 private:
-	float ReportElapsedTime = 0.0f;
-	int32 LastLoggedReportPercent = -1;
-	int32 LastLoggedReportDecayPercent = 101;
 	float LastObservedStealingTime = -FLT_MAX;
 	bool bLastLoggedHasSeenTarget = false;
 	bool bLastLoggedIsTargetStealing = false;
@@ -139,8 +131,7 @@ private:
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;
 	bool IsTargetStealing(const AActor* Actor) const;
-	bool ShouldCancelReport() const;
-	void CompleteReport();
+	void SyncReportStateFromComponent();
 	void DrawSightDebug() const;
 	void LogReportConditionDebug(bool bTargetCurrentlyStealing);
 };

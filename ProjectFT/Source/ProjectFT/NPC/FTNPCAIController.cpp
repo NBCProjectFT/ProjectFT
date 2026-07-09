@@ -4,13 +4,13 @@
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 #include "Components/StateTreeAIComponent.h"
-#include "DrawDebugHelpers.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Components/FTNPCReportComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
@@ -53,19 +53,10 @@ AFTNPCAIController::AFTNPCAIController()
 	
 	NPCPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("NPCPerceptionComponent"));
 	
-	//NPC가 플레이어의 도둑질을 인식할 시야각 추가
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
-	SightConfig->SightRadius = 1500.0f;
-	SightConfig->LoseSightRadius = SightConfig->SightRadius;
-	SightConfig->PeripheralVisionAngleDegrees = 40.0f;
-	SightConfig->SetMaxAge(2.0f);
-	SightConfig->DetectionByAffiliation.bDetectEnemies = true;
-	SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
-	SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
+	ConfigureSight(NPCPerceptionComponent, SightConfig, 1500.0f, 40.0f, 2.0f);
 
-	NPCPerceptionComponent->ConfigureSense(*SightConfig);
-	NPCPerceptionComponent->SetDominantSense(SightConfig->GetSenseImplementation());
-	SetPerceptionComponent(*NPCPerceptionComponent);
+	NPCReportComponent = CreateDefaultSubobject<UFTNPCReportComponent>(TEXT("NPCReportComponent"));
 }	
 
 
@@ -73,11 +64,7 @@ void AFTNPCAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (SightConfig && NPCPerceptionComponent)
-	{
-		SightConfig->LoseSightRadius = SightConfig->SightRadius;
-		NPCPerceptionComponent->RequestStimuliListenerUpdate();
-	}
+	RefreshSightConfig(NPCPerceptionComponent, SightConfig);
 
 	if (NPCPerceptionComponent)
 	{
@@ -122,14 +109,20 @@ void AFTNPCAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
 		TargetActor = Actor;
 		UpdateTargetState();
 		BroadcastNPCReportMessage(this, TAG_FT_Event_NPCDetectedPlayer, TargetActor, 0.0f, 0.0f);
-		UE_LOG(LogFTNPC, Log, TEXT("NPC AI: Target sensed %s"), *GetNameSafe(Actor));
+		if (bLogPerceptionDebug)
+		{
+			UE_LOG(LogFTNPC, Log, TEXT("NPC AI: Target sensed %s"), *GetNameSafe(Actor));
+		}
 		return;
 	}
 
 	if (Actor == TargetActor)
 	{
 		UpdateTargetState();
-		UE_LOG(LogFTNPC, Log, TEXT("NPC AI: Target lost %s"), *GetNameSafe(Actor));
+		if (bLogPerceptionDebug)
+		{
+			UE_LOG(LogFTNPC, Log, TEXT("NPC AI: Target lost %s"), *GetNameSafe(Actor));
+		}
 	}
 }
 
@@ -142,7 +135,10 @@ bool AFTNPCAIController::PickRandomShoppingTarget()
 	{
 		ShoppingTargetLocation = FVector::ZeroVector;
 		bHasShoppingTarget = false;
-		UE_LOG(LogFTNPC, Warning, TEXT("NPC AI: No shopping point found with tag %s"), *ShoppingPointTag.ToString());
+		if (bLogShoppingDebug)
+		{
+			UE_LOG(LogFTNPC, Warning, TEXT("NPC AI: No shopping point found with tag %s"), *ShoppingPointTag.ToString());
+		}
 		return false;
 	}
 
@@ -152,14 +148,20 @@ bool AFTNPCAIController::PickRandomShoppingTarget()
 	{
 		ShoppingTargetLocation = FVector::ZeroVector;
 		bHasShoppingTarget = false;
-		UE_LOG(LogFTNPC, Warning, TEXT("NPC AI: Selected shopping point is invalid"));
+		if (bLogShoppingDebug)
+		{
+			UE_LOG(LogFTNPC, Warning, TEXT("NPC AI: Selected shopping point is invalid"));
+		}
 		return false;
 	}
 
 	ShoppingTargetLocation = SelectedShoppingPoint->GetActorLocation();
 	bHasShoppingTarget = true;
 
-	UE_LOG(LogFTNPC, Log, TEXT("NPC AI: Picked shopping target %s at %s"), *SelectedShoppingPoint->GetName(), *ShoppingTargetLocation.ToString());
+	if (bLogShoppingDebug)
+	{
+		UE_LOG(LogFTNPC, Log, TEXT("NPC AI: Picked shopping target %s at %s"), *SelectedShoppingPoint->GetName(), *ShoppingTargetLocation.ToString());
+	}
 	return true;
 }
 
@@ -171,122 +173,50 @@ bool AFTNPCAIController::PickRandomWanderTarget()
 void AFTNPCAIController::EnterSuspicious()
 {
 	UpdateTargetState();
-	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Enter Suspicious"));
+	if (bLogReportDebug)
+	{
+		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Enter Suspicious"));
+	}
 }
 
 void AFTNPCAIController::EnterReporting()
 {
-	ReportElapsedTime = 0.0f;
-	CurrentReportProgress = 0.0f;
-	bReportCompleted = false;
-	bReportCancelled = false;
-	LastLoggedReportPercent = -1;
-	LastLoggedReportDecayPercent = 101;
-
-	UpdateTargetState();
-	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Enter Reporting"));
-	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportStarted, TargetActor, 0.0f, 0.0f);
-
-	if (ShouldCancelReport())
+	if (NPCReportComponent)
 	{
-		CancelReport();
+		NPCReportComponent->EnterReporting();
+		SyncReportStateFromComponent();
 	}
 }
 
 bool AFTNPCAIController::TickReporting(float DeltaTime)
 {
-	if (bReportCompleted)
-	{
-		return true;
-	}
-
-	if (bReportCancelled)
+	if (!NPCReportComponent)
 	{
 		return false;
 	}
 
-	UpdateTargetState();
-	if (ShouldCancelReport())
-	{
-		CancelReport();
-		return false;
-	}
-	
-	if (!bIsTargetActivelyStealing && !bObservedShelfDamaged)
-	{
-		if (CurrentReportProgress > 0.0f)
-		{
-			ReportElapsedTime = FMath::Max(
-				ReportElapsedTime - DeltaTime * (ReportDuration / FMath::Max(ReportDecayDuration, KINDA_SMALL_NUMBER)),
-				0.0f
-			);
-			CurrentReportProgress = FMath::Clamp(ReportElapsedTime / FMath::Max(ReportDuration, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
-			BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, CurrentReportProgress);
-
-			const int32 ReportPercent = FMath::FloorToInt(CurrentReportProgress * 100.0f);
-			if (ReportPercent / 10 < LastLoggedReportDecayPercent / 10)
-			{
-				LastLoggedReportDecayPercent = ReportPercent;
-				UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Decay %d%%"), ReportPercent);
-			}
-		}
-
-		if (CurrentReportProgress <= 0.0f)
-		{
-			CancelReport();
-		}
-
-		return false;
-	}
-	else
-	{
-		
-	}
-
-	ReportElapsedTime += DeltaTime;
-	CurrentReportProgress = FMath::Clamp(ReportElapsedTime / FMath::Max(ReportDuration, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
-	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, CurrentReportProgress);
-	LastLoggedReportDecayPercent = 101;
-
-	const int32 ReportPercent = FMath::FloorToInt(CurrentReportProgress * 100.0f);
-	if (ReportPercent / 10 > LastLoggedReportPercent / 10)
-	{
-		LastLoggedReportPercent = ReportPercent;
-		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Progress %d%%"), ReportPercent);
-	}
-
-	if (CurrentReportProgress >= 1.0f)
-	{
-		CompleteReport();
-		return true;
-	}
-
-	return false;
+	const bool bResult = NPCReportComponent->TickReporting(DeltaTime);
+	SyncReportStateFromComponent();
+	return bResult;
 }
 
 void AFTNPCAIController::CancelReport()
 {
-	if (bReportCompleted || bReportCancelled)
+	if (NPCReportComponent)
 	{
-		return;
+		NPCReportComponent->CancelReport();
+		SyncReportStateFromComponent();
 	}
-
-	bReportCancelled = true;
-	bObservedShelfDamaged = false;
-	CurrentReportProgress = 0.0f;
-	ReportElapsedTime = 0.0f;
-	LastLoggedReportDecayPercent = 0;
-	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportProgress, TargetActor, ReportAmount, 0.0f);
-	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Cancelled"));
 }
 
 void AFTNPCAIController::HandleStunStateChanged(bool bStunned)
 {
 	bIsStunned = bStunned;
 
-	if (bIsStunned && CurrentReportProgress > 0.0f && !bReportCompleted)
+	if (NPCReportComponent)
 	{
-		CancelReport();
+		NPCReportComponent->HandleStunStateChanged(bIsStunned);
+		SyncReportStateFromComponent();
 	}
 }
 
@@ -299,6 +229,7 @@ void AFTNPCAIController::UpdateTargetState()
 		bIsTargetStealing = false;
 		bIsTargetActivelyStealing = false;
 		bCanStartReportFlow = false;
+		SyncReportStateFromComponent();
 		return;
 	}
 
@@ -310,6 +241,7 @@ void AFTNPCAIController::UpdateTargetState()
 		bIsTargetStealing = false;
 		bIsTargetActivelyStealing = false;
 		bCanStartReportFlow = false;
+		SyncReportStateFromComponent();
 		return;
 	}
 
@@ -325,28 +257,14 @@ void AFTNPCAIController::UpdateTargetState()
 	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	const bool bRecentlyObservedStealing = CurrentTime - LastObservedStealingTime <= ObservedStealingMemorySeconds;
 	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
+	const bool bHasObservedShelfDamaged = NPCReportComponent && NPCReportComponent->bObservedShelfDamaged;
 	bCanStartReportFlow = !bIsStunned && TargetActor &&
-		((bHasSeenTarget && bIsTargetActivelyStealing) || bObservedShelfDamaged);
+		((bHasSeenTarget && bIsTargetActivelyStealing) || bHasObservedShelfDamaged);
 
-	if (bReportCompleted && !bCanStartReportFlow)
+	if (NPCReportComponent)
 	{
-		bReportCompleted = false;
-		bReportCancelled = false;
-		ReportElapsedTime = 0.0f;
-		CurrentReportProgress = 0.0f;
-		LastLoggedReportPercent = -1;
-		LastLoggedReportDecayPercent = 101;
-		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Rearmed"));
-	}
-
-	if (bReportCancelled && bCanStartReportFlow)
-	{
-		bReportCancelled = false;
-		ReportElapsedTime = 0.0f;
-		CurrentReportProgress = 0.0f;
-		LastLoggedReportPercent = -1;
-		LastLoggedReportDecayPercent = 101;
-		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Retry Ready"));
+		NPCReportComponent->HandleReportFlowAvailability(bCanStartReportFlow, bLogReportDebug);
+		SyncReportStateFromComponent();
 	}
 
 	LogReportConditionDebug(bIsTargetActivelyStealing);
@@ -386,28 +304,7 @@ AActor* AFTNPCAIController::ResolvePlayerActor(AActor* DamageCauser) const
 
 bool AFTNPCAIController::IsTargetCurrentlyVisible() const
 {
-	const APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn || !TargetActor || !SightConfig)
-	{
-		return false;
-	}
-
-	const FVector ToTarget = TargetActor->GetActorLocation() - ControlledPawn->GetActorLocation();
-	if (ToTarget.SizeSquared() > FMath::Square(SightConfig->SightRadius))
-	{
-		return false;
-	}
-
-	const FVector Forward = ControlledPawn->GetActorForwardVector();
-	const FVector DirectionToTarget = ToTarget.GetSafeNormal();
-	const float Dot = FVector::DotProduct(Forward, DirectionToTarget);
-	const float AngleDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.0f, 1.0f)));
-	if (AngleDegrees > SightConfig->PeripheralVisionAngleDegrees)
-	{
-		return false;
-	}
-
-	return LineOfSightTo(TargetActor);
+	return IsActorVisibleBySight(TargetActor, SightConfig);
 }
 
 bool AFTNPCAIController::IsTargetStealing(const AActor* Actor) const
@@ -430,26 +327,6 @@ bool AFTNPCAIController::IsTargetStealing(const AActor* Actor) const
 	return false;
 }
 
-bool AFTNPCAIController::ShouldCancelReport() const
-{
-	if (bIsStunned)
-	{
-		return true;
-	}
-
-	if (!TargetActor)
-	{
-		return true;
-	}
-
-	if (bObservedShelfDamaged)
-	{
-		return false;
-	}
-
-	return !bHasSeenTarget || TargetDistance > ReportCancelDistance;
-}
-
 void AFTNPCAIController::OnShelfDamaged(
 	FGameplayTag Channel,
 	const FFTMessagePayloadStruct& Payload)
@@ -464,14 +341,17 @@ void AFTNPCAIController::OnShelfDamaged(
 
 	if (!IsPlayerActor(SuspectActor) || !DamagedShelf)
 	{
-		UE_LOG(
-			LogFTNPC,
-			Warning,
-			TEXT("[NPC] Ignored shelf damage: Instigator=%s ResolvedPlayer=%s Shelf=%s"),
-			*GetNameSafe(Payload.InstigatorActor),
-			*GetNameSafe(SuspectActor),
-			*GetNameSafe(DamagedShelf)
-		);
+		if (bLogReportDebug)
+		{
+			UE_LOG(
+				LogFTNPC,
+				Warning,
+				TEXT("[NPC] Ignored shelf damage: Instigator=%s ResolvedPlayer=%s Shelf=%s"),
+				*GetNameSafe(Payload.InstigatorActor),
+				*GetNameSafe(SuspectActor),
+				*GetNameSafe(DamagedShelf)
+			);
+		}
 		return;
 	}
 
@@ -486,93 +366,65 @@ void AFTNPCAIController::OnShelfDamaged(
 	const bool bCanSeeDamagedShelf = LineOfSightTo(DamagedShelf);
 	if (!bHasSeenTarget || !bCanSeeDamagedShelf)
 	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("[NPC] Shelf damage not witnessed: PlayerVisible=%s ShelfVisible=%s Player=%s Shelf=%s"),
-			bHasSeenTarget ? TEXT("true") : TEXT("false"),
-			bCanSeeDamagedShelf ? TEXT("true") : TEXT("false"),
-			*GetNameSafe(SuspectActor),
-			*GetNameSafe(DamagedShelf)
-		);
+		if (bLogReportDebug)
+		{
+			UE_LOG(
+				LogFTNPC,
+				Log,
+				TEXT("[NPC] Shelf damage not witnessed: PlayerVisible=%s ShelfVisible=%s Player=%s Shelf=%s"),
+				bHasSeenTarget ? TEXT("true") : TEXT("false"),
+				bCanSeeDamagedShelf ? TEXT("true") : TEXT("false"),
+				*GetNameSafe(SuspectActor),
+				*GetNameSafe(DamagedShelf)
+			);
+		}
 		return;
 	}
 
-	bObservedShelfDamaged = true;
+	if (NPCReportComponent)
+	{
+		NPCReportComponent->MarkObservedShelfDamage();
+	}
+	SyncReportStateFromComponent();
 	bCanStartReportFlow = true;
 
-	UE_LOG(
-		LogFTNPC,
-		Log,
-		TEXT("[NPC] Observed shelf damage: Player=%s Shelf=%s"),
-		*GetNameSafe(SuspectActor),
-		*GetNameSafe(DamagedShelf)
-	);
+	if (bLogReportDebug)
+	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[NPC] Observed shelf damage: Player=%s Shelf=%s"),
+			*GetNameSafe(SuspectActor),
+			*GetNameSafe(DamagedShelf)
+		);
+	}
 }
 
-void AFTNPCAIController::CompleteReport()
+void AFTNPCAIController::SyncReportStateFromComponent()
 {
-	if (bReportCompleted || bReportCancelled)
+	if (!NPCReportComponent)
 	{
 		return;
 	}
 
-	bReportCompleted = true;
-	bObservedShelfDamaged = false;
-	CurrentReportProgress = 1.0f;
-
-	BroadcastNPCReportMessage(this, TAG_FT_Event_NPCReportCompleted, TargetActor, ReportAmount, 1.0f);
-	UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Completed"));
+	CurrentReportProgress = NPCReportComponent->CurrentReportProgress;
+	bReportCompleted = NPCReportComponent->bReportCompleted;
+	bReportCancelled = NPCReportComponent->bReportCancelled;
+	bObservedShelfDamaged = NPCReportComponent->bObservedShelfDamaged;
 }
 
 void AFTNPCAIController::DrawSightDebug() const
 {
-	if (!bDrawSightDebug)
-	{
-		return;
-	}
-
-	const APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn || !SightConfig)
-	{
-		return;
-	}
-
-	const FVector Origin = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 8.0f);
-	const FVector Forward = ControlledPawn->GetActorForwardVector().GetSafeNormal2D();
-	const float HalfAngleDegrees = SightConfig->PeripheralVisionAngleDegrees;
-	constexpr int32 SegmentCount = 16;
-	constexpr float LifeTime = 0.05f;
-	constexpr float Thickness = 1.5f;
-
-	FVector PreviousPoint = Origin;
-	for (int32 SegmentIndex = 0; SegmentIndex <= SegmentCount; ++SegmentIndex)
-	{
-		const float Alpha = static_cast<float>(SegmentIndex) / static_cast<float>(SegmentCount);
-		const float AngleDegrees = FMath::Lerp(-HalfAngleDegrees, HalfAngleDegrees, Alpha);
-		const FVector Direction = Forward.RotateAngleAxis(AngleDegrees, FVector::UpVector);
-		const FVector CurrentPoint = Origin + Direction * SightConfig->SightRadius;
-
-		if (SegmentIndex == 0)
-		{
-			DrawDebugLine(GetWorld(), Origin, CurrentPoint, FColor::Cyan, false, LifeTime, 0, Thickness);
-		}
-		else
-		{
-			DrawDebugLine(GetWorld(), PreviousPoint, CurrentPoint, FColor::Cyan, false, LifeTime, 0, Thickness);
-		}
-
-		if (SegmentIndex == SegmentCount)
-		{
-			DrawDebugLine(GetWorld(), Origin, CurrentPoint, FColor::Cyan, false, LifeTime, 0, Thickness);
-		}
-
-		PreviousPoint = CurrentPoint;
-	}
+	DrawFlatSightDebug(SightConfig, FColor::Cyan, 1.5f);
 }
 
 void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 {
+	if (!bLogReportDebug)
+	{
+		return;
+	}
+
 	if (bLastLoggedHasSeenTarget == bHasSeenTarget &&
 		bLastLoggedIsTargetStealing == bIsTargetStealing &&
 		bLastLoggedCanStartReportFlow == bCanStartReportFlow)
