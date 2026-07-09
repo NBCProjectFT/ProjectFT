@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "FTLootShelf.h"
 
 #include "Components/StaticMeshComponent.h"
@@ -64,10 +62,6 @@ void AFTLootShelf::InitializeFromDataAsset()
 	// 내구도 설정
 	Health = ShelfDataAsset->MaxHealth;
 
-	// 상호작용 관련 파라미터 적용
-	InteractionPrompt = ShelfDataAsset->InteractionPrompt;
-	bDestroyOnComplete = ShelfDataAsset->bDestroyOnComplete;
-
 	if (ChanneledInteraction)
 	{
 		ChanneledInteraction->SetRequiredSeconds(ShelfDataAsset->RequiredSeconds);
@@ -83,6 +77,7 @@ void AFTLootShelf::BeginPlay()
 	// 게이지 완료 시 훔치기 성공 처리.
 	if (ChanneledInteraction)
 	{
+		ChanneledInteraction->SetActive(true);
 		ChanneledInteraction->OnCompleted.AddDynamic(this, &AFTLootShelf::HandleStealCompleted);
 	}
 }
@@ -102,7 +97,7 @@ FText AFTLootShelf::GetInteractionPrompt_Implementation() const
 	{
 		return ShelfDataAsset->InteractionPrompt;
 	}
-	return InteractionPrompt;
+	return FText::FromString(TEXT("훔치기"));
 }
 
 float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
@@ -172,7 +167,9 @@ void AFTLootShelf::HandleStealCompleted()
 	else
 	{
 		bHasBeenLooted = true;
-		if (bDestroyOnComplete)
+		
+		const bool bShouldDestroy = ShelfDataAsset ? ShelfDataAsset->bDestroyOnComplete : true;
+		if (bShouldDestroy)
 		{
 			Destroy();
 		}
@@ -218,15 +215,58 @@ void AFTLootShelf::EndInteractionCooldown()
 
 class UFTItemDataAsset* AFTLootShelf::GetRandomLootItem(int32& OutQuantity) const
 {
-	if (ShelfDataAsset && ShelfDataAsset->PossibleLootItems.Num() > 0)
+	UFTItemDataAsset* SelectedItem = SelectRandomItemFromPool();
+	if (SelectedItem)
 	{
-		int32 Index = FMath::RandRange(0, ShelfDataAsset->PossibleLootItems.Num() - 1);
 		OutQuantity = FMath::RandRange(ShelfDataAsset->LootQuantityMin, ShelfDataAsset->LootQuantityMax);
-		return ShelfDataAsset->PossibleLootItems[Index];
+	}
+	else
+	{
+		OutQuantity = 0;
+	}
+	return SelectedItem;
+}
+
+class UFTItemDataAsset* AFTLootShelf::SelectRandomItemFromPool() const
+{
+	if (!ShelfDataAsset || ShelfDataAsset->PossibleLootItems.Num() == 0)
+	{
+		return nullptr;
 	}
 
-	OutQuantity = LootQuantity;
-	return LootItemData;
+	// 1. 총 가중치 계산
+	int32 TotalWeight = 0;
+	for (const FFTLootShelfItemRow& Row : ShelfDataAsset->PossibleLootItems)
+	{
+		if (Row.ItemDataAsset)
+		{
+			TotalWeight += FMath::Max(0, Row.Weight);
+		}
+	}
+
+	if (TotalWeight <= 0)
+	{
+		return nullptr;
+	}
+
+	// 2. 임의의 가중치 값 결정
+	int32 RandomValue = FMath::RandRange(0, TotalWeight - 1);
+	int32 CurrentWeightSum = 0;
+
+	// 3. 누적 가중치 영역에 매칭되는 아이템 에셋 반환
+	for (const FFTLootShelfItemRow& Row : ShelfDataAsset->PossibleLootItems)
+	{
+		if (Row.ItemDataAsset)
+		{
+			CurrentWeightSum += Row.Weight;
+			if (RandomValue < CurrentWeightSum)
+			{
+				return Row.ItemDataAsset;
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 void AFTLootShelf::GiveStealReward()
@@ -254,19 +294,11 @@ void AFTLootShelf::DropItemsOnFloor()
 		int32 Quantity = FMath::RandRange(ShelfDataAsset->LootQuantityMin, ShelfDataAsset->LootQuantityMax);
 		for (int32 i = 0; i < Quantity; ++i)
 		{
-			int32 Index = FMath::RandRange(0, ShelfDataAsset->PossibleLootItems.Num() - 1);
-			UFTItemDataAsset* SelectedItem = ShelfDataAsset->PossibleLootItems[Index];
+			UFTItemDataAsset* SelectedItem = SelectRandomItemFromPool();
 			if (SelectedItem)
 			{
 				SpawnItemActor(SelectedItem);
 			}
-		}
-	}
-	else if (LootItemData)
-	{
-		for (int32 i = 0; i < LootQuantity; ++i)
-		{
-			SpawnItemActor(LootItemData);
 		}
 	}
 }

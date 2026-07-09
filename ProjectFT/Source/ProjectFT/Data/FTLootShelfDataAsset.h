@@ -7,6 +7,20 @@
 class UStaticMesh;
 class UFTItemDataAsset;
 
+USTRUCT(BlueprintType)
+struct FFTLootShelfItemRow
+{
+	GENERATED_BODY()
+
+	/* @brief : 획득 가능한 아이템 데이터 에셋 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
+	TObjectPtr<class UFTItemDataAsset> ItemDataAsset;
+
+	/* @brief : 드롭 가중치 (이 값이 높을수록 획득 확률 증가. 예: 100 = 흔함, 5 = 희귀) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot", meta = (ClampMin = "1"))
+	int32 Weight = 100;
+};
+
 /**
  * 매대 종류별 데이터 에셋.
  * 매대 형태(스태틱 메시), 획득 가능한 아이템 목록, 내구도, 상호작용 속성 등을 정의한다.
@@ -45,9 +59,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
 	FText CooldownPrompt = FText::FromString(TEXT("재충전 중..."));
 
-	/* @brief : 매대에서 획득 가능한 아이템 목록 (이 중 랜덤으로 결정됨) */
+	/* @brief : 매대에서 획득 가능한 아이템 목록 및 가중치 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
-	TArray<TObjectPtr<UFTItemDataAsset>> PossibleLootItems;
+	TArray<FFTLootShelfItemRow> PossibleLootItems;
 
 	/* @brief : 한 번에 획득/드롭할 아이템 최소 개수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot", meta = (ClampMin = "1"))

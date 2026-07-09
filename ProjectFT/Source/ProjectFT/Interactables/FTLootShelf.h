@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -24,45 +22,31 @@ class PROJECTFT_API AFTLootShelf : public AActor, public IFTInteractable, public
 public:
 	AFTLootShelf();
 
-	/*
-	 * @brief : UI 프롬프트에 표시할 텍스트를 반환합니다.
-	 */
+	/* @brief : UI 프롬프트에 표시할 텍스트를 반환합니다. */
 	virtual FText GetInteractionPrompt_Implementation() const override;
 
-	/*
-	 * @brief : 매대에 데미지를 가합니다. 체력이 0 이하가 되면 파괴됩니다.
-	 */
+	/* @brief : 매대에 데미지를 가합니다. 체력이 0 이하가 되면 파괴됩니다.  */
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
-	/*
-	 * @brief : 에셋 할당 및 컴포넌트 변수 설정을 처리하는 생성 시점의 메서드입니다.
-	 */
+	/* @brief : 에셋 할당 및 컴포넌트 변수 설정을 처리하는 생성 시점의 메서드입니다. */
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 protected:
 	virtual void BeginPlay() override;
 
-	/*
-	 * @brief : 채널형 상호작용(훔치기)이 완료되었을 때 호출되는 메서드입니다.
-	 */
+	/* @brief : 채널형 상호작용(훔치기)이 완료되었을 때 호출되는 메서드입니다. */
 	UFUNCTION()
 	void HandleStealCompleted();
 
-	/*
-	 * @brief : 훔치기 완료 시 인벤토리에 아이템을 직접 보상으로 지급합니다.
-	 */
+	/* @brief : 훔치기 완료 시 인벤토리에 아이템을 직접 보상으로 지급합니다. */
 	void GiveStealReward();
 
-	/*
-	 * @brief : 매대 파괴 시 아이템들을 주변 바닥에 드롭시킵니다.
-	 */
+	/* @brief : 매대 파괴 시 아이템들을 주변 바닥에 드롭시킵니다. */
 	void DropItemsOnFloor();
 
 	void TestCode();
 
-	/*
-	 * @brief : 지정된 데이터 에셋에 맞게 매대의 스태틱 메시 및 내구도 설정을 초기화합니다.
-	 */
+	/* @brief : 지정된 데이터 에셋에 맞게 매대의 스태틱 메시 및 내구도 설정을 초기화합니다. */
 	void InitializeFromDataAsset();
 
 	/*
@@ -71,9 +55,7 @@ protected:
 	 */
 	void StartInteractionCooldown(float CooldownDuration);
 
-	/*
-	 * @brief : 매대의 상호작용 쿨다운 상태를 해제하고 초기 상태로 복구합니다.
-	 */
+	/* @brief : 매대의 상호작용 쿨다운 상태를 해제하고 초기 상태로 복구합니다. */
 	void EndInteractionCooldown();
 
 	/*
@@ -81,6 +63,9 @@ protected:
 	 * @Param OutQuantity : 선정된 아이템 수량 반환용 참조 변수
 	 */
 	class UFTItemDataAsset* GetRandomLootItem(int32& OutQuantity) const;
+
+	/* @brief : 가중치를 고려하여 매대 아이템 풀에서 임의의 단일 아이템 에셋을 선택합니다. */
+	class UFTItemDataAsset* SelectRandomItemFromPool() const;
 
 	/*
 	 * @brief : 월드 상에 실제로 획득 가능한 아이템 액터를 물리 속성을 포함해 스폰합니다.
@@ -101,21 +86,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Data")
 	TObjectPtr<class UFTLootShelfDataAsset> ShelfDataAsset;
 
-	/* @brief : 상호작용 시 UI에 표시할 기본 프롬프트 텍스트 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf")
-	FText InteractionPrompt = FText::FromString(TEXT("훔치기"));
 
-	/* @brief : 훔치기 완료 시 액터를 파괴할지 여부 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf")
-	bool bDestroyOnComplete = true;
-
-	/* @brief : 획득 보상 아이템 정보 (에셋이 없을 때의 폴백) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Loot")
-	TObjectPtr<class UFTItemDataAsset> LootItemData;
-
-	/* @brief : 획득 보상 수량 (에셋이 없을 때의 폴백) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Loot")
-	int32 LootQuantity = 3;
 
 	/* @brief : 현재 매대의 내구도 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Status")
