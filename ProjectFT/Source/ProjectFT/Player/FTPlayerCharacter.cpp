@@ -20,6 +20,7 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Components/FTCaptureEscapeComponent.h"
+#include "ProjectFT/Components/FTTailComponent.h"
 #include "ProjectFT/Components/FTTraversalComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -67,6 +68,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	TailComponent = CreateDefaultSubobject<UFTTailComponent>(TEXT("TailComponent"));
+	TailComponent->SetupAttachment(GetMesh(), TEXT("Tail"));
+
 	// 상호작용 컴포넌트.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
 
@@ -108,6 +112,7 @@ void AFTPlayerCharacter::BeginPlay()
 	{
 		DefaultBoomRelativeLocation = CameraBoom->GetRelativeLocation();
 	}
+
 }
 
 void AFTPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)

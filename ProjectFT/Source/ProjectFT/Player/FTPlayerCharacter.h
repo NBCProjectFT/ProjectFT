@@ -15,6 +15,7 @@ class USpringArmComponent;
 class UFTInteractionComponent;
 class UFTTraversalComponent;
 class UFTCaptureEscapeComponent;
+class UFTTailComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
@@ -96,6 +97,10 @@ protected:
 	// 붐 끝에 매달린 추적 카메라. 회전은 붐(bUsePawnControlRotation)이 담당한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Camera", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FollowCamera;
+
+	// Tail Socket에 붙는 별도 꼬리 컴포넌트. 메시와 절차적 흔들림은 컴포넌트가 소유한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Tail", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTTailComponent> TailComponent;
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
