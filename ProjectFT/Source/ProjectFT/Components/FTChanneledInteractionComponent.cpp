@@ -12,6 +12,8 @@ UFTChanneledInteractionComponent::UFTChanneledInteractionComponent()
 	// 채널링 중에만 틱한다(컴포넌트 자체 Tick — 소유 액터 Tick과 독립).
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
+
+	bAutoActivate = true;
 }
 
 void UFTChanneledInteractionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -65,6 +67,12 @@ void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor, float 
 {
 	if (bIsChanneling)
 	{
+		return;
+	}
+
+	if (!IsActive())
+	{
+		UE_LOG(LogFTPlayer, Warning, TEXT("StartChannel failed: ChanneledInteraction on %s is NOT active!"), *GetNameSafe(GetOwner()));
 		return;
 	}
 
