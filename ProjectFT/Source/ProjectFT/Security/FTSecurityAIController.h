@@ -90,6 +90,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Return", meta = (ClampMin = "0.0"))
 	float ReturnCollisionIgnoreDistance = 250.0f;
 
+	/** 복귀 이동 성공을 실제 복귀 완료로 인정할 최대 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Return", meta = (ClampMin = "0.0"))
+	float ReturnCompletionDistance = 250.0f;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|ChaseGauge")
 	float SecurityChaseGauge = 0.0f;
 
@@ -132,6 +136,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bIsAttackLeader = false;
 
+	/** 현재 보안요원이 추격 상태에 참여하고 있는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|Coordination")
+	bool bParticipatingInChase = false;
+
 	/** Coordination Component가 이 보안요원에게 배정한 포위 이동 위치다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	FVector EncircleSlotLocation = FVector::ZeroVector;
@@ -139,6 +147,14 @@ public:
 	/** StateTree가 EncircleSlotLocation을 이동 목표로 사용할 수 있는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bHasEncircleSlot = false;
+
+	/** Chase에서 Encircle로 전환할 최대 타겟 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination", meta = (ClampMin = "0.0"))
+	float EncircleEnterDistance = 900.0f;
+
+	/** Encircle에서 Chase로 전환할 타겟 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination", meta = (ClampMin = "0.0"))
+	float EncircleExitDistance = 1100.0f;
 
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;
