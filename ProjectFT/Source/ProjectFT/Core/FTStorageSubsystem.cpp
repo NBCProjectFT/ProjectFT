@@ -73,6 +73,7 @@ bool UFTStorageSubsystem::StoreItemFromInventory(UFTInventoryComponent* StorageI
 		return false;
 	}
 
+	// 창고 추가 후 플레이어 제거가 실패하면, 방금 추가한 창고 아이템을 되돌린다.
 	if (!SourceInventory->RemoveItem(ItemID, Count))
 	{
 		RemoveStorageItem(StorageInventory, ItemID, Count);
@@ -103,6 +104,7 @@ bool UFTStorageSubsystem::TakeItemToInventory(UFTInventoryComponent* StorageInve
 		return false;
 	}
 
+	// 플레이어 추가 후 창고 제거가 실패하면, 플레이어에게 추가한 아이템을 되돌린다.
 	if (!RemoveStorageItem(StorageInventory, ItemID, Count))
 	{
 		TargetInventory->RemoveItem(ItemID, Count);
@@ -142,6 +144,7 @@ bool UFTStorageSubsystem::ConsumeCombinedItem(UFTInventoryComponent* PlayerInven
 
 	if (PlayerInventory)
 	{
+		// 허브 제작/퀘스트 소모는 플레이어 인벤토리를 먼저 사용하고 부족분을 창고에서 사용한다.
 		const int32 PlayerCount = PlayerInventory->GetItemQuantity(ItemID);
 		const int32 RemoveFromPlayer = FMath::Min(PlayerCount, RemainingCount);
 

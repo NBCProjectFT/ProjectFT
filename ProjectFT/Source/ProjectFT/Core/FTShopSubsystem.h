@@ -82,9 +82,11 @@ private:
 	void GenerateMarketPostsFromTemplates();
 	FTTradePostStruct BuildGeneratedMarketPost(UFTItemDataAsset& ItemDataAsset, int32 PostIndex, bool bBuyRequest) const;
 	FText PickTemplateText(const TArray<FText>& Templates, const FText& FallbackText) const;
+	bool IsMarketPostConsumed(FName PostID) const;
 	const FTShopItemStruct* FindCurrentShopItem(FName ItemID) const;
 	const FTTradePostStruct* FindMarketBuyPost(FName PostID) const;
 	const FTTradePostStruct* FindMarketSellPost(FName PostID) const;
+	bool IsMarketPostCountInRange(const FTTradePostStruct& Post, bool bBuyRequest) const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count) const;
 	bool HasCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
@@ -114,6 +116,9 @@ private:
 	TSet<FName> UnlockedShopItemIDs;
 
 	UPROPERTY(Transient)
+	TSet<FName> ConsumedMarketPostIDs;
+
+	UPROPERTY(Transient)
 	TArray<FText> PostPrefixes;
 
 	UPROPERTY(Transient)
@@ -132,6 +137,10 @@ private:
 	int32 GeneratedMarketSellPostCount = 6;
 	int32 MinGeneratedPostItemCount = 1;
 	int32 MaxGeneratedPostItemCount = 1;
+	int32 MinGeneratedBuyRequestItemCount = 1;
+	int32 MaxGeneratedBuyRequestItemCount = 1;
+	int32 MinGeneratedSellOfferItemCount = 1;
+	int32 MaxGeneratedSellOfferItemCount = 1;
 	float MarketBuyRequestPriceMultiplier = 0.75f;
 	float MarketSellOfferPriceMultiplier = 1.25f;
 	bool bShopDataLoaded = false;

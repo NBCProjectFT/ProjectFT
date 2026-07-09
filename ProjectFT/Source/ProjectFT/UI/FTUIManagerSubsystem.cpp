@@ -606,6 +606,11 @@ void UFTUIManagerSubsystem::HideHubMain()
 	}
 }
 
+bool UFTUIManagerSubsystem::IsHubMainOpen() const
+{
+	return HubMainWidget && HubMainWidget->IsInViewport();
+}
+
 void UFTUIManagerSubsystem::ShowFailScreen()
 {
 	if (FailWidget && FailWidget->IsInViewport())

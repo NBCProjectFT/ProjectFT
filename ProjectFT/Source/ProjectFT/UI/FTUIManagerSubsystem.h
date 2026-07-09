@@ -111,6 +111,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideHubMain();
 
+	UFUNCTION(BlueprintPure, Category = "FT|UI")
+	bool IsHubMainOpen() const;
+
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowFailScreen();
 
