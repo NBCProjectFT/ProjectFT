@@ -24,57 +24,110 @@ class PROJECTFT_API AFTLootShelf : public AActor, public IFTInteractable, public
 public:
 	AFTLootShelf();
 
-	//~ Begin IFTInteractable
-	// 즉시 상호작용(Interact)은 사용하지 않는다(채널형이라 누르면 채널링이 시작됨). 프롬프트만 제공한다.
+	/*
+	 * @brief : UI 프롬프트에 표시할 텍스트를 반환합니다.
+	 */
 	virtual FText GetInteractionPrompt_Implementation() const override;
-	//~ End IFTInteractable
 
-	//~ Begin IFTDamageable
+	/*
+	 * @brief : 매대에 데미지를 가합니다. 체력이 0 이하가 되면 파괴됩니다.
+	 */
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
-	//~ End IFTDamageable
+
+	/*
+	 * @brief : 에셋 할당 및 컴포넌트 변수 설정을 처리하는 생성 시점의 메서드입니다.
+	 */
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 protected:
 	virtual void BeginPlay() override;
 
-	// 채널형 상호작용 완료(게이지 가득 참) 시 호출 — 훔치기 성공 처리.
+	/*
+	 * @brief : 채널형 상호작용(훔치기)이 완료되었을 때 호출되는 메서드입니다.
+	 */
 	UFUNCTION()
 	void HandleStealCompleted();
 
-	// [아이템 획득 방법 1] 인벤토리에 직접 아이템을 넣어주는 함수 (메시지 전송)
+	/*
+	 * @brief : 훔치기 완료 시 인벤토리에 아이템을 직접 보상으로 지급합니다.
+	 */
 	void GiveStealReward();
 
-	// [아이템 획득 방법 2] 파괴 시 바닥에 아이템을 뿌리는 함수 (액터 스폰)
+	/*
+	 * @brief : 매대 파괴 시 아이템들을 주변 바닥에 드롭시킵니다.
+	 */
 	void DropItemsOnFloor();
 
 	void TestCode();
+
+	/*
+	 * @brief : 지정된 데이터 에셋에 맞게 매대의 스태틱 메시 및 내구도 설정을 초기화합니다.
+	 */
+	void InitializeFromDataAsset();
+
+	/*
+	 * @brief : 매대를 상호작용 쿨다운 상태로 전환합니다.
+	 * @Param CooldownDuration : 대기할 쿨다운 시간(초)
+	 */
+	void StartInteractionCooldown(float CooldownDuration);
+
+	/*
+	 * @brief : 매대의 상호작용 쿨다운 상태를 해제하고 초기 상태로 복구합니다.
+	 */
+	void EndInteractionCooldown();
+
+	/*
+	 * @brief : 매대에 할당된 아이템 데이터 풀에서 랜덤하게 아이템 및 수량을 선정합니다.
+	 * @Param OutQuantity : 선정된 아이템 수량 반환용 참조 변수
+	 */
+	class UFTItemDataAsset* GetRandomLootItem(int32& OutQuantity) const;
+
+	/*
+	 * @brief : 월드 상에 실제로 획득 가능한 아이템 액터를 물리 속성을 포함해 스폰합니다.
+	 * @Param ItemDataAsset : 스폰할 아이템의 데이터 에셋
+	 */
+	void SpawnItemActor(class UFTItemDataAsset* ItemDataAsset);
+
 protected:
-	// 진열대 메시(루트). 상호작용 트레이스(Visibility)에 잡히도록 콜리전이 있어야 한다.
+	/* @brief : 진열대 스태틱 메시 컴포넌트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Shelf", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> ShelfMesh;
 
-	// 꾹 눌러 훔치는 채널형 상호작용(진행도 + 스킬체크).
+	/* @brief : 채널형 상호작용 처리를 담당하는 컴포넌트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Shelf", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTChanneledInteractionComponent> ChanneledInteraction;
 
-	// 포커스 시 UI에 표시할 프롬프트 텍스트.
+	/* @brief : 매대 데이터 에셋 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Data")
+	TObjectPtr<class UFTLootShelfDataAsset> ShelfDataAsset;
+
+	/* @brief : 상호작용 시 UI에 표시할 기본 프롬프트 텍스트 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf")
 	FText InteractionPrompt = FText::FromString(TEXT("훔치기"));
 
-	// 완료 시 액터를 제거할지(테스트용: 훔치면 진열대가 사라짐).
+	/* @brief : 훔치기 완료 시 액터를 파괴할지 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf")
 	bool bDestroyOnComplete = true;
 
-	// 보상 아이템 정보
+	/* @brief : 획득 보상 아이템 정보 (에셋이 없을 때의 폴백) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Loot")
 	TObjectPtr<class UFTItemDataAsset> LootItemData;
 
+	/* @brief : 획득 보상 수량 (에셋이 없을 때의 폴백) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Loot")
 	int32 LootQuantity = 3;
 
-	// 매대 내구도
+	/* @brief : 현재 매대의 내구도 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Status")
 	float Health = 30.0f;
 
-	// 중복 획득 방지
+	/* @brief : 상호작용 및 파괴 완료 상태 여부 */
 	bool bHasBeenLooted = false;
+
+	/* @brief : 현재 상호작용 쿨다운(재충전) 상태인지 여부 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Shelf|Cooldown")
+	bool bIsOnCooldown = false;
+
+	/* @brief : 쿨다운 해제를 위한 타이머 핸들 */
+	FTimerHandle CooldownTimerHandle;
 };
