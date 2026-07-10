@@ -3,6 +3,9 @@
 #include "FTAttributeSet.h"
 
 #include "GameplayEffectExtension.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
 
 UFTAttributeSet::UFTAttributeSet()
 {
@@ -35,6 +38,32 @@ void UFTAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 	if (Attr == GetHealthAttribute())
 	{
 		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
+
+		const float DamageAmount = -Data.EvaluatedData.Magnitude;
+		if (DamageAmount > 0.0f)
+		{
+			AActor* TargetActor = Data.Target.GetAvatarActor();
+			AActor* InstigatorActor = Data.EffectSpec.GetContext().GetOriginalInstigator();
+
+			if (TargetActor)
+			{
+				FFTCharacterDamagePayloadStruct Payload;
+				Payload.InstigatorActor = InstigatorActor;
+				Payload.TargetActor = TargetActor;
+				Payload.DamageAmount = DamageAmount;
+				Payload.HitLocation = TargetActor->GetActorLocation();
+				Payload.bTargetKnockedOut = GetHealth() <= 0.0f;
+
+				UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(TargetActor->GetWorld());
+				MessageSubsystem.BroadcastMessage(TAG_FT_Event_CharacterDamaged, Payload);
+
+				if (Payload.bTargetKnockedOut)
+				{
+					MessageSubsystem.BroadcastMessage(TAG_FT_Event_CharacterKnockedOut, Payload);
+				}
+			}
+		}
+
 		if (GetHealth() <= 0.0f)
 		{
 			OnOutOfHealth.Broadcast();
