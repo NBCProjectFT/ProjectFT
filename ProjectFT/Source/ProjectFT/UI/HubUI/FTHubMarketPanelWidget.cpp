@@ -1,11 +1,14 @@
 #include "FTHubMarketPanelWidget.h"
 
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/ListView.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
+#include "Engine/Texture2D.h"
 #include "FTTradePostListObject.h"
 #include "ProjectFT/ViewModel/FTMarketViewModel.h"
+#include "Types/SlateEnums.h"
 
 void UFTHubMarketPanelWidget::InitializeMarketPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
@@ -25,6 +28,7 @@ void UFTHubMarketPanelWidget::NativeConstruct()
 
 	if (LV_TradePosts)
 	{
+		LV_TradePosts->SetSelectionMode(ESelectionMode::Single);
 		LV_TradePosts->OnItemClicked().RemoveAll(this);
 		LV_TradePosts->OnItemClicked().AddUObject(this, &UFTHubMarketPanelWidget::HandleTradePostClicked);
 	}
@@ -41,7 +45,12 @@ void UFTHubMarketPanelWidget::NativeConstruct()
 		BTN_SellOffersTab->OnClicked.AddDynamic(this, &UFTHubMarketPanelWidget::HandleSellOffersTabClicked);
 	}
 
-	if (BTN_Trade)
+	if (BTN_TradeAction)
+	{
+		BTN_TradeAction->OnClicked.RemoveDynamic(this, &UFTHubMarketPanelWidget::HandleTradeClicked);
+		BTN_TradeAction->OnClicked.AddDynamic(this, &UFTHubMarketPanelWidget::HandleTradeClicked);
+	}
+	else if (BTN_Trade)
 	{
 		BTN_Trade->OnClicked.RemoveDynamic(this, &UFTHubMarketPanelWidget::HandleTradeClicked);
 		BTN_Trade->OnClicked.AddDynamic(this, &UFTHubMarketPanelWidget::HandleTradeClicked);
@@ -82,7 +91,54 @@ void UFTHubMarketPanelWidget::RefreshFromViewModel()
 		TXT_SelectedPostPrice->SetText(ViewModel->GetSelectedPostPriceText());
 	}
 
-	if (BTN_Trade)
+	if (TXT_SelectedItemName)
+	{
+		TXT_SelectedItemName->SetText(ViewModel->GetSelectedItemNameText());
+	}
+
+	if (TXT_SelectedItemTag)
+	{
+		TXT_SelectedItemTag->SetText(ViewModel->GetSelectedItemTagText());
+	}
+
+	if (TXT_SelectedItemOwnedCount)
+	{
+		TXT_SelectedItemOwnedCount->SetText(ViewModel->GetSelectedItemOwnedCountText());
+	}
+
+	if (TXT_SelectedItemDescription)
+	{
+		TXT_SelectedItemDescription->SetText(ViewModel->GetSelectedItemDescriptionText());
+	}
+
+	if (TXT_SelectedItemPrice)
+	{
+		TXT_SelectedItemPrice->SetText(ViewModel->GetSelectedPostPriceText());
+	}
+
+	if (TXT_TradeAction)
+	{
+		TXT_TradeAction->SetText(ViewModel->GetTradeActionText());
+	}
+
+	if (IMG_SelectedItemIcon)
+	{
+		if (UTexture2D* IconTexture = ViewModel->GetSelectedItemIcon().LoadSynchronous())
+		{
+			IMG_SelectedItemIcon->SetBrushFromTexture(IconTexture, true);
+			IMG_SelectedItemIcon->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			IMG_SelectedItemIcon->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+	if (BTN_TradeAction)
+	{
+		BTN_TradeAction->SetIsEnabled(ViewModel->CanTradeSelectedPost());
+	}
+	else if (BTN_Trade)
 	{
 		BTN_Trade->SetIsEnabled(ViewModel->CanTradeSelectedPost());
 	}

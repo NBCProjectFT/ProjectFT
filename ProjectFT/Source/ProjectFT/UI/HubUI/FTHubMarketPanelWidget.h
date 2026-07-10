@@ -8,6 +8,7 @@ class UButton;
 class UFTMarketViewModel;
 class UFTInventoryComponent;
 class UFTShopSubsystem;
+class UImage;
 class UListView;
 class UTextBlock;
 class UTileView;
@@ -24,7 +25,7 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
 	UListView* LV_TradePosts;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -46,10 +47,34 @@ protected:
 	UTextBlock* TXT_SelectedPostPrice;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* IMG_SelectedItemIcon;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemName;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemTag;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemOwnedCount;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemDescription;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_SelectedItemPrice;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TradeAction;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UTileView* TV_SelectedPostItems;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Trade;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_TradeAction;
 
 private:
 	UFUNCTION()

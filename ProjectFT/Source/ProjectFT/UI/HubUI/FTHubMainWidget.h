@@ -13,6 +13,7 @@ class UFTHubQuestPanelWidget;
 class UFTHubShopPanelWidget;
 class UFTInventoryComponent;
 class UFTShopSubsystem;
+class UWidgetAnimation;
 class UWidgetSwitcher;
 
 UENUM(BlueprintType)
@@ -104,6 +105,24 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TXT_CollectionCoin;
 
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Anim_QuestAppOpen;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Anim_QuestAppClose;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Anim_MarketAppOpen;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Anim_MarketAppClose;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Anim_ShopAppOpen;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Anim_ShopAppClose;
+
 	UPROPERTY(meta = (BindWidget))
 	UFTHubQuestPanelWidget* WBP_QuestPanel;
 
@@ -120,9 +139,17 @@ private:
 	void ShowMarketPanel();
 	void ShowShopPanel();
 	bool HasDesktopAppWindows() const;
+	bool HasVisibleDesktopAppWindow() const;
+	bool HasSettledVisibleDesktopAppWindow() const;
 	void SetAppVisible(EFTHubTerminalAppType AppType, bool bVisible);
+	void SetAppCollapsedImmediately(EFTHubTerminalAppType AppType);
+	void CollapseAllAppsImmediately();
 	void BringAppToFront(EFTHubTerminalAppType AppType);
 	UWidget* GetAppWindow(EFTHubTerminalAppType AppType) const;
+	UWidgetAnimation* GetAppOpenAnimation(EFTHubTerminalAppType AppType) const;
+	UWidgetAnimation* GetAppCloseAnimation(EFTHubTerminalAppType AppType) const;
+	void HandleAppOpenAnimationFinished(EFTHubTerminalAppType AppType);
+	void HandleAppCloseAnimationFinished(EFTHubTerminalAppType AppType);
 
 	UFUNCTION()
 	void HandleQuestTabClicked();
@@ -154,6 +181,24 @@ private:
 	UFUNCTION()
 	void HandleCloseShopAppClicked();
 
+	UFUNCTION()
+	void HandleQuestAppCloseAnimationFinished();
+
+	UFUNCTION()
+	void HandleMarketAppCloseAnimationFinished();
+
+	UFUNCTION()
+	void HandleShopAppCloseAnimationFinished();
+
+	UFUNCTION()
+	void HandleQuestAppOpenAnimationFinished();
+
+	UFUNCTION()
+	void HandleMarketAppOpenAnimationFinished();
+
+	UFUNCTION()
+	void HandleShopAppOpenAnimationFinished();
+
 	UPROPERTY(Transient)
 	AFTHubTerminal* HubTerminal;
 
@@ -162,6 +207,9 @@ private:
 
 	UPROPERTY(Transient)
 	UFTInventoryComponent* PlayerInventory;
+
+	TSet<EFTHubTerminalAppType> OpeningApps;
+	TSet<EFTHubTerminalAppType> ClosingApps;
 
 	int32 NextWindowZOrder = 10;
 };

@@ -1,10 +1,10 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "AIController.h"
 #include "Perception/AIPerceptionTypes.h"
 #include "GameplayTagContainer.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "ProjectFT/AI/FTAIControllerBase.h"
 #include "FTSecurityAIController.generated.h"
 
 class UAIPerceptionComponent;
@@ -16,7 +16,7 @@ struct FFTMessagePayloadStruct;
 struct FFTSecurityChaseGaugePayloadStruct;
 struct FFTSecurityResponsePayloadStruct;
 UCLASS()
-class PROJECTFT_API AFTSecurityAIController : public AAIController
+class PROJECTFT_API AFTSecurityAIController : public AFTAIControllerBase
 {
 	GENERATED_BODY()
 
@@ -155,6 +155,12 @@ public:
 	/** Encircle에서 Chase로 전환할 타겟 거리다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination", meta = (ClampMin = "0.0"))
 	float EncircleExitDistance = 1100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Debug")
+	bool bDrawAttackRangeDebug = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Debug")
+	bool bLogSecurityEventDebug = false;
 
 private:
 	FGameplayMessageListenerHandle SecurityCalledListenerHandle;

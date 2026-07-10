@@ -152,6 +152,7 @@ bool UFTShopSubsystem::BuyMarketItem(FName PostID, UFTInventoryComponent* Player
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Market Buy Success: %s x%d / Price %d"), *ResolvedItemID.ToString(), Post->Count, Price);
+	ConsumedMarketPostIDs.Add(PostID);
 	return true;
 }
 
@@ -160,7 +161,12 @@ bool UFTShopSubsystem::CanBuyMarketItem(FName PostID, UFTInventoryComponent* Pla
 	EnsureShopDataLoaded();
 
 	const FTTradePostStruct* Post = FindMarketSellPost(PostID);
-	return Post && PlayerInventory && HasCurrency(PlayerInventory, FMath::Max(0, Post->Price));
+	return Post
+		&& PlayerInventory
+		&& !Post->GetResolvedItemID().IsNone()
+		&& Post->Count > 0
+		&& IsMarketPostCountInRange(*Post, false)
+		&& HasCurrency(PlayerInventory, FMath::Max(0, Post->Price));
 }
 
 bool UFTShopSubsystem::SellMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory)
@@ -190,6 +196,7 @@ bool UFTShopSubsystem::SellMarketItem(FName PostID, UFTInventoryComponent* Playe
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Market Sell Success: %s x%d / Price %d"), *ResolvedItemID.ToString(), Post->Count, RewardAmount);
+	ConsumedMarketPostIDs.Add(PostID);
 	return true;
 }
 
@@ -199,7 +206,7 @@ bool UFTShopSubsystem::CanSellMarketItem(FName PostID, UFTInventoryComponent* Pl
 
 	const FTTradePostStruct* Post = FindMarketBuyPost(PostID);
 	const FName ResolvedItemID = Post ? Post->GetResolvedItemID() : NAME_None;
-	if (!Post || !PlayerInventory || ResolvedItemID.IsNone() || ResolvedItemID == CurrencyItemID || Post->Count <= 0)
+	if (!Post || !PlayerInventory || ResolvedItemID.IsNone() || ResolvedItemID == CurrencyItemID || Post->Count <= 0 || !IsMarketPostCountInRange(*Post, true))
 	{
 		return false;
 	}
@@ -210,13 +217,27 @@ bool UFTShopSubsystem::CanSellMarketItem(FName PostID, UFTInventoryComponent* Pl
 void UFTShopSubsystem::GetMarketBuyPosts(TArray<FTTradePostStruct>& OutPosts) const
 {
 	EnsureShopDataLoaded();
-	OutPosts = MarketBuyPosts;
+	OutPosts.Reset();
+	for (const FTTradePostStruct& Post : MarketBuyPosts)
+	{
+		if (!IsMarketPostConsumed(Post.PostID))
+		{
+			OutPosts.Add(Post);
+		}
+	}
 }
 
 void UFTShopSubsystem::GetMarketSellPosts(TArray<FTTradePostStruct>& OutPosts) const
 {
 	EnsureShopDataLoaded();
-	OutPosts = MarketSellPosts;
+	OutPosts.Reset();
+	for (const FTTradePostStruct& Post : MarketSellPosts)
+	{
+		if (!IsMarketPostConsumed(Post.PostID))
+		{
+			OutPosts.Add(Post);
+		}
+	}
 }
 
 void UFTShopSubsystem::UnlockShopItem(FName ItemID)
@@ -316,6 +337,7 @@ void UFTShopSubsystem::LoadShopData()
 	RandomItemPool.Reset();
 	MarketBuyPosts.Reset();
 	MarketSellPosts.Reset();
+	ConsumedMarketPostIDs.Reset();
 	UnlockedShopItemIDs.Reset();
 	PostPrefixes.Reset();
 	BuyRequestReasons.Reset();
@@ -334,6 +356,10 @@ void UFTShopSubsystem::LoadShopData()
 		GeneratedMarketSellPostCount = LoadedShopData->GeneratedMarketSellPostCount;
 		MinGeneratedPostItemCount = LoadedShopData->MinGeneratedPostItemCount;
 		MaxGeneratedPostItemCount = LoadedShopData->MaxGeneratedPostItemCount;
+		MinGeneratedBuyRequestItemCount = LoadedShopData->MinGeneratedBuyRequestItemCount;
+		MaxGeneratedBuyRequestItemCount = LoadedShopData->MaxGeneratedBuyRequestItemCount;
+		MinGeneratedSellOfferItemCount = LoadedShopData->MinGeneratedSellOfferItemCount;
+		MaxGeneratedSellOfferItemCount = LoadedShopData->MaxGeneratedSellOfferItemCount;
 		MarketBuyRequestPriceMultiplier = LoadedShopData->MarketBuyRequestPriceMultiplier;
 		MarketSellOfferPriceMultiplier = LoadedShopData->MarketSellOfferPriceMultiplier;
 		PostPrefixes = LoadedShopData->PostPrefixes;
@@ -394,11 +420,28 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 {
 	OutItemDataAssets.Reset();
 
+	TSet<FName> AddedItemIDs;
+	const auto TryAddItemDataAsset = [this, &OutItemDataAssets, &AddedItemIDs](UFTItemDataAsset* ItemDataAsset)
+	{
+		if (!ItemDataAsset)
+		{
+			return;
+		}
+
+		const FName ItemID = ItemDataAsset->ItemData.ItemId;
+		if (ItemID.IsNone() || ItemID == CurrencyItemID || AddedItemIDs.Contains(ItemID))
+		{
+			return;
+		}
+
+		OutItemDataAssets.Add(ItemDataAsset);
+		AddedItemIDs.Add(ItemID);
+	};
+
 	UAssetManager& AssetManager = UAssetManager::Get();
 	TArray<FPrimaryAssetId> ItemAssetIDs;
 	AssetManager.GetPrimaryAssetIdList(FName(TEXT("FTItemItem")), ItemAssetIDs);
 
-	TSet<FName> AddedItemIDs;
 	for (const FPrimaryAssetId& ItemAssetID : ItemAssetIDs)
 	{
 		UObject* AssetObject = AssetManager.GetPrimaryAssetObject(ItemAssetID);
@@ -412,19 +455,15 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 		}
 
 		UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
-		if (!ItemDataAsset)
-		{
-			continue;
-		}
+		TryAddItemDataAsset(ItemDataAsset);
+	}
 
-		const FName ItemID = ItemDataAsset->ItemData.ItemId;
-		if (ItemID.IsNone() || ItemID == CurrencyItemID || AddedItemIDs.Contains(ItemID))
+	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
+	{
+		for (const TSoftObjectPtr<UFTItemDataAsset>& ItemDataAssetRef : GameData->ItemDataAssets)
 		{
-			continue;
+			TryAddItemDataAsset(UFTAssetManager::GetAsset(ItemDataAssetRef));
 		}
-
-		OutItemDataAssets.Add(ItemDataAsset);
-		AddedItemIDs.Add(ItemID);
 	}
 }
 
@@ -489,8 +528,8 @@ FTTradePostStruct UFTShopSubsystem::BuildGeneratedMarketPost(UFTItemDataAsset& I
 	const FString ItemName = ItemDataAsset.ItemData.ItemName.IsEmpty()
 		? ItemID.ToString()
 		: ItemDataAsset.ItemData.ItemName.ToString();
-	const int32 MinCount = FMath::Max(1, MinGeneratedPostItemCount);
-	const int32 MaxCount = FMath::Max(MinCount, MaxGeneratedPostItemCount);
+	const int32 MinCount = FMath::Max(1, bBuyRequest ? MinGeneratedBuyRequestItemCount : MinGeneratedSellOfferItemCount);
+	const int32 MaxCount = FMath::Max(MinCount, bBuyRequest ? MaxGeneratedBuyRequestItemCount : MaxGeneratedSellOfferItemCount);
 	const int32 Count = FMath::RandRange(MinCount, MaxCount);
 	const float PriceMultiplier = bBuyRequest ? MarketBuyRequestPriceMultiplier : MarketSellOfferPriceMultiplier;
 	const int32 UnitPrice = FMath::Max(1, FMath::RoundToInt(FMath::Max(1, ItemDataAsset.ItemData.Cost) * FMath::Max(0.0f, PriceMultiplier)));
@@ -504,7 +543,7 @@ FTTradePostStruct UFTShopSubsystem::BuildGeneratedMarketPost(UFTItemDataAsset& I
 	FTTradePostStruct GeneratedPost;
 	GeneratedPost.PostID = FName(*FString::Printf(TEXT("Generated_%s_%d_%s"), bBuyRequest ? TEXT("Buy") : TEXT("Sell"), PostIndex, *ItemID.ToString()));
 	GeneratedPost.Title = FText::FromString(FString::Printf(TEXT("%s %s"), *Prefix.ToString(), *ItemName));
-	GeneratedPost.Description = FText::FromString(FString::Printf(TEXT("%s x%d. %s. %s"), *ItemName, Count, *Reason.ToString(), *Ending.ToString()));
+	GeneratedPost.Description = FText::FromString(FString::Printf(TEXT("%s. %s"), *Reason.ToString(), *Ending.ToString()));
 	GeneratedPost.ItemDataAsset = &ItemDataAsset;
 	GeneratedPost.ItemID = ItemID;
 	GeneratedPost.Count = Count;
@@ -523,6 +562,11 @@ FText UFTShopSubsystem::PickTemplateText(const TArray<FText>& Templates, const F
 	return Templates[FMath::RandRange(0, Templates.Num() - 1)];
 }
 
+bool UFTShopSubsystem::IsMarketPostConsumed(const FName PostID) const
+{
+	return !PostID.IsNone() && ConsumedMarketPostIDs.Contains(PostID);
+}
+
 const FTShopItemStruct* UFTShopSubsystem::FindCurrentShopItem(FName ItemID) const
 {
 	for (const FTShopItemStruct& ShopItem : CurrentShopItems)
@@ -538,6 +582,11 @@ const FTShopItemStruct* UFTShopSubsystem::FindCurrentShopItem(FName ItemID) cons
 
 const FTTradePostStruct* UFTShopSubsystem::FindMarketBuyPost(FName PostID) const
 {
+	if (IsMarketPostConsumed(PostID))
+	{
+		return nullptr;
+	}
+
 	for (const FTTradePostStruct& Post : MarketBuyPosts)
 	{
 		if (Post.PostID == PostID)
@@ -551,6 +600,11 @@ const FTTradePostStruct* UFTShopSubsystem::FindMarketBuyPost(FName PostID) const
 
 const FTTradePostStruct* UFTShopSubsystem::FindMarketSellPost(FName PostID) const
 {
+	if (IsMarketPostConsumed(PostID))
+	{
+		return nullptr;
+	}
+
 	for (const FTTradePostStruct& Post : MarketSellPosts)
 	{
 		if (Post.PostID == PostID)
@@ -560,6 +614,13 @@ const FTTradePostStruct* UFTShopSubsystem::FindMarketSellPost(FName PostID) cons
 	}
 
 	return nullptr;
+}
+
+bool UFTShopSubsystem::IsMarketPostCountInRange(const FTTradePostStruct& Post, const bool bBuyRequest) const
+{
+	const int32 MinCount = FMath::Max(1, bBuyRequest ? MinGeneratedBuyRequestItemCount : MinGeneratedSellOfferItemCount);
+	const int32 MaxCount = FMath::Max(MinCount, bBuyRequest ? MaxGeneratedBuyRequestItemCount : MaxGeneratedSellOfferItemCount);
+	return Post.Count >= MinCount && Post.Count <= MaxCount;
 }
 
 int32 UFTShopSubsystem::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const
