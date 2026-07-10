@@ -9,6 +9,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
@@ -432,7 +433,7 @@ void AFTSecurityAIController::OnShelfDamaged(
 
 void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
 {
-	if (Payload.TargetActor != GetPawn() || bTargetCaptured || bIsStunned)
+	if (bTargetCaptured || bIsStunned)
 	{
 		return;
 	}
@@ -443,6 +444,24 @@ void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFT
 		return;
 	}
 
+	const bool bDamagedSelf = Payload.TargetActor == GetPawn();
+	const bool bWitnessedAssault = !bDamagedSelf && Cast<AFTAICharacterBase>(Payload.TargetActor);
+	if (!bDamagedSelf && !bWitnessedAssault)
+	{
+		return;
+	}
+
+	SetTargetActor(SuspectActor);
+	if (bWitnessedAssault)
+	{
+		const bool bCanSeePlayer = IsTargetCurrentlyVisible();
+		const bool bCanSeeDamagedActor = LineOfSightTo(Payload.TargetActor);
+		if (!bCanSeePlayer || !bCanSeeDamagedActor)
+		{
+			return;
+		}
+	}
+
 	StopMovement();
 	bReturning = false;
 	bReturnRequested = false;
@@ -451,19 +470,31 @@ void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFT
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	bSecurityCalled = true;
-	SetTargetActor(SuspectActor);
 	InvestigateLocation = SuspectActor->GetActorLocation();
 	UpdateTargetState();
 
 	if (bLogSecurityEventDebug)
 	{
-		UE_LOG(
-			LogFTSecurity,
-			Log,
-			TEXT("Security AI '%s' damaged by player, chasing %s"),
-			*GetName(),
-			*GetNameSafe(SuspectActor)
-		);
+		if (bDamagedSelf)
+		{
+			UE_LOG(
+				LogFTSecurity,
+				Log,
+				TEXT("Security AI '%s' damaged by player, chasing %s"),
+				*GetName(),
+				*GetNameSafe(SuspectActor)
+			);
+		}
+		else
+		{
+			UE_LOG(
+				LogFTSecurity,
+				Log,
+				TEXT("Security AI '%s' witnessed assault, chasing %s"),
+				*GetName(),
+				*GetNameSafe(SuspectActor)
+			);
+		}
 	}
 }
 

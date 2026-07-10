@@ -44,6 +44,20 @@ void UFTAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 		{
 			AActor* TargetActor = Data.Target.GetAvatarActor();
 			AActor* InstigatorActor = Data.EffectSpec.GetContext().GetOriginalInstigator();
+			if (!InstigatorActor)
+			{
+				InstigatorActor = Data.EffectSpec.GetContext().GetEffectCauser();
+			}
+			if (!InstigatorActor)
+			{
+				InstigatorActor = Data.EffectSpec.GetEffectContext().GetInstigator();
+			}
+			if (!InstigatorActor)
+			{
+				InstigatorActor = Data.EffectSpec.GetEffectContext().GetInstigatorAbilitySystemComponent()
+					? Data.EffectSpec.GetEffectContext().GetInstigatorAbilitySystemComponent()->GetAvatarActor()
+					: nullptr;
+			}
 
 			if (TargetActor)
 			{
