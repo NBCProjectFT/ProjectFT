@@ -8,13 +8,15 @@
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
 #include "Engine/Texture2D.h"
-#include "ProjectFT/Hub/FTHubWorkbench.h"
+#include "ProjectFT/Core/FTCraftingSubsystem.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTCraftingViewModel.h"
 
-void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, UFTCraftingViewModel* InViewModel)
+void UFTHubCraftTestWidget::InitializeCraftTest(
+	UFTInventoryComponent* InPlayerInventory,
+	UFTInventoryComponent* InStorageInventory,
+	UFTCraftingViewModel* InViewModel)
 {
-	HubWorkbench = InHubWorkbench;
-
 	if (ViewModel != InViewModel)
 	{
 		if (ViewModel)
@@ -32,7 +34,10 @@ void UFTHubCraftTestWidget::InitializeCraftTest(AFTHubWorkbench* InHubWorkbench,
 
 	if (ViewModel)
 	{
-		ViewModel->Initialize(HubWorkbench, InPlayerInventory);
+		UFTCraftingSubsystem* CraftingSubsystem = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UFTCraftingSubsystem>()
+			: nullptr;
+		ViewModel->Initialize(CraftingSubsystem, InPlayerInventory, InStorageInventory);
 	}
 
 	RefreshFromViewModel();
@@ -199,8 +204,10 @@ void UFTHubCraftTestWidget::HandleCraftClicked()
 
 void UFTHubCraftTestWidget::HandleCloseClicked()
 {
-	if (HubWorkbench)
+	if (UFTUIManagerSubsystem* UIManager = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UFTUIManagerSubsystem>()
+		: nullptr)
 	{
-		HubWorkbench->CloseCraftWidget();
+		UIManager->HideCrafting();
 	}
 }

@@ -25,7 +25,6 @@
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
-#include "ProjectFT/Hub/FTHubWorkbench.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -360,11 +359,11 @@ bool UFTUIManagerSubsystem::IsInventoryOpen() const
 
 
 
-void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory)
+void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory, UFTInventoryComponent* StorageInventory)
 {
-	if (!HubWorkbench)
+	if (!PlayerInventory)
 	{
-		UE_LOG(LogFTUI, Warning, TEXT("Craft widget was not created because HubWorkbench is missing."));
+		UE_LOG(LogFTUI, Warning, TEXT("Craft widget was not created because PlayerInventory is missing."));
 		return;
 	}
 
@@ -403,7 +402,7 @@ void UFTUIManagerSubsystem::ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInven
 		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
 	}
 
-	HubCraftWidget->InitializeCraftTest(HubWorkbench, PlayerInventory, CraftingViewModel);
+	HubCraftWidget->InitializeCraftTest(PlayerInventory, StorageInventory, CraftingViewModel);
 	HubCraftWidget->AddToViewport(20);
 
 	FInputModeGameAndUI InputMode;
