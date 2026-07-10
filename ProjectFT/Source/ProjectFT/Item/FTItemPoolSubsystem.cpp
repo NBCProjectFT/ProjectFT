@@ -245,6 +245,13 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 			continue;
 		}
 
+		// 캐릭터의 손에 쥐여져 어태치(Attach)되어 있는 아이템 비주얼은 시야 감지에서 스킵합니다.
+		if (Item->GetAttachParentActor() != nullptr)
+		{
+			Item->SetTooltipVisibility(false);
+			continue;
+		}
+
 		FVector ItemLocation = Item->GetActorLocation();
 
 		// 1. 거리 검사
