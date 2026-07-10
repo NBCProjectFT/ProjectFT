@@ -188,7 +188,7 @@ void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 
 void AFTPlayerCharacter::HandleJumpPressed()
 {
-	if (IsCaptured())
+	if (IsCaptured() || IsChannelingInteraction())
 	{
 		return;
 	}

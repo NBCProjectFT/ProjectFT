@@ -4,10 +4,10 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "CollisionQueryParams.h"
-#include "DrawDebugHelpers.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Components/MeshComponent.h"
+#include "KismetTraceUtils.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
@@ -176,29 +176,35 @@ void UFTGA_HitScanAction::PerformHitScan()
 		MuzzleLocation = WeaponMesh->GetSocketLocation(HitScanData->MuzzleSocketName);
 	}
 
-	// 4. 총구에서 조준점까지 실제 판정 Trace를 수행한다.
+	// 4. 총구에서 조준점을 향해 실제 판정 Trace를 수행한다.
+	//    AimPoint에서 끝내면 적 표면 바로 앞에서 Trace가 끊길 수 있으므로, 방향만 AimPoint로 잡고 길이는 DataAsset의 Range를 사용한다.
+	const FVector WeaponTraceDirection = (AimPoint - MuzzleLocation).GetSafeNormal();
+	const FVector WeaponTraceEnd = MuzzleLocation + WeaponTraceDirection * HitScanData->Range;
 	FHitResult WeaponHit;
 
 	const bool bWeaponHit = World->LineTraceSingleByChannel(
 		WeaponHit,
 		MuzzleLocation,
-		AimPoint,
+		WeaponTraceEnd,
 		HitScanData->TraceChannel,
 		Params
 	);
 
 	if (HitScanData->bDrawDebug)
 	{
-		DrawDebugLine(
+		// UE의 Blueprint LineTraceByChannel 디버그와 같은 유틸을 사용한다.
+		// 빨강: TraceColor, 초록: TraceHitColor, 작은 점: 실제 ImpactPoint.
+
+		DrawDebugLineTraceSingle(
 			World,
 			MuzzleLocation,
-			AimPoint,
-			FColor::Red,
-			false,
-			1.0f,
-			0,
-			1.5f
-		);
+			WeaponTraceEnd,
+			EDrawDebugTrace::ForDuration,
+			bWeaponHit,
+			WeaponHit,
+			FLinearColor::Red,
+			FLinearColor::Green,
+			5.0f);
 	}
 
 	if (!bWeaponHit || !WeaponHit.GetActor())

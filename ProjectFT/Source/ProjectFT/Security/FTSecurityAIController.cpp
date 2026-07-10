@@ -3,7 +3,6 @@
 
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
-#include "DrawDebugHelpers.h"
 #include "Components/StateTreeAIComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
@@ -66,19 +65,7 @@ AFTSecurityAIController::AFTSecurityAIController()
 	
 	SecurityPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("SecurityPerceptionComponent"));
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
-	
-	SightConfig->SightRadius = 1500.0f;
-	SightConfig->LoseSightRadius = SightConfig->SightRadius;
-	SightConfig->PeripheralVisionAngleDegrees = 80.0f;
-	SightConfig->SetMaxAge(3.0f);
-	
-	SightConfig->DetectionByAffiliation.bDetectEnemies = true;
-	SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
-	SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
-	
-	SecurityPerceptionComponent->ConfigureSense(*SightConfig);
-	SecurityPerceptionComponent->SetDominantSense(SightConfig->GetSenseImplementation());
-	SetPerceptionComponent(*SecurityPerceptionComponent);
+	ConfigureSight(SecurityPerceptionComponent, SightConfig, 1500.0f, 80.0f, 3.0f);
 }
 
 void AFTSecurityAIController::PreInitializeComponents()
@@ -149,11 +136,7 @@ void AFTSecurityAIController::BeginPlay()
 		}
 	}
 
-	if (SightConfig && SecurityPerceptionComponent)
-	{
-		SightConfig->LoseSightRadius = SightConfig->SightRadius;
-		SecurityPerceptionComponent->RequestStimuliListenerUpdate();
-	}
+	RefreshSightConfig(SecurityPerceptionComponent, SightConfig);
 	
 
 	// Event.Security.Called 메시지가 발행될 때마다 OnSecurityCalled()가 호출됨.
@@ -249,7 +232,10 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 			bReturning = false;
 			bSecurityCalled = true;
 			InvestigateLocation = Actor->GetActorLocation();
-			UE_LOG(LogTemp, Log, TEXT("Security AI: Direct theft witnessed, chasing %s"), *GetNameSafe(Actor));
+			if (bLogPerceptionDebug)
+			{
+				UE_LOG(LogFTSecurity, Log, TEXT("Security AI: Direct theft witnessed, chasing %s"), *GetNameSafe(Actor));
+			}
 		}
 
 		if (Actor != TargetActor)
@@ -275,7 +261,10 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 
 		if (Distance <= 150.0f)
 		{
-			UE_LOG(LogTemp, Log, TEXT("Security AI: Attack range reached"));
+			if (bLogPerceptionDebug)
+			{
+				UE_LOG(LogFTSecurity, Log, TEXT("Security AI: Attack range reached"));
+			}
 		}
 	}
 	else
@@ -294,7 +283,10 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 		}
 		// const FVector DetectedLocation = Stimulus.StimulusLocation;
 		// MoveToLocation(DetectedLocation);
-		UE_LOG(LogTemp, Log, TEXT("Security AI: Target lost, moving to last known location"));
+		if (bLogPerceptionDebug)
+		{
+			UE_LOG(LogFTSecurity, Log, TEXT("Security AI: Target lost, moving to last known location"));
+		}
 	}
 }
 
@@ -317,7 +309,10 @@ void AFTSecurityAIController::StartChase()
 	}
 
 	const EPathFollowingRequestResult::Type MoveResult = MoveToActor(TargetActor, 150.0f);
-	UE_LOG(LogTemp, Log, TEXT("Security AI: MoveToActor result %d"), static_cast<int32>(MoveResult));
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(LogFTSecurity, Log, TEXT("Security AI: MoveToActor result %d"), static_cast<int32>(MoveResult));
+	}
 }
 
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
@@ -391,13 +386,16 @@ void AFTSecurityAIController::OnShelfDamaged(
 
 	if (!SuspectActor || !DamagedShelf)
 	{
-		UE_LOG(
-			LogFTSecurity,
-			Warning,
-			TEXT("Security AI ignored shelf damage: Instigator=%s Player=%s Shelf=%s"),
-			*GetNameSafe(Payload.InstigatorActor),
-			*GetNameSafe(SuspectActor),
-			*GetNameSafe(DamagedShelf));
+		if (bLogSecurityEventDebug)
+		{
+			UE_LOG(
+				LogFTSecurity,
+				Warning,
+				TEXT("Security AI ignored shelf damage: Instigator=%s Player=%s Shelf=%s"),
+				*GetNameSafe(Payload.InstigatorActor),
+				*GetNameSafe(SuspectActor),
+				*GetNameSafe(DamagedShelf));
+		}
 		return;
 	}
 
@@ -415,12 +413,15 @@ void AFTSecurityAIController::OnShelfDamaged(
 	InvestigateLocation = SuspectActor->GetActorLocation();
 	UpdateTargetState();
 
-	UE_LOG(
-		LogFTSecurity,
-		Log,
-		TEXT("Security AI '%s' witnessed shelf damage, chasing %s"),
-		*GetName(),
-		*GetNameSafe(SuspectActor));
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Security AI '%s' witnessed shelf damage, chasing %s"),
+			*GetName(),
+			*GetNameSafe(SuspectActor));
+	}
 }
 
 AActor* AFTSecurityAIController::GetTargetActor() const
@@ -466,7 +467,10 @@ void AFTSecurityAIController::UpdateTargetState()
 		bReturning = false;
 		bSecurityCalled = true;
 		InvestigateLocation = TargetActor->GetActorLocation();
-		UE_LOG(LogTemp, Log, TEXT("Security AI: Direct theft witnessed, chasing %s"), *GetNameSafe(TargetActor));
+		if (bLogPerceptionDebug)
+		{
+			UE_LOG(LogFTSecurity, Log, TEXT("Security AI: Direct theft witnessed, chasing %s"), *GetNameSafe(TargetActor));
+		}
 	}
 	
 	// 현재 보이는 상태라면 마지막 목격 위치 갱신
@@ -483,6 +487,7 @@ void AFTSecurityAIController::UpdateTargetFocus()
 	const bool bShouldFocusTarget = TargetActor
 		&& bSecurityCalled
 		&& bSecurityChaseActive
+		&& bHasSeenTarget
 		&& !bReturning
 		&& !bTargetCaptured
 		&& !bIsStunned;
@@ -545,6 +550,16 @@ void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecuri
 	bHasSeenTarget = false;
 	bIsTargetInAttackRange = false;
 	bReportedTargetSeenToChaseGauge = false;
+
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Security AI '%s' requested return to %s"),
+			*GetName(),
+			*ReturnLocation.ToString());
+	}
 }
 
 void AFTSecurityAIController::OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload)
@@ -576,7 +591,10 @@ void AFTSecurityAIController::OnSecurityDeployed(FGameplayTag Channel, const FFT
 		: Payload.ReportLocation;
 	UpdateTargetState();
 
-	UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' deployed from room"), *GetName());
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' deployed from room"), *GetName());
+	}
 }
 
 void AFTSecurityAIController::OnSecurityTargetCaptured(
@@ -603,14 +621,17 @@ void AFTSecurityAIController::OnSecurityTargetCaptured(
 	bIsTargetInAttackRange = false;
 	UpdateChaseGaugeTargetSeenState();
 
-	UE_LOG(
-		LogFTSecurity,
-		Log,
-		TEXT("Security AI '%s' received target captured: Captor=%s IsCaptor=%s"),
-		*GetName(),
-		*GetNameSafe(Payload.ReporterActor),
-		bIsCaptor ? TEXT("true") : TEXT("false")
-	);
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Security AI '%s' received target captured: Captor=%s IsCaptor=%s"),
+			*GetName(),
+			*GetNameSafe(Payload.ReporterActor),
+			bIsCaptor ? TEXT("true") : TEXT("false")
+		);
+	}
 }
 
 void AFTSecurityAIController::OnSecurityTargetEscaped(
@@ -645,14 +666,17 @@ void AFTSecurityAIController::OnSecurityTargetEscaped(
 	}
 
 	UpdateTargetState();
-	UE_LOG(
-		LogFTSecurity,
-		Log,
-		TEXT("Security AI '%s' received target escaped: StunRequested=%s Location=%s"),
-		*GetName(),
-		bStunRequested ? TEXT("true") : TEXT("false"),
-		*InvestigateLocation.ToString()
-	);
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Security AI '%s' received target escaped: StunRequested=%s Location=%s"),
+			*GetName(),
+			bStunRequested ? TEXT("true") : TEXT("false"),
+			*InvestigateLocation.ToString()
+		);
+	}
 }
 
 void AFTSecurityAIController::UpdateReturnCollision()
@@ -687,12 +711,42 @@ void AFTSecurityAIController::OnMoveCompleted(FAIRequestID RequestID, const FPat
 		return;
 	}
 
+	// 추격 또는 EQS 이동을 중단한 결과는 복귀 이동 실패가 아니다.
+	if (Result.Code == EPathFollowingResult::Aborted)
+	{
+		return;
+	}
+
 	if (!Result.IsSuccess())
 	{
 		if (!bReturnFailureLogged)
 		{
 			bReturnFailureLogged = true;
 			UE_LOG(LogFTSecurity, Warning, TEXT("Security AI '%s' failed to return"), *GetName());
+		}
+		return;
+	}
+
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn)
+	{
+		return;
+	}
+
+	const float DistanceToReturnLocation = FVector::Dist2D(
+		ControlledPawn->GetActorLocation(),
+		ReturnLocation);
+	if (DistanceToReturnLocation > ReturnCompletionDistance)
+	{
+		if (!bReturnFailureLogged)
+		{
+			bReturnFailureLogged = true;
+			UE_LOG(
+				LogFTSecurity,
+				Warning,
+				TEXT("Security AI '%s' completed an unrelated move while returning: Distance=%.1f"),
+				*GetName(),
+				DistanceToReturnLocation);
 		}
 		return;
 	}
@@ -713,7 +767,10 @@ void AFTSecurityAIController::CompleteReturn()
 
 	if (!bSpawnedFromSecurityRoom)
 	{
-		UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' returned home"), *GetName());
+		if (bLogSecurityEventDebug)
+		{
+			UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' returned home"), *GetName());
+		}
 		return;
 	}
 
@@ -722,34 +779,16 @@ void AFTSecurityAIController::CompleteReturn()
 	Payload.SecurityRoomActor = SecurityRoomActor;
 	Payload.ReturnLocation = ReturnLocation;
 
-	UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' returned to security room"), *GetName());
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' returned to security room"), *GetName());
+	}
 	UGameplayMessageSubsystem::Get(this).BroadcastMessage(TAG_FT_Event_SecurityReturnedToRoom, Payload);
 }
 
 bool AFTSecurityAIController::IsTargetCurrentlyVisible() const
 {
-	const APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn || !TargetActor || !SightConfig)
-	{
-		return false;
-	}
-
-	const FVector ToTarget = TargetActor->GetActorLocation() - ControlledPawn->GetActorLocation();
-	if (ToTarget.SizeSquared() > FMath::Square(SightConfig->SightRadius))
-	{
-		return false;
-	}
-
-	const FVector Forward = ControlledPawn->GetActorForwardVector();
-	const FVector DirectionToTarget = ToTarget.GetSafeNormal();
-	const float Dot = FVector::DotProduct(Forward, DirectionToTarget);
-	const float AngleDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Dot, -1.0f, 1.0f)));
-	if (AngleDegrees > SightConfig->PeripheralVisionAngleDegrees)
-	{
-		return false;
-	}
-
-	return LineOfSightTo(TargetActor);
+	return IsActorVisibleBySight(TargetActor, SightConfig);
 }
 
 bool AFTSecurityAIController::IsPlayerActor(const AActor* Actor) const
@@ -849,48 +888,15 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 
 
-// 눈으로 보는 확인용.
 void AFTSecurityAIController::DrawSightDebug() const
 {
-	const APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn || !SightConfig)
-	{
-		return;
-	}
+	DrawFlatSightDebug(SightConfig, FColor::Magenta, 1.5f);
 
-	const FVector Origin = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 8.0f);
-	const FVector Forward = ControlledPawn->GetActorForwardVector().GetSafeNormal2D();
-	constexpr int32 SegmentCount = 16;
-	constexpr float LifeTime = 0.05f;
-
-	auto DrawFlatSector = [this, Origin, Forward, SegmentCount, LifeTime](float Radius, float HalfAngleDegrees, FColor Color, float Thickness)
+	if (bDrawAttackRangeDebug)
 	{
-		FVector PreviousPoint = Origin;
-		for (int32 SegmentIndex = 0; SegmentIndex <= SegmentCount; ++SegmentIndex)
+		if (SightConfig)
 		{
-			const float Alpha = static_cast<float>(SegmentIndex) / static_cast<float>(SegmentCount);
-			const float AngleDegrees = FMath::Lerp(-HalfAngleDegrees, HalfAngleDegrees, Alpha);
-			const FVector Direction = Forward.RotateAngleAxis(AngleDegrees, FVector::UpVector);
-			const FVector CurrentPoint = Origin + Direction * Radius;
-
-			if (SegmentIndex == 0)
-			{
-				DrawDebugLine(GetWorld(), Origin, CurrentPoint, Color, false, LifeTime, 0, Thickness);
-			}
-			else
-			{
-				DrawDebugLine(GetWorld(), PreviousPoint, CurrentPoint, Color, false, LifeTime, 0, Thickness);
-			}
-
-			if (SegmentIndex == SegmentCount)
-			{
-				DrawDebugLine(GetWorld(), Origin, CurrentPoint, Color, false, LifeTime, 0, Thickness);
-			}
-
-			PreviousPoint = CurrentPoint;
+			DrawFlatSectorDebug(AttackRange, SightConfig->PeripheralVisionAngleDegrees, FColor::Red, 2.5f);
 		}
-	};
-
-	DrawFlatSector(SightConfig->SightRadius, SightConfig->PeripheralVisionAngleDegrees, FColor::Magenta, 1.5f);
-	DrawFlatSector(AttackRange, SightConfig->PeripheralVisionAngleDegrees, FColor::Red, 2.5f);
+	}
 }
