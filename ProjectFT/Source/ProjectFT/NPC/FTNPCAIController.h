@@ -12,6 +12,7 @@ class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class UFTNPCReportComponent;
 struct FFTMessagePayloadStruct;
+struct FFTCharacterDamagePayloadStruct;
 UCLASS()
 class PROJECTFT_API AFTNPCAIController : public AFTAIControllerBase
 {
@@ -126,7 +127,9 @@ private:
 	bool bLastLoggedCanStartReportFlow = false;
 	
 	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
+	FGameplayMessageListenerHandle CharacterDamagedListenerHandle;
 	void OnShelfDamaged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload);
 	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;

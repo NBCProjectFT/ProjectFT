@@ -16,6 +16,7 @@
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
 
 namespace
 {
@@ -76,6 +77,11 @@ void AFTNPCAIController::BeginPlay()
 		this,
 		&ThisClass::OnShelfDamaged
 	);
+	CharacterDamagedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_CharacterDamaged,
+		this,
+		&ThisClass::OnCharacterDamaged
+	);
 }
 
 void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -83,6 +89,11 @@ void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (ShelfDamagedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfDamagedListenerHandle);
+	}
+
+	if (CharacterDamagedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterDamagedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -396,6 +407,33 @@ void AFTNPCAIController::OnShelfDamaged(
 			TEXT("[NPC] Observed shelf damage: Player=%s Shelf=%s"),
 			*GetNameSafe(SuspectActor),
 			*GetNameSafe(DamagedShelf)
+		);
+	}
+}
+
+void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
+{
+	if (Payload.TargetActor != GetPawn())
+	{
+		return;
+	}
+
+	if (!NPCReportComponent || NPCReportComponent->CurrentReportProgress <= 0.0f || NPCReportComponent->bReportCompleted)
+	{
+		return;
+	}
+
+	CancelReport();
+
+	if (bLogReportDebug)
+	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[NPC] Report reset by damage: NPC=%s Instigator=%s Damage=%.1f"),
+			*GetNameSafe(GetPawn()),
+			*GetNameSafe(Payload.InstigatorActor),
+			Payload.DamageAmount
 		);
 	}
 }
