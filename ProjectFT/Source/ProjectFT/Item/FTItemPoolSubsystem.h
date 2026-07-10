@@ -48,6 +48,9 @@ public:
 	 */
 	void ReleaseItemActor(AFTItemActor* ItemActor);
 
+	/** @brief 레벨에 정적 배치된 아이템이 시작 시 스스로를 등록할 수 있는 API */
+	void RegisterActiveItem(AFTItemActor* ItemActor);
+
 protected:
 	/** @brief 드롭 요청 메시지 수신 시 처리할 핸들러 */
 	void HandleDropItemMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
@@ -59,12 +62,25 @@ protected:
 	UFTItemDataAsset* FindItemData(FName ItemId) const;
 
 private:
+	/** @brief 주기적으로 활성화된 아이템들의 미리보기 가시성을 일괄 연산합니다. */
+	void UpdateAllItemPreviews();
+
+	/** @brief 현재 맵에 드롭되어 활성화 상태인 아이템 액터 목록 */
+	UPROPERTY()
+	TArray<TObjectPtr<AFTItemActor>> ActiveItemActors;
+
+	/** @brief 일괄 갱신을 담당할 전역 타이머 핸들 */
+	FTimerHandle PreviewUpdateTimerHandle;
+
+	/** @brief 시야 판정 매개변수 설정 */
+	const float PreviewMaxDistance = 1000.0f;
+	const float PreviewAngleThreshold = 0.707f; // cos(45도) = 정면 기준 90도 시야
+
+private:
 	/** @brief 드롭 요청 메시지 리스너 핸들 */
 	FGameplayMessageListenerHandle DropItemListenerHandle;
 
 	/** @brief 비활성화되어 재사용 대기 중인 아이템 액터 풀 (아이템 ID별로 나누어 관리) */
 	UPROPERTY()
 	TMap<FName, FFTItemActorArray> InactivePoolsMap;
-
-
 };
