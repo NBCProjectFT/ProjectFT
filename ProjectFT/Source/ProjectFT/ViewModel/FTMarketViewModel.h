@@ -7,6 +7,7 @@
 class UFTInventoryComponent;
 class UFTShopSubsystem;
 class UFTTradePostListObject;
+class UTexture2D;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTMarketViewModelChanged);
 
@@ -26,6 +27,12 @@ public:
 	FText GetSelectedPostDescriptionText() const;
 	FText GetSelectedPostItemText() const;
 	FText GetSelectedPostPriceText() const;
+	FText GetSelectedItemNameText() const;
+	FText GetSelectedItemTagText() const;
+	FText GetSelectedItemDescriptionText() const;
+	FText GetSelectedItemOwnedCountText() const;
+	FText GetTradeActionText() const;
+	TSoftObjectPtr<UTexture2D> GetSelectedItemIcon() const;
 	bool CanTradeSelectedPost() const;
 	bool IsBuyRequestMode() const;
 
@@ -48,6 +55,7 @@ private:
 	void BindInventoryDelegate();
 	void UnbindInventoryDelegate();
 	const struct FTTradePostStruct* GetSelectedPost() const;
+	const class UFTItemTileListObject* GetSelectedPostItem() const;
 	void NotifyChanged();
 
 	UPROPERTY(Transient)

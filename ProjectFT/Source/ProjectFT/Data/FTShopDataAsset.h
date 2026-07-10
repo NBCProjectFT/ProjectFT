@@ -45,6 +45,18 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Market|Generation", meta = (ClampMin = "1"))
 	int32 MaxGeneratedPostItemCount = 1;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Market|Generation|Buy Requests", meta = (ClampMin = "1"))
+	int32 MinGeneratedBuyRequestItemCount = 1;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Market|Generation|Buy Requests", meta = (ClampMin = "1"))
+	int32 MaxGeneratedBuyRequestItemCount = 1;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Market|Generation|Sell Offers", meta = (ClampMin = "1"))
+	int32 MinGeneratedSellOfferItemCount = 1;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Market|Generation|Sell Offers", meta = (ClampMin = "1"))
+	int32 MaxGeneratedSellOfferItemCount = 1;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Market|Generation", meta = (ClampMin = "0.0"))
 	float MarketBuyRequestPriceMultiplier = 0.75f;
 
