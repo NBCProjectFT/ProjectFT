@@ -5,6 +5,7 @@
 #include "FTHubMarketPanelWidget.h"
 #include "FTHubQuestPanelWidget.h"
 #include "FTHubShopPanelWidget.h"
+#include "Animation/WidgetAnimation.h"
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
@@ -21,15 +22,16 @@ void UFTHubMainWidget::InitializeHubMain(
 	ShopSubsystem = InShopSubsystem;
 	PlayerInventory = InPlayerInventory;
 
-	RefreshCollectionCoinText();
 	if (HasDesktopAppWindows())
 	{
-		CloseAllApps();
+		CollapseAllAppsImmediately();
 	}
 	else
 	{
 		ShowQuestPanel();
 	}
+
+	RefreshCollectionCoinText();
 }
 
 UFTHubQuestPanelWidget* UFTHubMainWidget::GetQuestPanelWidget() const
@@ -117,6 +119,48 @@ void UFTHubMainWidget::NativeConstruct()
 		BTN_CloseShopApp->OnClicked.AddDynamic(this, &UFTHubMainWidget::HandleCloseShopAppClicked);
 	}
 
+	if (Anim_QuestAppOpen)
+	{
+		FWidgetAnimationDynamicEvent FinishedEvent;
+		FinishedEvent.BindDynamic(this, &UFTHubMainWidget::HandleQuestAppOpenAnimationFinished);
+		BindToAnimationFinished(Anim_QuestAppOpen, FinishedEvent);
+	}
+
+	if (Anim_QuestAppClose)
+	{
+		FWidgetAnimationDynamicEvent FinishedEvent;
+		FinishedEvent.BindDynamic(this, &UFTHubMainWidget::HandleQuestAppCloseAnimationFinished);
+		BindToAnimationFinished(Anim_QuestAppClose, FinishedEvent);
+	}
+
+	if (Anim_MarketAppOpen)
+	{
+		FWidgetAnimationDynamicEvent FinishedEvent;
+		FinishedEvent.BindDynamic(this, &UFTHubMainWidget::HandleMarketAppOpenAnimationFinished);
+		BindToAnimationFinished(Anim_MarketAppOpen, FinishedEvent);
+	}
+
+	if (Anim_MarketAppClose)
+	{
+		FWidgetAnimationDynamicEvent FinishedEvent;
+		FinishedEvent.BindDynamic(this, &UFTHubMainWidget::HandleMarketAppCloseAnimationFinished);
+		BindToAnimationFinished(Anim_MarketAppClose, FinishedEvent);
+	}
+
+	if (Anim_ShopAppOpen)
+	{
+		FWidgetAnimationDynamicEvent FinishedEvent;
+		FinishedEvent.BindDynamic(this, &UFTHubMainWidget::HandleShopAppOpenAnimationFinished);
+		BindToAnimationFinished(Anim_ShopAppOpen, FinishedEvent);
+	}
+
+	if (Anim_ShopAppClose)
+	{
+		FWidgetAnimationDynamicEvent FinishedEvent;
+		FinishedEvent.BindDynamic(this, &UFTHubMainWidget::HandleShopAppCloseAnimationFinished);
+		BindToAnimationFinished(Anim_ShopAppClose, FinishedEvent);
+	}
+
 	RefreshCollectionCoinText();
 }
 
@@ -134,11 +178,18 @@ void UFTHubMainWidget::RefreshCollectionCoinText()
 		return;
 	}
 
+	const bool bShouldShowCoinText = !HasDesktopAppWindows() || HasSettledVisibleDesktopAppWindow();
+	TXT_CollectionCoin->SetVisibility(bShouldShowCoinText ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	if (!bShouldShowCoinText)
+	{
+		return;
+	}
+
 	const int32 CoinAmount = ShopSubsystem
 		? ShopSubsystem->GetCurrencyAmount(PlayerInventory)
 		: 0;
 
-	TXT_CollectionCoin->SetText(FText::FromString(FString::Printf(TEXT("보유 현금 %d"), CoinAmount)));
+	TXT_CollectionCoin->SetText(FText::FromString(FString::Printf(TEXT("보유 코인 %d"), CoinAmount)));
 }
 
 void UFTHubMainWidget::OpenApp(EFTHubTerminalAppType AppType)
@@ -147,6 +198,7 @@ void UFTHubMainWidget::OpenApp(EFTHubTerminalAppType AppType)
 	{
 		SetAppVisible(AppType, true);
 		BringAppToFront(AppType);
+		RefreshCollectionCoinText();
 		return;
 	}
 
@@ -164,6 +216,8 @@ void UFTHubMainWidget::OpenApp(EFTHubTerminalAppType AppType)
 	default:
 		break;
 	}
+
+	RefreshCollectionCoinText();
 }
 
 void UFTHubMainWidget::CloseApp(EFTHubTerminalAppType AppType)
@@ -171,6 +225,7 @@ void UFTHubMainWidget::CloseApp(EFTHubTerminalAppType AppType)
 	if (HasDesktopAppWindows())
 	{
 		SetAppVisible(AppType, false);
+		RefreshCollectionCoinText();
 	}
 }
 
@@ -181,10 +236,11 @@ void UFTHubMainWidget::FocusApp(EFTHubTerminalAppType AppType)
 
 void UFTHubMainWidget::CloseAllApps()
 {
-	SetAppVisible(EFTHubTerminalAppType::Quest, false);
-	SetAppVisible(EFTHubTerminalAppType::Market, false);
-	SetAppVisible(EFTHubTerminalAppType::Shop, false);
+	CloseApp(EFTHubTerminalAppType::Quest);
+	CloseApp(EFTHubTerminalAppType::Market);
+	CloseApp(EFTHubTerminalAppType::Shop);
 	NextWindowZOrder = 10;
+	RefreshCollectionCoinText();
 }
 
 void UFTHubMainWidget::ShowMarketPanel()
@@ -216,12 +272,103 @@ bool UFTHubMainWidget::HasDesktopAppWindows() const
 	return Window_QuestApp || Window_MarketApp || Window_ShopApp;
 }
 
+bool UFTHubMainWidget::HasVisibleDesktopAppWindow() const
+{
+	const UWidget* AppWindows[] = { Window_QuestApp, Window_MarketApp, Window_ShopApp };
+	for (const UWidget* AppWindow : AppWindows)
+	{
+		if (AppWindow && AppWindow->IsVisible())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool UFTHubMainWidget::HasSettledVisibleDesktopAppWindow() const
+{
+	const EFTHubTerminalAppType AppTypes[] = {
+		EFTHubTerminalAppType::Quest,
+		EFTHubTerminalAppType::Market,
+		EFTHubTerminalAppType::Shop
+	};
+
+	for (const EFTHubTerminalAppType AppType : AppTypes)
+	{
+		const UWidget* AppWindow = GetAppWindow(AppType);
+		if (AppWindow && AppWindow->IsVisible() && !OpeningApps.Contains(AppType) && !ClosingApps.Contains(AppType))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void UFTHubMainWidget::SetAppVisible(EFTHubTerminalAppType AppType, bool bVisible)
 {
 	if (UWidget* AppWindow = GetAppWindow(AppType))
 	{
-		AppWindow->SetVisibility(bVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+		if (bVisible)
+		{
+			AppWindow->SetVisibility(ESlateVisibility::Visible);
+			ClosingApps.Remove(AppType);
+			if (UWidgetAnimation* CloseAnimation = GetAppCloseAnimation(AppType))
+			{
+				StopAnimation(CloseAnimation);
+			}
+			if (UWidgetAnimation* OpenAnimation = GetAppOpenAnimation(AppType))
+			{
+				OpeningApps.Add(AppType);
+				RefreshCollectionCoinText();
+				StopAnimation(OpenAnimation);
+				PlayAnimation(OpenAnimation);
+				return;
+			}
+
+			OpeningApps.Remove(AppType);
+			return;
+		}
+
+		if (AppWindow->GetVisibility() == ESlateVisibility::Collapsed)
+		{
+			OpeningApps.Remove(AppType);
+			ClosingApps.Remove(AppType);
+			return;
+		}
+
+		OpeningApps.Remove(AppType);
+		if (UWidgetAnimation* CloseAnimation = GetAppCloseAnimation(AppType))
+		{
+			ClosingApps.Add(AppType);
+			RefreshCollectionCoinText();
+			StopAnimation(CloseAnimation);
+			PlayAnimation(CloseAnimation);
+			return;
+		}
+
+		ClosingApps.Remove(AppType);
+		AppWindow->SetVisibility(ESlateVisibility::Collapsed);
 	}
+}
+
+void UFTHubMainWidget::SetAppCollapsedImmediately(EFTHubTerminalAppType AppType)
+{
+	if (UWidget* AppWindow = GetAppWindow(AppType))
+	{
+		OpeningApps.Remove(AppType);
+		ClosingApps.Remove(AppType);
+		AppWindow->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void UFTHubMainWidget::CollapseAllAppsImmediately()
+{
+	SetAppCollapsedImmediately(EFTHubTerminalAppType::Quest);
+	SetAppCollapsedImmediately(EFTHubTerminalAppType::Market);
+	SetAppCollapsedImmediately(EFTHubTerminalAppType::Shop);
+	NextWindowZOrder = 10;
 }
 
 void UFTHubMainWidget::BringAppToFront(EFTHubTerminalAppType AppType)
@@ -251,6 +398,50 @@ UWidget* UFTHubMainWidget::GetAppWindow(EFTHubTerminalAppType AppType) const
 	default:
 		return nullptr;
 	}
+}
+
+UWidgetAnimation* UFTHubMainWidget::GetAppOpenAnimation(EFTHubTerminalAppType AppType) const
+{
+	switch (AppType)
+	{
+	case EFTHubTerminalAppType::Quest:
+		return Anim_QuestAppOpen;
+	case EFTHubTerminalAppType::Market:
+		return Anim_MarketAppOpen;
+	case EFTHubTerminalAppType::Shop:
+		return Anim_ShopAppOpen;
+	default:
+		return nullptr;
+	}
+}
+
+UWidgetAnimation* UFTHubMainWidget::GetAppCloseAnimation(EFTHubTerminalAppType AppType) const
+{
+	switch (AppType)
+	{
+	case EFTHubTerminalAppType::Quest:
+		return Anim_QuestAppClose;
+	case EFTHubTerminalAppType::Market:
+		return Anim_MarketAppClose;
+	case EFTHubTerminalAppType::Shop:
+		return Anim_ShopAppClose;
+	default:
+		return nullptr;
+	}
+}
+
+void UFTHubMainWidget::HandleAppCloseAnimationFinished(EFTHubTerminalAppType AppType)
+{
+	ClosingApps.Remove(AppType);
+	SetAppCollapsedImmediately(AppType);
+	RefreshCollectionCoinText();
+}
+
+void UFTHubMainWidget::HandleAppOpenAnimationFinished(EFTHubTerminalAppType AppType)
+{
+	OpeningApps.Remove(AppType);
+	ClosingApps.Remove(AppType);
+	RefreshCollectionCoinText();
 }
 
 void UFTHubMainWidget::HandleQuestTabClicked()
@@ -304,4 +495,34 @@ void UFTHubMainWidget::HandleCloseMarketAppClicked()
 void UFTHubMainWidget::HandleCloseShopAppClicked()
 {
 	CloseApp(EFTHubTerminalAppType::Shop);
+}
+
+void UFTHubMainWidget::HandleQuestAppCloseAnimationFinished()
+{
+	HandleAppCloseAnimationFinished(EFTHubTerminalAppType::Quest);
+}
+
+void UFTHubMainWidget::HandleMarketAppCloseAnimationFinished()
+{
+	HandleAppCloseAnimationFinished(EFTHubTerminalAppType::Market);
+}
+
+void UFTHubMainWidget::HandleShopAppCloseAnimationFinished()
+{
+	HandleAppCloseAnimationFinished(EFTHubTerminalAppType::Shop);
+}
+
+void UFTHubMainWidget::HandleQuestAppOpenAnimationFinished()
+{
+	HandleAppOpenAnimationFinished(EFTHubTerminalAppType::Quest);
+}
+
+void UFTHubMainWidget::HandleMarketAppOpenAnimationFinished()
+{
+	HandleAppOpenAnimationFinished(EFTHubTerminalAppType::Market);
+}
+
+void UFTHubMainWidget::HandleShopAppOpenAnimationFinished()
+{
+	HandleAppOpenAnimationFinished(EFTHubTerminalAppType::Shop);
 }

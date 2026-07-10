@@ -5,7 +5,7 @@
 #include "ProjectFT/Struct/FTCraftRecipeStruct.h"
 #include "FTCraftingViewModel.generated.h"
 
-class AFTHubWorkbench;
+class UFTCraftingSubsystem;
 class UFTInventoryComponent;
 class UTexture2D;
 
@@ -26,7 +26,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "FT|Crafting")
 	bool bCanCraft = false;
 
-	void Initialize(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory);
+	void Initialize(
+		UFTCraftingSubsystem* InCraftingSubsystem,
+		UFTInventoryComponent* InPlayerInventory,
+		UFTInventoryComponent* InStorageInventory);
 
 	const TArray<TObjectPtr<UObject>>& GetStorageItemObjects() const;
 	const TArray<TObjectPtr<UObject>>& GetRecipeObjects() const;
@@ -71,10 +74,13 @@ private:
 	void ClearSelectedRecipeDetails();
 
 	UPROPERTY(Transient)
-	TObjectPtr<AFTHubWorkbench> HubWorkbench;
+	TObjectPtr<UFTCraftingSubsystem> CraftingSubsystem;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTInventoryComponent> PlayerInventory;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTInventoryComponent> StorageInventory;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UObject>> StorageItemObjects;

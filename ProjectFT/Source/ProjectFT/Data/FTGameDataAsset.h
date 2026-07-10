@@ -7,6 +7,7 @@
 #include "FTGameDataAsset.generated.h"
 
 class UFTItemDataAsset;
+class UDataTable;
 
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
@@ -66,6 +67,13 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Hub")
 	TSoftObjectPtr<UFTShopDataAsset> HubShopDataAsset;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Hub")
+	TSoftObjectPtr<UDataTable> CraftRecipeDataTable;
+
+	/** 신규/구버전 세이브의 해금 목록이 비어 있을 때 모든 레시피를 기본 공개한다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Hub")
+	bool bUnlockAllRecipesWhenSaveListEmpty = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
 	FName LoadingLevelName = TEXT("Lvl_Loading");

@@ -5,7 +5,6 @@
 #include "ProjectFT/Struct/FTCraftRecipeStruct.h"
 #include "FTHubCraftTestWidget.generated.h"
 
-class AFTHubWorkbench;
 class UButton;
 class UCheckBox;
 class UEditableTextBox;
@@ -23,7 +22,10 @@ class PROJECTFT_API UFTHubCraftTestWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Craft")
-	void InitializeCraftTest(AFTHubWorkbench* InHubWorkbench, UFTInventoryComponent* InPlayerInventory, UFTCraftingViewModel* InViewModel);
+	void InitializeCraftTest(
+		UFTInventoryComponent* InPlayerInventory,
+		UFTInventoryComponent* InStorageInventory,
+		UFTCraftingViewModel* InViewModel);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -96,9 +98,6 @@ private:
 
 	UFUNCTION()
 	void HandleSearchRecipeTextChanged(const FText& Text);
-
-	UPROPERTY(Transient)
-	TObjectPtr<AFTHubWorkbench> HubWorkbench;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCraftingViewModel> ViewModel;

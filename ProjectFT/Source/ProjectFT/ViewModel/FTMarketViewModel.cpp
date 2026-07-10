@@ -57,8 +57,53 @@ FText UFTMarketViewModel::GetSelectedPostPriceText() const
 {
 	const FTTradePostStruct* Post = GetSelectedPost();
 	return Post
-		? FText::FromString(FString::Printf(TEXT("Price: %d"), Post->Price))
+		? FText::FromString(FString::Printf(TEXT("%s: %d"), bBuyRequestMode ? TEXT("구매 요청가") : TEXT("판매 제시가"), Post->Price))
 		: FText::GetEmpty();
+}
+
+FText UFTMarketViewModel::GetSelectedItemNameText() const
+{
+	const UFTItemTileListObject* SelectedItem = GetSelectedPostItem();
+	return SelectedItem ? SelectedItem->GetDisplayName() : FText::FromString(TEXT("매물을 선택하세요"));
+}
+
+FText UFTMarketViewModel::GetSelectedItemTagText() const
+{
+	const UFTItemTileListObject* SelectedItem = GetSelectedPostItem();
+	return SelectedItem ? SelectedItem->GetCategoryText() : FText::GetEmpty();
+}
+
+FText UFTMarketViewModel::GetSelectedItemDescriptionText() const
+{
+	const FTTradePostStruct* Post = GetSelectedPost();
+	return Post ? Post->Description : FText::GetEmpty();
+}
+
+FText UFTMarketViewModel::GetSelectedItemOwnedCountText() const
+{
+	const FTTradePostStruct* Post = GetSelectedPost();
+	if (!Post || !PlayerInventory)
+	{
+		return FText::GetEmpty();
+	}
+
+	const FName ItemID = Post->GetResolvedItemID();
+	return ItemID.IsNone()
+		? FText::GetEmpty()
+		: FText::FromString(FString::Printf(TEXT("내 보유: %d"), PlayerInventory->GetItemQuantity(ItemID)));
+}
+
+FText UFTMarketViewModel::GetTradeActionText() const
+{
+	return bBuyRequestMode
+		? FText::FromString(TEXT("판매하기"))
+		: FText::FromString(TEXT("구매하기"));
+}
+
+TSoftObjectPtr<UTexture2D> UFTMarketViewModel::GetSelectedItemIcon() const
+{
+	const UFTItemTileListObject* SelectedItem = GetSelectedPostItem();
+	return SelectedItem ? SelectedItem->GetItemIcon() : TSoftObjectPtr<UTexture2D>();
 }
 
 bool UFTMarketViewModel::CanTradeSelectedPost() const
@@ -222,6 +267,11 @@ void UFTMarketViewModel::UnbindInventoryDelegate()
 const FTTradePostStruct* UFTMarketViewModel::GetSelectedPost() const
 {
 	return SelectedPostObject ? &SelectedPostObject->GetTradePost() : nullptr;
+}
+
+const UFTItemTileListObject* UFTMarketViewModel::GetSelectedPostItem() const
+{
+	return SelectedPostItemObjects.IsEmpty() ? nullptr : Cast<UFTItemTileListObject>(SelectedPostItemObjects[0]);
 }
 
 void UFTMarketViewModel::NotifyChanged()
