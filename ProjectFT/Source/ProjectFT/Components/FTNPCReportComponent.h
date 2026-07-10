@@ -39,11 +39,15 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bObservedShelfDamaged = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	bool bObservedAssault = false;
+
 	void EnterReporting();
 	bool TickReporting(float DeltaTime);
 	void CancelReport();
 	void HandleReportFlowAvailability(bool bCanStartReportFlow, bool bLogReportDebug);
 	void MarkObservedShelfDamage();
+	void MarkObservedAssault();
 	void HandleStunStateChanged(bool bStunned);
 
 private:

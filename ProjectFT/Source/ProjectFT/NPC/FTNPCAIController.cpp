@@ -10,6 +10,7 @@
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Components/FTNPCReportComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
@@ -269,8 +270,9 @@ void AFTNPCAIController::UpdateTargetState()
 	const bool bRecentlyObservedStealing = CurrentTime - LastObservedStealingTime <= ObservedStealingMemorySeconds;
 	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
 	const bool bHasObservedShelfDamaged = NPCReportComponent && NPCReportComponent->bObservedShelfDamaged;
+	const bool bHasObservedAssault = NPCReportComponent && NPCReportComponent->bObservedAssault;
 	bCanStartReportFlow = !bIsStunned && TargetActor &&
-		((bHasSeenTarget && bIsTargetActivelyStealing) || bHasObservedShelfDamaged);
+		((bHasSeenTarget && bIsTargetActivelyStealing) || bHasObservedShelfDamaged || bHasObservedAssault);
 
 	if (NPCReportComponent)
 	{
@@ -413,26 +415,75 @@ void AFTNPCAIController::OnShelfDamaged(
 
 void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
 {
-	if (Payload.TargetActor != GetPawn())
+	if (Payload.TargetActor == GetPawn())
+	{
+		if (!NPCReportComponent || NPCReportComponent->CurrentReportProgress <= 0.0f || NPCReportComponent->bReportCompleted)
+		{
+			return;
+		}
+
+		CancelReport();
+
+		if (bLogReportDebug)
+		{
+			UE_LOG(
+				LogFTNPC,
+				Log,
+				TEXT("[NPC] Report reset by damage: NPC=%s Instigator=%s Damage=%.1f"),
+				*GetNameSafe(GetPawn()),
+				*GetNameSafe(Payload.InstigatorActor),
+				Payload.DamageAmount
+			);
+		}
+
+		return;
+	}
+
+	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
+	AActor* DamagedActor = Payload.TargetActor;
+	if (!NPCReportComponent || bIsStunned || !IsPlayerActor(SuspectActor) || !DamagedActor)
 	{
 		return;
 	}
 
-	if (!NPCReportComponent || NPCReportComponent->CurrentReportProgress <= 0.0f || NPCReportComponent->bReportCompleted)
+	if (!Cast<AFTAICharacterBase>(DamagedActor))
 	{
 		return;
 	}
 
-	CancelReport();
+	TargetActor = SuspectActor;
+	UpdateTargetState();
+
+	const bool bCanSeeDamagedActor = LineOfSightTo(DamagedActor);
+	if (!bHasSeenTarget || !bCanSeeDamagedActor)
+	{
+		if (bLogReportDebug)
+		{
+			UE_LOG(
+				LogFTNPC,
+				Log,
+				TEXT("[NPC] Assault not witnessed: PlayerVisible=%s VictimVisible=%s Player=%s Victim=%s"),
+				bHasSeenTarget ? TEXT("true") : TEXT("false"),
+				bCanSeeDamagedActor ? TEXT("true") : TEXT("false"),
+				*GetNameSafe(SuspectActor),
+				*GetNameSafe(DamagedActor)
+			);
+		}
+		return;
+	}
+
+	NPCReportComponent->MarkObservedAssault();
+	SyncReportStateFromComponent();
+	bCanStartReportFlow = true;
 
 	if (bLogReportDebug)
 	{
 		UE_LOG(
 			LogFTNPC,
 			Log,
-			TEXT("[NPC] Report reset by damage: NPC=%s Instigator=%s Damage=%.1f"),
-			*GetNameSafe(GetPawn()),
-			*GetNameSafe(Payload.InstigatorActor),
+			TEXT("[NPC] Observed assault: Player=%s Victim=%s Damage=%.1f"),
+			*GetNameSafe(SuspectActor),
+			*GetNameSafe(DamagedActor),
 			Payload.DamageAmount
 		);
 	}
@@ -449,6 +500,7 @@ void AFTNPCAIController::SyncReportStateFromComponent()
 	bReportCompleted = NPCReportComponent->bReportCompleted;
 	bReportCancelled = NPCReportComponent->bReportCancelled;
 	bObservedShelfDamaged = NPCReportComponent->bObservedShelfDamaged;
+	bObservedAssault = NPCReportComponent->bObservedAssault;
 }
 
 void AFTNPCAIController::DrawSightDebug() const

@@ -96,8 +96,13 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bIsStunned = false;
 	
+	/** 손님NPC가 매대 공격을 목격했는지 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bObservedShelfDamaged = false;
+
+	/** 손님NPC가 플레이어의 공격을 목격했는지 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
+	bool bObservedAssault = false;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Report")
 	void EnterSuspicious();
