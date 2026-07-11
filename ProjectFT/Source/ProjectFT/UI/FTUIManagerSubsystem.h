@@ -19,7 +19,6 @@ class UFTEscapedRaidWidget;
 class UFTFailWidget;
 class AFTHubStorage;
 class AFTHubTerminal;
-class AFTHubWorkbench;
 class UFTHubMainWidget;
 class UFTHubStorageViewModel;
 class UFTHubStorageWidget;
@@ -90,7 +89,7 @@ public:
 	
 	
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
-	void ShowCrafting(AFTHubWorkbench* HubWorkbench, UFTInventoryComponent* PlayerInventory);
+	void ShowCrafting(UFTInventoryComponent* PlayerInventory, UFTInventoryComponent* StorageInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideCrafting();
@@ -110,6 +109,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideHubMain();
+
+	UFUNCTION(BlueprintPure, Category = "FT|UI")
+	bool IsHubMainOpen() const;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowFailScreen();

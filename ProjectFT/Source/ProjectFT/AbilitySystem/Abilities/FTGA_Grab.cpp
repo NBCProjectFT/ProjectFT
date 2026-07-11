@@ -240,9 +240,15 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 
 void UFTGA_Grab::BroadcastCaptureMessage(FGameplayTag Channel) const
 {
+	UWorld* World = GetWorld();
+	if (!IsValid(World) || World->bIsTearingDown)
+	{
+		return;
+	}
+	
 	AActor* SecurityActor = GetAvatarActorFromActorInfo();
 	AActor* TargetActor = CapturedTarget.Get();
-	if (!Channel.IsValid() || !SecurityActor || !TargetActor)
+	if (!Channel.IsValid() || !IsValid(SecurityActor) || !IsValid(TargetActor))
 	{
 		return;
 	}
@@ -253,8 +259,8 @@ void UFTGA_Grab::BroadcastCaptureMessage(FGameplayTag Channel) const
 	Payload.ReportLocation = TargetActor->GetActorLocation();
 	Payload.ReportAmount = 0.0f;
 	Payload.ReportProgress = 1.0f;
-
-	UGameplayMessageSubsystem::Get(this).BroadcastMessage(Channel, Payload);
+	
+	UGameplayMessageSubsystem::Get(SecurityActor).BroadcastMessage(Channel, Payload);
 	UE_LOG(
 		LogFTSecurity,
 		Verbose,

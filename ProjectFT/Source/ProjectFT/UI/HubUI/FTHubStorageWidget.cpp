@@ -13,6 +13,7 @@ void UFTHubStorageWidget::InitializeStorageWidget(AFTHubStorage* InHubStorage, U
 {
 	HubStorage = InHubStorage;
 
+	// UIManager가 ViewModel을 재사용할 수 있으므로, 다른 ViewModel이 들어온 경우에만 이벤트 연결을 갈아낀다.
 	if (ViewModel != InViewModel)
 	{
 		if (ViewModel)
@@ -40,6 +41,7 @@ void UFTHubStorageWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	// TileView는 UListView를 상속하므로 선택 이벤트는 ListView API로 처리한다.
 	if (UListView* PlayerItemsView = GetPlayerItemsView())
 	{
 		PlayerItemsView->SetSelectionMode(ESelectionMode::Multi);
@@ -146,6 +148,7 @@ void UFTHubStorageWidget::RefreshFromViewModel()
 		return;
 	}
 
+	// 목록을 다시 채울 때 ListView가 선택 변경 이벤트를 낼 수 있어서, 재진입을 막는다.
 	bRefreshingFromViewModel = true;
 	PopulateItems(GetPlayerItemsView(), ViewModel->GetPlayerItemObjects());
 	PopulateItems(GetStorageItemsView(), ViewModel->GetStorageItemObjects());
@@ -209,6 +212,7 @@ void UFTHubStorageWidget::PopulateItems(UListView* ItemsView, const TArray<TObje
 		return;
 	}
 
+	// ViewModel이 만든 UObject 목록이 TileView 엔트리 위젯의 데이터 소스가 된다.
 	ItemsView->ClearListItems();
 	for (UObject* Item : Items)
 	{
@@ -225,6 +229,7 @@ void UFTHubStorageWidget::PushSelectedItemsToViewModel(UListView* ItemsView, con
 
 	TArray<UObject*> SelectedItems;
 	ItemsView->GetSelectedItems(SelectedItems);
+	// View는 선택된 UObject만 알고, 어떤 아이템/수량인지는 ViewModel이 해석한다.
 	ViewModel->SetSelectedItems(
 		bFromPlayerItems ? EFTHubStorageTransferSource::Player : EFTHubStorageTransferSource::Storage,
 		SelectedItems

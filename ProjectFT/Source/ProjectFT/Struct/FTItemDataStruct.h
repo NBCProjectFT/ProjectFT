@@ -34,7 +34,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Animation")
 	EFTWeaponStanceType WeaponStance = EFTWeaponStanceType::Unarmed;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item", meta=(AssetBundles="Client"))
 	TSoftObjectPtr<UTexture2D> ItemIcon;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
