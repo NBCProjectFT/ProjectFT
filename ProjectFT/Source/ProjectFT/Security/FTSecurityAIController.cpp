@@ -26,8 +26,7 @@
 #include "ProjectFT/Struct/FTSecurityResponsePayloadStruct.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
 
-// 그저 테스트용
-// TODO: 테스트 완료 후 제거. NPC가 FTReportGaugeComponent애서 Call 하는 로직으로 변경 예정.
+// 개발 테스트용 콘솔 명령어. 출시/제출 전 제거 대상.
 static FAutoConsoleCommandWithWorld GFTSecurityTestCallCommand(
 	TEXT("ft.Security.TestCall"),
 	TEXT("Broadcasts Event.Security.Called with the first player pawn as TargetActor."),
@@ -320,6 +319,25 @@ void AFTSecurityAIController::StartChase()
 	{
 		UE_LOG(LogFTSecurity, Log, TEXT("Security AI: MoveToActor result %d"), static_cast<int32>(MoveResult));
 	}
+}
+
+void AFTSecurityAIController::ReadyDespawn()
+{
+	StopMovement();
+	ClearFocus(EAIFocusPriority::Gameplay);
+
+	if (SecurityPerceptionComponent)
+	{
+		SecurityPerceptionComponent->OnTargetPerceptionUpdated.RemoveDynamic(this, &AFTSecurityAIController::OnTargetPerceptionUpdated);
+		SecurityPerceptionComponent->Deactivate();
+	}
+
+	if (SecurityStateTreeAIComponent && SecurityStateTreeAIComponent->IsComponentTickEnabled())
+	{
+		SecurityStateTreeAIComponent->StopLogic(TEXT("ReadyDespawn"));
+	}
+
+	SetActorTickEnabled(false);
 }
 
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)

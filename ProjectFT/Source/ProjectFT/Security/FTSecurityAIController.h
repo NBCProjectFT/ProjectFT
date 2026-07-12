@@ -47,6 +47,7 @@ protected:
 public:
 	void SetTargetActor(AActor* NewTargetActor);
 	void StartChase();
+	void ReadyDespawn();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FT|Security")
 	TObjectPtr<AActor> TargetActor;
