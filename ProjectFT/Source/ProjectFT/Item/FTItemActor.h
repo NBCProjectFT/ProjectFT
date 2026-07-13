@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -7,6 +7,7 @@
 
 class UFTItemDataAsset;
 class UStaticMeshComponent;
+class UWidgetComponent;
 
 UCLASS()
 class PROJECTFT_API AFTItemActor : public AActor, public IFTInteractable
@@ -18,6 +19,9 @@ public:
 
 	/* @brief : 아이템의 외형을 데이터 에셋에 맞춰 업데이트 하는 메서드입니다. */
 	void UpdateAppearance();
+	
+	/* @brief : 아이템 위에 띄워진 툴팁 UI의 가시성과 정보를 설정합니다. */
+	void SetTooltipVisibility(bool bVisible);
 
 protected:
 	virtual void BeginPlay() override;
@@ -41,4 +45,15 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
+	
+	// 머리 위에 아이템 미리보기를 띄울 위젯 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UWidgetComponent> TooltipWidgetComponent;
+
+	// 에디터에서 직접 툴팁 크기와 위치를 조정할 수 있게 변수로 노출합니다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|UI")
+	FVector2D TooltipDrawSize = FVector2D(220.0f, 100.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|UI")
+	FVector TooltipRelativeLocation = FVector(0.0f, 0.0f, 120.0f); // 기본 80cm에서 120cm로 높게 기본값 변경
 };

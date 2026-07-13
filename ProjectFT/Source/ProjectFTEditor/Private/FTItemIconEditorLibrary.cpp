@@ -247,13 +247,25 @@ UTexture2D* UFTItemIconEditorLibrary::GenerateItemIcon(
 	MeshComponent->SetCastShadow(true);
 	MeshComponent->SetStaticMesh(ItemMesh);
 	MeshComponent->RegisterComponent();
-	MeshComponent->SetWorldLocation(ItemDataAsset->ItemData.IconMeshLocationOffset);
-	MeshComponent->SetWorldRotation(ItemDataAsset->ItemData.IconMeshRotation);
+	MeshComponent->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
+	MeshComponent->SetWorldLocation(FVector::ZeroVector);
+	MeshComponent->UpdateBounds();
+
+	// X/Y는 바닥 중심에, 메시의 가장 아랫면은 바닥 Z=0에 배치
+	const FBoxSphereBounds InitialBounds = MeshComponent->Bounds;
+	const float MeshBottomZ =
+		InitialBounds.Origin.Z - InitialBounds.BoxExtent.Z;
+
+	MeshComponent->AddWorldOffset(FVector(
+		-InitialBounds.Origin.X,
+		-InitialBounds.Origin.Y,
+		-MeshBottomZ));
+
 	MeshComponent->UpdateBounds();
 
 	const FBoxSphereBounds Bounds = MeshComponent->Bounds;
-	const FVector PivotLocation = MeshComponent->GetComponentLocation();
-	const FVector TargetLocation = PivotLocation + ItemDataAsset->ItemData.IconCameraTargetOffset;
+	const FVector PivotLocation = Bounds.Origin;
+	const FVector TargetLocation = Bounds.Origin + ItemDataAsset->ItemData.IconCameraTargetOffset;
 	const FVector BoundsMin = Bounds.Origin - Bounds.BoxExtent;
 	const FVector BoundsMax = Bounds.Origin + Bounds.BoxExtent;
 	float RadiusFromPivot = 0.0f;
@@ -275,8 +287,8 @@ UTexture2D* UFTItemIconEditorLibrary::GenerateItemIcon(
 	const float Radius = FMath::Max(RadiusFromPivot, 10.0f);
 	const float CameraDistanceMultiplier = FMath::Max(ItemDataAsset->ItemData.IconCameraDistanceMultiplier, 0.01f);
 	const float CameraDistance = Radius * CameraDistanceMultiplier;
-	const FVector CameraLocation = TargetLocation + FVector(-CameraDistance * 0.45f, -CameraDistance * 0.45f, CameraDistance * 0.75f);
-	const FRotator CameraRotation = FRotationMatrix::MakeFromX(TargetLocation - CameraLocation).Rotator();
+	const FVector CameraLocation = TargetLocation + FVector(0.0f, 0.0f, CameraDistance);
+	const FRotator CameraRotation(-90.0f, 0.0f, 0.0f);
 
 	UDirectionalLightComponent* LightComponent = NewObject<UDirectionalLightComponent>(PreviewActor, TEXT("IconPreviewLight"));
 	PreviewActor->AddInstanceComponent(LightComponent);

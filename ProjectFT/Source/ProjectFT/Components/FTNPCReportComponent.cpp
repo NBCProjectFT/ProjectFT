@@ -59,7 +59,7 @@ bool UFTNPCReportComponent::TickReporting(float DeltaTime)
 		return false;
 	}
 
-	if (!Controller->bIsTargetActivelyStealing && !bObservedShelfDamaged)
+	if (!Controller->bIsTargetActivelyStealing && !bObservedShelfDamaged && !bObservedAssault)
 	{
 		if (CurrentReportProgress > 0.0f)
 		{
@@ -128,6 +128,7 @@ void UFTNPCReportComponent::CancelReport()
 
 	bReportCancelled = true;
 	bObservedShelfDamaged = false;
+	bObservedAssault = false;
 	CurrentReportProgress = 0.0f;
 	ReportElapsedTime = 0.0f;
 	LastLoggedReportDecayPercent = 0;
@@ -164,6 +165,11 @@ void UFTNPCReportComponent::MarkObservedShelfDamage()
 	bObservedShelfDamaged = true;
 }
 
+void UFTNPCReportComponent::MarkObservedAssault()
+{
+	bObservedAssault = true;
+}
+
 void UFTNPCReportComponent::HandleStunStateChanged(bool bStunned)
 {
 	if (bStunned && CurrentReportProgress > 0.0f && !bReportCompleted)
@@ -189,7 +195,7 @@ bool UFTNPCReportComponent::ShouldCancelReport(const AFTNPCAIController* Control
 		return true;
 	}
 
-	if (bObservedShelfDamaged)
+	if (bObservedShelfDamaged || bObservedAssault)
 	{
 		return false;
 	}
@@ -212,6 +218,7 @@ void UFTNPCReportComponent::CompleteReport()
 
 	bReportCompleted = true;
 	bObservedShelfDamaged = false;
+	bObservedAssault = false;
 	CurrentReportProgress = 1.0f;
 
 	BroadcastReportMessage(TAG_FT_Event_NPCReportCompleted, Controller->TargetActor, ReportAmount, 1.0f);
@@ -245,6 +252,7 @@ void UFTNPCReportComponent::ResetReportState()
 	CurrentReportProgress = 0.0f;
 	bReportCompleted = false;
 	bReportCancelled = false;
+	bObservedAssault = false;
 	LastLoggedReportPercent = -1;
 	LastLoggedReportDecayPercent = 101;
 }

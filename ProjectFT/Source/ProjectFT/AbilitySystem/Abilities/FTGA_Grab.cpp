@@ -116,6 +116,17 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	EscapeComp->OnEscaped.AddDynamic(this, &UFTGA_Grab::OnTargetEscaped);
 	BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetCaptured);
 	bCapturedMessageBroadcast = true;
+	if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		OwnerImmobilizedTagChangedHandle = OwnerASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Immobilized, EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UFTGA_Grab::OnOwnerImmobilizedTagChanged);
+
+		if (OwnerASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized))
+		{
+			OnOwnerImmobilizedTagChanged(TAG_FT_State_Debuff_Immobilized, 1);
+			return;
+		}
+	}
 	UE_LOG(LogFTSecurity, Log, TEXT("Security '%s' captured target '%s'"), *GetNameSafe(Avatar), *GetNameSafe(Target));
 
 	// 이송: 가장 가까운 목적지로 MoveTo, 도달 시 실패. 없으면/컨트롤러 없으면 안전 타이머로 실패.
@@ -156,6 +167,24 @@ void UFTGA_Grab::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::T
 void UFTGA_Grab::OnFallbackTimeout()
 {
 	FinishGrab(/*bEscaped=*/false);
+}
+
+void UFTGA_Grab::OnOwnerImmobilizedTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount <= 0 || bResolved || !CapturedTarget.IsValid())
+	{
+		return;
+	}
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Security '%s' released captured target '%s' because captor became immobilized"),
+		*GetNameSafe(GetAvatarActorFromActorInfo()),
+		*GetNameSafe(CapturedTarget.Get())
+	);
+
+	FinishGrab(/*bEscaped=*/true);
 }
 
 void UFTGA_Grab::FinishGrab(bool bEscaped)
@@ -219,6 +248,16 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 		World->GetTimerManager().ClearTimer(FallbackTimerHandle);
 	}
 
+	if (OwnerImmobilizedTagChangedHandle.IsValid())
+	{
+		if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
+		{
+			OwnerASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Immobilized, EGameplayTagEventType::NewOrRemoved)
+				.Remove(OwnerImmobilizedTagChangedHandle);
+		}
+		OwnerImmobilizedTagChangedHandle.Reset();
+	}
+
 	if (bWasCancelled && bCapturedMessageBroadcast && !bEscapedMessageBroadcast && CapturedTarget.IsValid())
 	{
 		BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetEscaped);
@@ -240,9 +279,15 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 
 void UFTGA_Grab::BroadcastCaptureMessage(FGameplayTag Channel) const
 {
+	UWorld* World = GetWorld();
+	if (!IsValid(World) || World->bIsTearingDown)
+	{
+		return;
+	}
+	
 	AActor* SecurityActor = GetAvatarActorFromActorInfo();
 	AActor* TargetActor = CapturedTarget.Get();
-	if (!Channel.IsValid() || !SecurityActor || !TargetActor)
+	if (!Channel.IsValid() || !IsValid(SecurityActor) || !IsValid(TargetActor))
 	{
 		return;
 	}
@@ -253,8 +298,8 @@ void UFTGA_Grab::BroadcastCaptureMessage(FGameplayTag Channel) const
 	Payload.ReportLocation = TargetActor->GetActorLocation();
 	Payload.ReportAmount = 0.0f;
 	Payload.ReportProgress = 1.0f;
-
-	UGameplayMessageSubsystem::Get(this).BroadcastMessage(Channel, Payload);
+	
+	UGameplayMessageSubsystem::Get(SecurityActor).BroadcastMessage(Channel, Payload);
 	UE_LOG(
 		LogFTSecurity,
 		Verbose,
