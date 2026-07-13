@@ -4,6 +4,7 @@
 #include "Engine/DataTable.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
@@ -19,7 +20,6 @@ void UFTObjectiveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ItemPickedUp, this, &ThisClass::HandleItemPickedUpMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_RaidEscaped, this, &ThisClass::HandleRaidEscapedMessage));
 
 	// FFTMessagePayloadStruct 기반의 횟수형 마트 사건.
@@ -66,9 +66,16 @@ void UFTObjectiveSubsystem::Deinitialize()
 
 bool UFTObjectiveSubsystem::IsObjectiveCompleted() const
 {
-	for (const FName& RequiredItem : RequiredItems)
+	const FTQuestStruct* Quest = FindQuestByID(CurrentQuestId);
+	if (!Quest || !AreQuestEventConditionsCompleted(*Quest))
 	{
-		if (!PickedUpRequiredItems.Contains(RequiredItem))
+		return false;
+	}
+
+	UFTInventoryComponent* PlayerInventory = ResolvePlayerInventory();
+	for (const FTCraftIngredientStruct& RequiredItem : Quest->RequiredItems)
+	{
+		if (GetCombinedItemCount(PlayerInventory, RequiredItem.ItemID) < RequiredItem.Count)
 		{
 			return false;
 		}
@@ -76,34 +83,6 @@ bool UFTObjectiveSubsystem::IsObjectiveCompleted() const
 
 	return true;
 }
-
-void UFTObjectiveSubsystem::NotifyItemPickedUp(FName ItemId)
-{
-	if (ItemId.IsNone() || !IsItemRequiredByActiveQuest(ItemId))
-	{
-		return;
-	}
-
-	int32& PickedUpCount = PickedUpItemCounts.FindOrAdd(ItemId);
-	++PickedUpCount;
-
-	if (RequiredItems.Contains(ItemId))
-	{
-		PickedUpRequiredItems.Add(ItemId);
-	}
-
-	for (const FName& QuestID : ActiveQuestIDs)
-	{
-		if (const FTQuestStruct* Quest = FindQuestByID(QuestID))
-		{
-			if (GetRequiredItemCountForQuest(*Quest, ItemId) > 0)
-			{
-				BroadcastQuestProgressChanged(QuestID);
-			}
-		}
-	}
-}
-
 void UFTObjectiveSubsystem::NotifyEscapeReached()
 {
 }
@@ -122,7 +101,7 @@ float UFTObjectiveSubsystem::GetQuestProgress(FName QuestID) const
 		return 1.0f;
 	}
 
-	const int32 ProgressTotal = GetQuestPickedUpTotal(*Quest) + GetQuestEventProgressTotal(*Quest);
+	const int32 ProgressTotal = GetQuestItemProgressTotal(*Quest, ResolvePlayerInventory()) + GetQuestEventProgressTotal(*Quest);
 	return FMath::Clamp(static_cast<float>(ProgressTotal) / static_cast<float>(RequiredTotal), 0.0f, 1.0f);
 }
 
@@ -135,6 +114,65 @@ FText UFTObjectiveSubsystem::GetQuestProgressText(FName QuestID) const
 	}
 
 	return FText::FromString(FString::Printf(TEXT("%s %.0f%%"), *Quest->QuestName.ToString(), GetQuestProgress(QuestID) * 100.0f));
+}
+
+FText UFTObjectiveSubsystem::GetQuestObjectiveProgressText(FName QuestID) const
+{
+	const FTQuestStruct* Quest = FindQuestByID(QuestID);
+	if (!Quest)
+	{
+		return FText::GetEmpty();
+	}
+
+	TArray<FString> DetailLines;
+	int32 ObjectiveLineIndex = 0;
+
+	for (const FTCraftIngredientStruct& RequiredItem : Quest->RequiredItems)
+	{
+		const int32 RequiredCount = FMath::Max(0, RequiredItem.Count);
+		if (RequiredItem.ItemID.IsNone() || RequiredCount <= 0)
+		{
+			++ObjectiveLineIndex;
+			continue;
+		}
+
+		const FString Label = Quest->ObjectiveLines.IsValidIndex(ObjectiveLineIndex)
+			? Quest->ObjectiveLines[ObjectiveLineIndex].ToString()
+			: RequiredItem.ItemID.ToString();
+		const int32 CurrentCount = FMath::Min(
+			GetCombinedItemCount(ResolvePlayerInventory(), RequiredItem.ItemID),
+			RequiredCount);
+		DetailLines.Add(FString::Printf(TEXT("%s  %d / %d"), *Label, CurrentCount, RequiredCount));
+		++ObjectiveLineIndex;
+	}
+
+	const TArray<int32>* EventProgressValues = EventConditionProgressByQuest.Find(QuestID);
+	for (int32 ConditionIndex = 0; ConditionIndex < Quest->EventConditions.Num(); ++ConditionIndex)
+	{
+		const FFTQuestConditionStruct& Condition = Quest->EventConditions[ConditionIndex];
+		if (!Condition.IsValid())
+		{
+			++ObjectiveLineIndex;
+			continue;
+		}
+
+		const FString Label = Quest->ObjectiveLines.IsValidIndex(ObjectiveLineIndex)
+			? Quest->ObjectiveLines[ObjectiveLineIndex].ToString()
+			: Condition.EventTag.ToString();
+		const int32 CurrentCount = EventProgressValues && EventProgressValues->IsValidIndex(ConditionIndex)
+			? FMath::Min((*EventProgressValues)[ConditionIndex], Condition.RequiredCount)
+			: 0;
+		DetailLines.Add(FString::Printf(TEXT("%s  %d / %d"), *Label, CurrentCount, Condition.RequiredCount));
+		++ObjectiveLineIndex;
+	}
+
+	// 아직 추적 조건에 연결하지 않은 안내 문구도 누락하지 않고 표시한다.
+	for (; ObjectiveLineIndex < Quest->ObjectiveLines.Num(); ++ObjectiveLineIndex)
+	{
+		DetailLines.Add(Quest->ObjectiveLines[ObjectiveLineIndex].ToString());
+	}
+
+	return FText::FromString(FString::Join(DetailLines, LINE_TERMINATOR));
 }
 
 void UFTObjectiveSubsystem::ConfigureHubQuests(
@@ -172,7 +210,7 @@ bool UFTObjectiveSubsystem::CanCompleteQuest(const FTQuestStruct& Quest, UFTInve
 		}
 	}
 
-	return true;
+	return CanGrantQuestRewards(Quest, PlayerInventory);
 }
 
 bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponent* PlayerInventory)
@@ -191,27 +229,72 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 		return false;
 	}
 
+	struct FConsumedQuestItem
+	{
+		FName ItemID = NAME_None;
+		int32 PlayerCount = 0;
+		int32 StorageCount = 0;
+	};
+
+	UFTInventoryComponent* StorageInventory = HubStorage ? HubStorage->GetStorageInventory() : nullptr;
+	UFTStorageSubsystem* StorageSubsystem = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
+		: nullptr;
+	TArray<FConsumedQuestItem> ConsumedItems;
+	TArray<FTCraftIngredientStruct> GrantedRewardItems;
+
+	auto RollbackQuestTransaction = [&]()
+	{
+		for (const FTCraftIngredientStruct& GrantedReward : GrantedRewardItems)
+		{
+			PlayerInventory->RemoveItem(GrantedReward.ItemID, GrantedReward.Count);
+		}
+
+		for (const FConsumedQuestItem& ConsumedItem : ConsumedItems)
+		{
+			if (ConsumedItem.PlayerCount > 0)
+			{
+				PlayerInventory->AddItem(ConsumedItem.ItemID, ConsumedItem.PlayerCount);
+			}
+			if (ConsumedItem.StorageCount > 0 && StorageSubsystem && StorageInventory)
+			{
+				StorageSubsystem->AddStorageItem(StorageInventory, ConsumedItem.ItemID, ConsumedItem.StorageCount);
+			}
+		}
+	};
+
 	for (const FTCraftIngredientStruct& RequiredItem : Quest->RequiredItems)
 	{
+		FConsumedQuestItem ConsumedItem;
+		ConsumedItem.ItemID = RequiredItem.ItemID;
+		ConsumedItem.PlayerCount = FMath::Min(
+			PlayerInventory->GetItemQuantity(RequiredItem.ItemID),
+			RequiredItem.Count);
+		ConsumedItem.StorageCount = RequiredItem.Count - ConsumedItem.PlayerCount;
+
 		if (!ConsumeCombinedItem(PlayerInventory, RequiredItem.ItemID, RequiredItem.Count))
 		{
+			RollbackQuestTransaction();
 			UE_LOG(LogTemp, Warning, TEXT("Quest Complete Failed: %s"), *QuestID.ToString());
 			return false;
 		}
+		ConsumedItems.Add(ConsumedItem);
 	}
 
 	for (const FTCraftIngredientStruct& RewardItem : Quest->RewardItems)
 	{
 		if (!PlayerInventory->AddItem(RewardItem.ItemID, RewardItem.Count))
 		{
+			RollbackQuestTransaction();
 			UE_LOG(LogTemp, Warning, TEXT("Quest Reward Failed: %s"), *QuestID.ToString());
 			return false;
 		}
+		GrantedRewardItems.Add(RewardItem);
 	}
 
 	if (Quest->CurrencyReward > 0)
 	{
-		FName CurrencyItemID = TEXT("ID_Coin");
+		FName CurrencyItemID = TEXT("ID_Common_Coin");
 		if (UFTShopSubsystem* ShopSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UFTShopSubsystem>() : nullptr)
 		{
 			CurrencyItemID = ShopSubsystem->GetCurrencyItemID();
@@ -219,6 +302,7 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 
 		if (CurrencyItemID.IsNone() || !PlayerInventory->AddItem(CurrencyItemID, Quest->CurrencyReward))
 		{
+			RollbackQuestTransaction();
 			UE_LOG(LogTemp, Warning, TEXT("Quest Currency Reward Failed: %s / Amount %d"), *QuestID.ToString(), Quest->CurrencyReward);
 			return false;
 		}
@@ -392,12 +476,6 @@ void UFTObjectiveSubsystem::UnlockQuest(FName QuestID)
 	AvailableQuestIDs.Add(QuestID);
 }
 
-void UFTObjectiveSubsystem::HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
-{
-	NotifyItemPickedUp(Payload.ItemId);
-	ApplyQuestEvent(Channel, Payload.ItemId);
-}
-
 void UFTObjectiveSubsystem::HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
 {
 	ApplyQuestEvent(Channel, Payload.ItemId);
@@ -483,7 +561,6 @@ void UFTObjectiveSubsystem::ActivateQuestProgress(const FTQuestStruct& Quest)
 {
 	CurrentQuestId = Quest.QuestID;
 	RequiredItems.Reset();
-	PickedUpRequiredItems.Reset();
 
 	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
 	{
@@ -506,51 +583,6 @@ void UFTObjectiveSubsystem::BroadcastQuestProgressChanged(FName QuestID) const
 	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ObjectiveProgressChanged, Payload);
 }
 
-bool UFTObjectiveSubsystem::IsItemRequiredByActiveQuest(FName ItemID) const
-{
-	if (ItemID.IsNone())
-	{
-		return false;
-	}
-
-	for (const FName& QuestID : ActiveQuestIDs)
-	{
-		if (const FTQuestStruct* Quest = FindQuestByID(QuestID))
-		{
-			if (GetRequiredItemCountForQuest(*Quest, ItemID) > 0)
-			{
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-int32 UFTObjectiveSubsystem::GetRequiredItemCountForQuest(const FTQuestStruct& Quest, FName ItemID) const
-{
-	int32 RequiredCount = 0;
-	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
-	{
-		if (RequiredItem.ItemID == ItemID)
-		{
-			RequiredCount += FMath::Max(0, RequiredItem.Count);
-		}
-	}
-
-	return RequiredCount;
-}
-
-int32 UFTObjectiveSubsystem::GetPickedUpItemCount(FName ItemID) const
-{
-	if (const int32* Count = PickedUpItemCounts.Find(ItemID))
-	{
-		return *Count;
-	}
-
-	return 0;
-}
-
 int32 UFTObjectiveSubsystem::GetQuestRequiredTotal(const FTQuestStruct& Quest) const
 {
 	int32 RequiredTotal = 0;
@@ -562,16 +594,23 @@ int32 UFTObjectiveSubsystem::GetQuestRequiredTotal(const FTQuestStruct& Quest) c
 	return RequiredTotal;
 }
 
-int32 UFTObjectiveSubsystem::GetQuestPickedUpTotal(const FTQuestStruct& Quest) const
+int32 UFTObjectiveSubsystem::GetQuestItemProgressTotal(
+	const FTQuestStruct& Quest,
+	UFTInventoryComponent* PlayerInventory) const
 {
-	int32 PickedUpTotal = 0;
+	int32 ItemProgressTotal = 0;
 	for (const FTCraftIngredientStruct& RequiredItem : Quest.RequiredItems)
 	{
 		const int32 RequiredCount = FMath::Max(0, RequiredItem.Count);
-		PickedUpTotal += FMath::Min(GetPickedUpItemCount(RequiredItem.ItemID), RequiredCount);
+		if (!RequiredItem.ItemID.IsNone() && RequiredCount > 0)
+		{
+			ItemProgressTotal += FMath::Min(
+				GetCombinedItemCount(PlayerInventory, RequiredItem.ItemID),
+				RequiredCount);
+		}
 	}
 
-	return PickedUpTotal;
+	return ItemProgressTotal;
 }
 
 int32 UFTObjectiveSubsystem::GetQuestEventRequiredTotal(const FTQuestStruct& Quest) const
@@ -612,6 +651,44 @@ bool UFTObjectiveSubsystem::AreQuestEventConditionsCompleted(const FTQuestStruct
 	return GetQuestEventProgressTotal(Quest) >= GetQuestEventRequiredTotal(Quest);
 }
 
+bool UFTObjectiveSubsystem::CanGrantQuestRewards(
+	const FTQuestStruct& Quest,
+	UFTInventoryComponent* PlayerInventory) const
+{
+	if (!PlayerInventory)
+	{
+		return false;
+	}
+
+	for (const FTCraftIngredientStruct& RewardItem : Quest.RewardItems)
+	{
+		if (!RewardItem.ItemID.IsNone()
+			&& RewardItem.Count > 0
+			&& !PlayerInventory->CanAddItem(RewardItem.ItemID, RewardItem.Count))
+		{
+			return false;
+		}
+	}
+
+	if (Quest.CurrencyReward > 0)
+	{
+		FName CurrencyItemID = TEXT("ID_Common_Coin");
+		if (const UFTShopSubsystem* ShopSubsystem = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UFTShopSubsystem>()
+			: nullptr)
+		{
+			CurrencyItemID = ShopSubsystem->GetCurrencyItemID();
+		}
+
+		if (CurrencyItemID.IsNone() || !PlayerInventory->CanAddItem(CurrencyItemID, Quest.CurrencyReward))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 int32 UFTObjectiveSubsystem::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const
 {
 	const UFTStorageSubsystem* StorageSubsystem = GetGameInstance()
@@ -630,4 +707,24 @@ bool UFTObjectiveSubsystem::ConsumeCombinedItem(UFTInventoryComponent* PlayerInv
 		: nullptr;
 
 	return StorageSubsystem && StorageSubsystem->ConsumeCombinedItem(PlayerInventory, HubStorage ? HubStorage->GetStorageInventory() : nullptr, ItemID, Count);
+}
+
+UFTInventoryComponent* UFTObjectiveSubsystem::ResolvePlayerInventory() const
+{
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	if (!PlayerController)
+	{
+		return nullptr;
+	}
+
+	if (APawn* Pawn = PlayerController->GetPawn())
+	{
+		if (UFTInventoryComponent* PlayerInventory = Pawn->FindComponentByClass<UFTInventoryComponent>())
+		{
+			return PlayerInventory;
+		}
+	}
+
+	return PlayerController->FindComponentByClass<UFTInventoryComponent>();
 }

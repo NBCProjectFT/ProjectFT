@@ -3,6 +3,7 @@
 #include "Engine/DataTable.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/Struct/FTQuestConditionStruct.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTQuestStruct.h"
 
 namespace

@@ -2,6 +2,7 @@
 
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/Struct/FTQuestStruct.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
@@ -187,7 +188,10 @@ bool UFTQuestViewModel::HasSelectedQuestRequiredItems() const
 bool UFTQuestViewModel::CanCompleteSelectedQuest() const
 {
 	const FTQuestStruct* Quest = GetSelectedQuest();
-	return Quest && ObjectiveSubsystem && ObjectiveSubsystem->IsQuestActive(Quest->QuestID) && SelectedQuestObject->CanComplete();
+	return Quest
+		&& ObjectiveSubsystem
+		&& ObjectiveSubsystem->IsQuestActive(Quest->QuestID)
+		&& ObjectiveSubsystem->CanCompleteQuest(*Quest, PlayerInventory);
 }
 
 bool UFTQuestViewModel::CanExecuteSelectedQuestAction() const
@@ -237,8 +241,9 @@ bool UFTQuestViewModel::AcceptSelectedQuest()
 		return false;
 	}
 
+	// 방금 수락한 퀘스트를 그대로 선택해 버튼이 즉시 '완료' 상태와 완료 조건을 표시하게 한다.
+	// 선택을 지우면 다음 Available 퀘스트가 자동 선택되어 수락 버튼이 계속 활성화되어 보인다.
 	CurrentQuestFilter = EFTQuestStateType::Active;
-	ClearSelection();
 	RefreshAll();
 	return true;
 }
@@ -304,10 +309,24 @@ void UFTQuestViewModel::RefreshQuestList()
 		ObjectiveSubsystem->GetQuestListByState(CurrentQuestFilter, Quests);
 	}
 
+	// DataTable 행 저장 순서나 TSet 순회 순서에 의존하지 않고 메일 제목 가나다순으로 고정한다.
+	Quests.Sort([](const FTQuestStruct& Left, const FTQuestStruct& Right)
+	{
+		const int32 NameComparison = Left.QuestName.ToString().Compare(
+			Right.QuestName.ToString(),
+			ESearchCase::IgnoreCase);
+		return NameComparison == 0
+			? Left.QuestID.LexicalLess(Right.QuestID)
+			: NameComparison < 0;
+	});
+
 	for (const FTQuestStruct& Quest : Quests)
 	{
 		UFTQuestListObject* QuestObject = NewObject<UFTQuestListObject>(this);
-		QuestObject->Initialize(Quest, ObjectiveSubsystem->CanCompleteQuest(Quest, PlayerInventory));
+		QuestObject->Initialize(
+			Quest,
+			ObjectiveSubsystem->CanCompleteQuest(Quest, PlayerInventory),
+			ObjectiveSubsystem->IsQuestActive(Quest.QuestID));
 		QuestObjects.Add(QuestObject);
 	}
 }
@@ -374,6 +393,15 @@ void UFTQuestViewModel::BindInventoryDelegate()
 		PlayerInventory->OnInventoryChanged.RemoveDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
 		PlayerInventory->OnInventoryChanged.AddDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
 	}
+
+	BoundStorageInventory = ObjectiveSubsystem && ObjectiveSubsystem->GetHubStorage()
+		? ObjectiveSubsystem->GetHubStorage()->GetStorageInventory()
+		: nullptr;
+	if (BoundStorageInventory && BoundStorageInventory != PlayerInventory)
+	{
+		BoundStorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
+		BoundStorageInventory->OnInventoryChanged.AddDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
+	}
 }
 
 void UFTQuestViewModel::UnbindInventoryDelegate()
@@ -381,6 +409,11 @@ void UFTQuestViewModel::UnbindInventoryDelegate()
 	if (PlayerInventory)
 	{
 		PlayerInventory->OnInventoryChanged.RemoveDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
+	}
+	if (BoundStorageInventory)
+	{
+		BoundStorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
+		BoundStorageInventory = nullptr;
 	}
 }
 

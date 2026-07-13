@@ -131,7 +131,7 @@ private:
 	TArray<FText> PostEndings;
 
 	int32 RandomSlotCount = 6;
-	FName CurrencyItemID = TEXT("ID_Coin");
+	FName CurrencyItemID = TEXT("ID_Common_Coin");
 	bool bGenerateMarketPostsFromTemplates = true;
 	int32 GeneratedMarketBuyPostCount = 6;
 	int32 GeneratedMarketSellPostCount = 6;

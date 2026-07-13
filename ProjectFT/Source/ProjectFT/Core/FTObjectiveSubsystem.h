@@ -35,9 +35,6 @@ public:
 	bool IsObjectiveCompleted() const;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Objective")
-	void NotifyItemPickedUp(FName ItemId);
-
-	UFUNCTION(BlueprintCallable, Category = "FT|Objective")
 	void NotifyEscapeReached();
 
 	UFUNCTION(BlueprintPure, Category = "FT|Objective")
@@ -45,6 +42,13 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "FT|Objective")
 	FText GetQuestProgressText(FName QuestID) const;
+
+	/**
+	 * HUD 상세 목표용 멀티라인 텍스트를 만든다.
+	 * ObjectiveLines는 RequiredItems 순서, 그 다음 EventConditions 순서에 대응한다.
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Objective")
+	FText GetQuestObjectiveProgressText(FName QuestID) const;
 
 	void ConfigureHubQuests(
 		UDataTable* InQuestDataTable,
@@ -72,7 +76,6 @@ public:
 	void UnlockQuest(FName QuestID);
 
 private:
-	void HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleNPCQuestMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void HandleSecurityChaseQuestMessage(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
@@ -81,23 +84,16 @@ private:
 	void ApplyQuestEvent(FGameplayTag EventTag, FName ItemID = NAME_None, int32 Count = 1);
 	void ActivateQuestProgress(const FTQuestStruct& Quest);
 	void BroadcastQuestProgressChanged(FName QuestID) const;
-	bool IsItemRequiredByActiveQuest(FName ItemID) const;
 	const FTQuestStruct* FindQuestByID(FName QuestID) const;
-	int32 GetRequiredItemCountForQuest(const FTQuestStruct& Quest, FName ItemID) const;
-	int32 GetPickedUpItemCount(FName ItemID) const;
 	int32 GetQuestRequiredTotal(const FTQuestStruct& Quest) const;
-	int32 GetQuestPickedUpTotal(const FTQuestStruct& Quest) const;
+	int32 GetQuestItemProgressTotal(const FTQuestStruct& Quest, UFTInventoryComponent* PlayerInventory) const;
 	int32 GetQuestEventRequiredTotal(const FTQuestStruct& Quest) const;
 	int32 GetQuestEventProgressTotal(const FTQuestStruct& Quest) const;
 	bool AreQuestEventConditionsCompleted(const FTQuestStruct& Quest) const;
+	bool CanGrantQuestRewards(const FTQuestStruct& Quest, UFTInventoryComponent* PlayerInventory) const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
-
-	UPROPERTY()
-	TSet<FName> PickedUpRequiredItems;
-
-	UPROPERTY(Transient)
-	TMap<FName, int32> PickedUpItemCounts;
+	UFTInventoryComponent* ResolvePlayerInventory() const;
 
 	/** QuestID별 EventConditions 진행 횟수. 배열 인덱스는 조건 배열 인덱스와 같다. */
 	TMap<FName, TArray<int32>> EventConditionProgressByQuest;
