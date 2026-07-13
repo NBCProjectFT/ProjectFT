@@ -6,6 +6,7 @@
 #include "FTItemFunctionLibrary.h"
 #include "Engine/AssetManager.h"
 #include "Engine/World.h"
+#include "Components/WidgetComponent.h"
 
 void UFTItemPoolSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -44,6 +45,12 @@ void UFTItemPoolSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 void UFTItemPoolSubsystem::Deinitialize()
 {
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PreviewUpdateTimerHandle);
+	}
+	ActiveItemActors.Empty();
+
 	// UGameplayMessageSubsystem(GameInstanceSubsystem)은 월드 소멸(Deinitialize) 시점에 이미 내부 Router가 파괴되어 정리 중일 수 있습니다.
 	// 이 단계에서 명시적으로 UnregisterListener를 호출하면 어설션 크래시가 발생하므로 생략합니다.
 	// 어차피 서브시스템과 월드가 통째로 해제되는 시점이므로 누수가 발생하지 않습니다.
@@ -128,12 +135,25 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 		}
 	}
 
+	if (TargetActor)
+	{
+		RegisterActiveItem(TargetActor);
+	}
+
 	return TargetActor;
 }
 
 void UFTItemPoolSubsystem::ReleaseItemActor(AFTItemActor* ItemActor)
 {
 	if (!ItemActor) return;
+
+	ActiveItemActors.Remove(ItemActor);
+	ItemActor->SetTooltipVisibility(false);
+
+	if (ActiveItemActors.Num() == 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(PreviewUpdateTimerHandle);
+	}
 
 	FName ItemId = (ItemActor->ItemData) ? ItemActor->ItemData->ItemData.ItemId : NAME_None;
 	if (ItemId.IsNone())
@@ -199,4 +219,83 @@ FVector UFTItemPoolSubsystem::CalculateDropLocation(AActor* InstigatorActor) con
 UFTItemDataAsset* UFTItemPoolSubsystem::FindItemData(FName ItemId) const
 {
 	return UFTItemFunctionLibrary::FindItemData(this, ItemId);
+}
+
+void UFTItemPoolSubsystem::UpdateAllItemPreviews()
+{
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (!PC) return;
+
+	APawn* PlayerPawn = PC->GetPawn();
+	if (!PlayerPawn) return;
+
+	FVector CameraLocation;
+	FRotator CameraRotation;
+	PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+
+	FVector CameraForward = CameraRotation.Vector();
+
+	TArray<TObjectPtr<AFTItemActor>> ToRemove;
+
+	for (TObjectPtr<AFTItemActor> Item : ActiveItemActors)
+	{
+		if (!IsValid(Item))
+		{
+			ToRemove.Add(Item);
+			continue;
+		}
+
+		// 캐릭터의 손에 쥐여져 어태치(Attach)되어 있는 아이템 비주얼은 시야 감지에서 스킵합니다.
+		if (Item->GetAttachParentActor() != nullptr)
+		{
+			Item->SetTooltipVisibility(false);
+			continue;
+		}
+
+		FVector ItemLocation = Item->GetActorLocation();
+
+		// 1. 거리 검사
+		float Distance = FVector::Dist(CameraLocation, ItemLocation);
+		if (Distance > PreviewMaxDistance)
+		{
+			Item->SetTooltipVisibility(false);
+			continue;
+		}
+
+		// 2. 시야각(Dot Product) 검사
+		FVector DirectionToItem = (ItemLocation - CameraLocation).GetSafeNormal();
+		float DotProduct = FVector::DotProduct(CameraForward, DirectionToItem);
+
+		if (DotProduct < PreviewAngleThreshold)
+		{
+			Item->SetTooltipVisibility(false);
+			continue;
+		}
+
+		// 거리 및 시야각 통과 시 UI 노출 활성화
+		Item->SetTooltipVisibility(true);
+	}
+
+	// 유효하지 않은 액터 제거
+	for (TObjectPtr<AFTItemActor> DeadItem : ToRemove)
+	{
+		ActiveItemActors.Remove(DeadItem);
+	}
+
+	if (ActiveItemActors.Num() == 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(PreviewUpdateTimerHandle);
+	}
+}
+
+void UFTItemPoolSubsystem::RegisterActiveItem(AFTItemActor* ItemActor)
+{
+	if (!ItemActor) return;
+
+	ActiveItemActors.AddUnique(ItemActor);
+
+	if (ActiveItemActors.Num() == 1)
+	{
+		GetWorld()->GetTimerManager().SetTimer(PreviewUpdateTimerHandle, this, &UFTItemPoolSubsystem::UpdateAllItemPreviews, 0.15f, true);
+	}
 }
