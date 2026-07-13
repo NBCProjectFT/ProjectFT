@@ -8,7 +8,7 @@
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "FTGameFlowSubsystem.generated.h"
 
-struct FFTFlowStateDefinition;
+struct FFTFlowLevelRouteStruct;
 struct FFTMessagePayloadStruct;
 class UFTLevelPreloadDataAsset;
 
@@ -52,6 +52,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void CompleteLoadingAndOpenCurrentStateLevel();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void SyncFlowStateWithCurrentLevel();
+
 	void PreloadCurrentStateAssetsAsync(
 		FSimpleDelegate OnLoaded,
 		FFTAssetLoadProgressDelegate OnProgress = FFTAssetLoadProgressDelegate()) const;
@@ -65,10 +68,12 @@ private:
 	void HandleFlowRequestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void TravelToState(EFTFlowStateType TargetFlowState);
 	void TravelToStateWithLoading(EFTFlowStateType TargetFlowState);
-	const FFTFlowStateDefinition* FindFlowStateDefinition(EFTFlowStateType State) const;
+	const FFTFlowLevelRouteStruct* FindFlowLevelRouteByState(EFTFlowStateType State) const;
+	const FFTFlowLevelRouteStruct* FindFlowLevelRouteByLevelName(FName LevelName) const;
 	FName ResolveLoadingLevelName() const;
 	FName ResolveCurrentWorldLevelName() const;
 	FName ResolveLevelNameForState(EFTFlowStateType State) const;
+	EFTFlowStateType ResolveFlowStateForCurrentWorld() const;
 	bool ShouldUseLoadingForState(EFTFlowStateType State) const;
 	void OpenLevelByName(FName LevelName) const;
 	void RestoreMenuInputBeforeTravel(FName LevelName) const;
