@@ -45,8 +45,12 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "FT|Shopping")
 	int32 CurrentSelectors = 0;
 
-	bool CanReserve() const;
-	bool TryReserve();
+	// 선호 선택 가능 여부를 확인한다. 포인트가 부족하면 이 조건을 넘어서도 선택될 수 있다.
+	bool CanSelectPreferred() const;
+
+	// 실제로 선택된 경우 현재 선택 수를 증가시킨다.
+	void Reserve();
+
 	void Release();
 	bool GetRandomShoppingLocation(UObject* WorldContextObject, FVector& OutLocation) const;
 	// FVector GetShoppingLookLocation() const;

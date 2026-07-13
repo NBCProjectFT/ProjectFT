@@ -147,22 +147,37 @@ bool AFTNPCAIController::PickRandomShoppingTarget()
 {
 	ReleaseShoppingTarget();
 
-	TArray<AFTShoppingPoint*> ShoppingPoints;
-	float TotalWeight = 0.0f;
+	TArray<AFTShoppingPoint*> PreferredShoppingPoints;
+	TArray<AFTShoppingPoint*> FallbackShoppingPoints;
+	float PreferredTotalWeight = 0.0f;
+	float FallbackTotalWeight = 0.0f;
 	if (UWorld* World = GetWorld())
 	{
 		for (TActorIterator<AFTShoppingPoint> It(World); It; ++It)
 		{
 			AFTShoppingPoint* ShoppingPoint = *It;
-			if (!ShoppingPoint || !ShoppingPoint->CanReserve())
+			if (!ShoppingPoint || ShoppingPoint->SelectionWeight <= 0.0f)
 			{
 				continue;
 			}
 
-			ShoppingPoints.Add(ShoppingPoint);
-			TotalWeight += ShoppingPoint->SelectionWeight;
+			FallbackShoppingPoints.Add(ShoppingPoint);
+			FallbackTotalWeight += ShoppingPoint->SelectionWeight;
+
+			if (ShoppingPoint->CanSelectPreferred())
+			{
+				PreferredShoppingPoints.Add(ShoppingPoint);
+				PreferredTotalWeight += ShoppingPoint->SelectionWeight;
+			}
 		}
 	}
+
+	const TArray<AFTShoppingPoint*>& ShoppingPoints = PreferredShoppingPoints.IsEmpty()
+		? FallbackShoppingPoints
+		: PreferredShoppingPoints;
+	const float TotalWeight = PreferredShoppingPoints.IsEmpty()
+		? FallbackTotalWeight
+		: PreferredTotalWeight;
 
 	if (ShoppingPoints.IsEmpty() || TotalWeight <= 0.0f)
 	{
@@ -177,6 +192,7 @@ bool AFTNPCAIController::PickRandomShoppingTarget()
 		return false;
 	}
 
+	// 여유 슬롯이 있는 포인트를 우선 선택하고, 없으면 모든 포인트 중에서 가중치로 선택한다.
 	AFTShoppingPoint* SelectedShoppingPoint = nullptr;
 	float RandomWeight = FMath::FRandRange(0.0f, TotalWeight);
 	for (AFTShoppingPoint* ShoppingPoint : ShoppingPoints)
@@ -194,12 +210,8 @@ bool AFTNPCAIController::PickRandomShoppingTarget()
 		SelectedShoppingPoint = ShoppingPoints.Last();
 	}
 
-	if (!SelectedShoppingPoint->TryReserve())
-	{
-		return PickRandomShoppingTarget();
-	}
-
 	CurrentShoppingPoint = SelectedShoppingPoint;
+	SelectedShoppingPoint->Reserve();
 	SelectedShoppingPoint->GetRandomShoppingLocation(this, ShoppingTargetLocation);
 	ShoppingLookLocation = ShoppingTargetLocation + SelectedShoppingPoint->GetActorForwardVector() * 500.0f;
 	ShoppingTargetAcceptanceRadius = SelectedShoppingPoint->AcceptanceRadius;

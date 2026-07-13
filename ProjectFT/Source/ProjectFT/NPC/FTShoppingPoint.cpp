@@ -28,20 +28,14 @@ AFTShoppingPoint::AFTShoppingPoint()
 	Tags.AddUnique(TEXT("CustomerShoppingPoint"));
 }
 
-bool AFTShoppingPoint::CanReserve() const
+bool AFTShoppingPoint::CanSelectPreferred() const
 {
 	return CurrentSelectors < MaxSelectors && SelectionWeight > 0.0f;
 }
 
-bool AFTShoppingPoint::TryReserve()
+void AFTShoppingPoint::Reserve()
 {
-	if (!CanReserve())
-	{
-		return false;
-	}
-
 	++CurrentSelectors;
-	return true;
 }
 
 void AFTShoppingPoint::Release()
