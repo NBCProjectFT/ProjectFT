@@ -12,6 +12,9 @@ class AFTHubStorage;
 class UDataTable;
 class UFTInventoryComponent;
 struct FFTMessagePayloadStruct;
+struct FFTNPCReportPayloadStruct;
+struct FFTSecurityChaseGaugePayloadStruct;
+struct FFTSecurityResponsePayloadStruct;
 
 UCLASS()
 class PROJECTFT_API UFTObjectiveSubsystem : public UGameInstanceSubsystem
@@ -70,16 +73,23 @@ public:
 
 private:
 	void HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void HandleNPCQuestMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
+	void HandleSecurityChaseQuestMessage(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
+	void HandleSecurityResponseQuestMessage(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
 	void HandleRaidEscapedMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void ApplyQuestEvent(FGameplayTag EventTag, FName ItemID = NAME_None, int32 Count = 1);
 	void ActivateQuestProgress(const FTQuestStruct& Quest);
 	void BroadcastQuestProgressChanged(FName QuestID) const;
-	void CompleteTrackedQuestsOnEscape();
 	bool IsItemRequiredByActiveQuest(FName ItemID) const;
 	const FTQuestStruct* FindQuestByID(FName QuestID) const;
 	int32 GetRequiredItemCountForQuest(const FTQuestStruct& Quest, FName ItemID) const;
 	int32 GetPickedUpItemCount(FName ItemID) const;
 	int32 GetQuestRequiredTotal(const FTQuestStruct& Quest) const;
 	int32 GetQuestPickedUpTotal(const FTQuestStruct& Quest) const;
+	int32 GetQuestEventRequiredTotal(const FTQuestStruct& Quest) const;
+	int32 GetQuestEventProgressTotal(const FTQuestStruct& Quest) const;
+	bool AreQuestEventConditionsCompleted(const FTQuestStruct& Quest) const;
 	int32 GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const;
 	bool ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count);
 
@@ -89,8 +99,8 @@ private:
 	UPROPERTY(Transient)
 	TMap<FName, int32> PickedUpItemCounts;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UFTInventoryComponent> LastProgressInventory = nullptr;
+	/** QuestID별 EventConditions 진행 횟수. 배열 인덱스는 조건 배열 인덱스와 같다. */
+	TMap<FName, TArray<int32>> EventConditionProgressByQuest;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UDataTable> QuestDataTable = nullptr;

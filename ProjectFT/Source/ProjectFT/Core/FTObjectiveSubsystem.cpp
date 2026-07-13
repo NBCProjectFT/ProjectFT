@@ -10,6 +10,9 @@
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
+#include "ProjectFT/Struct/FTSecurityChaseGaugePayloadStruct.h"
+#include "ProjectFT/Struct/FTSecurityResponsePayloadStruct.h"
 
 void UFTObjectiveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -18,6 +21,32 @@ void UFTObjectiveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ItemPickedUp, this, &ThisClass::HandleItemPickedUpMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_RaidEscaped, this, &ThisClass::HandleRaidEscapedMessage));
+
+	// FFTMessagePayloadStruct 기반의 횟수형 마트 사건.
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ItemConsumed, this, &ThisClass::HandleQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShelfDamaged, this, &ThisClass::HandleQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShelfDestroyed, this, &ThisClass::HandleQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_StealCompleted, this, &ThisClass::HandleQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_RaidStarted, this, &ThisClass::HandleQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_RaidFailed, this, &ThisClass::HandleQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_PlayerDead, this, &ThisClass::HandleQuestMessage));
+
+	// NPC 신고 및 체포 사건.
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_NPCDetectedPlayer, this, &ThisClass::HandleNPCQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_NPCReportStarted, this, &ThisClass::HandleNPCQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_NPCReportCompleted, this, &ThisClass::HandleNPCQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityCalled, this, &ThisClass::HandleNPCQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityTargetCaptured, this, &ThisClass::HandleNPCQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityTargetEscaped, this, &ThisClass::HandleNPCQuestMessage));
+
+	// 추격 상태의 이산 사건. 매 프레임성 GaugeChanged는 의도적으로 구독하지 않는다.
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityTargetSeen, this, &ThisClass::HandleSecurityChaseQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityTargetLost, this, &ThisClass::HandleSecurityChaseQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityChaseEnded, this, &ThisClass::HandleSecurityChaseQuestMessage));
+
+	// 경비실 배치/복귀 사건.
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityDeployed, this, &ThisClass::HandleSecurityResponseQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityReturnedToRoom, this, &ThisClass::HandleSecurityResponseQuestMessage));
 }
 
 void UFTObjectiveSubsystem::Deinitialize()
@@ -87,13 +116,14 @@ float UFTObjectiveSubsystem::GetQuestProgress(FName QuestID) const
 		return 0.0f;
 	}
 
-	const int32 RequiredTotal = GetQuestRequiredTotal(*Quest);
+	const int32 RequiredTotal = GetQuestRequiredTotal(*Quest) + GetQuestEventRequiredTotal(*Quest);
 	if (RequiredTotal <= 0)
 	{
 		return 1.0f;
 	}
 
-	return FMath::Clamp(static_cast<float>(GetQuestPickedUpTotal(*Quest)) / static_cast<float>(RequiredTotal), 0.0f, 1.0f);
+	const int32 ProgressTotal = GetQuestPickedUpTotal(*Quest) + GetQuestEventProgressTotal(*Quest);
+	return FMath::Clamp(static_cast<float>(ProgressTotal) / static_cast<float>(RequiredTotal), 0.0f, 1.0f);
 }
 
 FText UFTObjectiveSubsystem::GetQuestProgressText(FName QuestID) const
@@ -124,6 +154,11 @@ void UFTObjectiveSubsystem::ConfigureHubQuests(
 
 bool UFTObjectiveSubsystem::CanCompleteQuest(const FTQuestStruct& Quest, UFTInventoryComponent* PlayerInventory) const
 {
+	if (!AreQuestEventConditionsCompleted(Quest))
+	{
+		return false;
+	}
+
 	if (!PlayerInventory && !HubStorage)
 	{
 		return false;
@@ -149,7 +184,8 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 		return false;
 	}
 
-	if (!Quest || !PlayerInventory || (!ActiveQuestIDs.Contains(QuestID) && !AvailableQuestIDs.Contains(QuestID)) || !CanCompleteQuest(*Quest, PlayerInventory))
+	// 보상 지급은 터미널에서 수락된 활성 퀘스트를 명시적으로 제출할 때만 허용한다.
+	if (!Quest || !PlayerInventory || !ActiveQuestIDs.Contains(QuestID) || !CanCompleteQuest(*Quest, PlayerInventory))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Quest Complete Failed: %s"), *QuestID.ToString());
 		return false;
@@ -358,18 +394,89 @@ void UFTObjectiveSubsystem::UnlockQuest(FName QuestID)
 
 void UFTObjectiveSubsystem::HandleItemPickedUpMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
 {
-	AActor* InstigatorActor = Payload.InstigatorActor.Get();
-	if (InstigatorActor)
-	{
-		LastProgressInventory = InstigatorActor->FindComponentByClass<UFTInventoryComponent>();
-	}
-
 	NotifyItemPickedUp(Payload.ItemId);
+	ApplyQuestEvent(Channel, Payload.ItemId);
+}
+
+void UFTObjectiveSubsystem::HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	ApplyQuestEvent(Channel, Payload.ItemId);
+}
+
+void UFTObjectiveSubsystem::HandleNPCQuestMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
+{
+	ApplyQuestEvent(Channel);
+}
+
+void UFTObjectiveSubsystem::HandleSecurityChaseQuestMessage(
+	FGameplayTag Channel,
+	const FFTSecurityChaseGaugePayloadStruct& Payload)
+{
+	ApplyQuestEvent(Channel);
+}
+
+void UFTObjectiveSubsystem::HandleSecurityResponseQuestMessage(
+	FGameplayTag Channel,
+	const FFTSecurityResponsePayloadStruct& Payload)
+{
+	ApplyQuestEvent(Channel);
 }
 
 void UFTObjectiveSubsystem::HandleRaidEscapedMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
 {
-	CompleteTrackedQuestsOnEscape();
+	// 탈출은 조건 진행만 기록한다. 완료 처리와 보상 지급은 터미널 제출 시 TryCompleteQuest에서 수행한다.
+	ApplyQuestEvent(Channel);
+}
+
+void UFTObjectiveSubsystem::ApplyQuestEvent(FGameplayTag EventTag, FName ItemID, int32 Count)
+{
+	if (!EventTag.IsValid() || Count <= 0)
+	{
+		return;
+	}
+
+	for (const FName& QuestID : ActiveQuestIDs)
+	{
+		const FTQuestStruct* Quest = FindQuestByID(QuestID);
+		if (!Quest || Quest->EventConditions.IsEmpty())
+		{
+			continue;
+		}
+
+		TArray<int32>& ProgressValues = EventConditionProgressByQuest.FindOrAdd(QuestID);
+		if (ProgressValues.Num() < Quest->EventConditions.Num())
+		{
+			ProgressValues.AddZeroed(Quest->EventConditions.Num() - ProgressValues.Num());
+		}
+		else if (ProgressValues.Num() > Quest->EventConditions.Num())
+		{
+			ProgressValues.SetNum(Quest->EventConditions.Num());
+		}
+		bool bProgressChanged = false;
+
+		for (int32 ConditionIndex = 0; ConditionIndex < Quest->EventConditions.Num(); ++ConditionIndex)
+		{
+			const FFTQuestConditionStruct& Condition = Quest->EventConditions[ConditionIndex];
+			if (!Condition.IsValid() || Condition.EventTag != EventTag)
+			{
+				continue;
+			}
+
+			if (!Condition.ItemID.IsNone() && Condition.ItemID != ItemID)
+			{
+				continue;
+			}
+
+			const int32 PreviousProgress = ProgressValues[ConditionIndex];
+			ProgressValues[ConditionIndex] = FMath::Min(PreviousProgress + Count, Condition.RequiredCount);
+			bProgressChanged |= ProgressValues[ConditionIndex] != PreviousProgress;
+		}
+
+		if (bProgressChanged)
+		{
+			BroadcastQuestProgressChanged(QuestID);
+		}
+	}
 }
 
 void UFTObjectiveSubsystem::ActivateQuestProgress(const FTQuestStruct& Quest)
@@ -385,6 +492,9 @@ void UFTObjectiveSubsystem::ActivateQuestProgress(const FTQuestStruct& Quest)
 			RequiredItems.Add(RequiredItem.ItemID);
 		}
 	}
+
+	TArray<int32>& EventProgress = EventConditionProgressByQuest.FindOrAdd(Quest.QuestID);
+	EventProgress.Init(0, Quest.EventConditions.Num());
 }
 
 void UFTObjectiveSubsystem::BroadcastQuestProgressChanged(FName QuestID) const
@@ -394,25 +504,6 @@ void UFTObjectiveSubsystem::BroadcastQuestProgressChanged(FName QuestID) const
 	Payload.QuestId = QuestID;
 	Payload.Value = GetQuestProgress(QuestID);
 	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ObjectiveProgressChanged, Payload);
-}
-
-void UFTObjectiveSubsystem::CompleteTrackedQuestsOnEscape()
-{
-	TArray<FName> QuestIDsToComplete;
-
-	for (const FName& QuestID : ActiveQuestIDs)
-	{
-		const FTQuestStruct* Quest = FindQuestByID(QuestID);
-		if (Quest && GetQuestProgress(QuestID) >= 1.0f)
-		{
-			QuestIDsToComplete.Add(QuestID);
-		}
-	}
-
-	for (const FName& QuestID : QuestIDsToComplete)
-	{
-		TryCompleteQuest(QuestID, LastProgressInventory);
-	}
 }
 
 bool UFTObjectiveSubsystem::IsItemRequiredByActiveQuest(FName ItemID) const
@@ -481,6 +572,44 @@ int32 UFTObjectiveSubsystem::GetQuestPickedUpTotal(const FTQuestStruct& Quest) c
 	}
 
 	return PickedUpTotal;
+}
+
+int32 UFTObjectiveSubsystem::GetQuestEventRequiredTotal(const FTQuestStruct& Quest) const
+{
+	int32 RequiredTotal = 0;
+	for (const FFTQuestConditionStruct& Condition : Quest.EventConditions)
+	{
+		if (Condition.IsValid())
+		{
+			RequiredTotal += Condition.RequiredCount;
+		}
+	}
+	return RequiredTotal;
+}
+
+int32 UFTObjectiveSubsystem::GetQuestEventProgressTotal(const FTQuestStruct& Quest) const
+{
+	const TArray<int32>* ProgressValues = EventConditionProgressByQuest.Find(Quest.QuestID);
+	if (!ProgressValues)
+	{
+		return 0;
+	}
+
+	int32 ProgressTotal = 0;
+	for (int32 ConditionIndex = 0; ConditionIndex < Quest.EventConditions.Num(); ++ConditionIndex)
+	{
+		const FFTQuestConditionStruct& Condition = Quest.EventConditions[ConditionIndex];
+		if (Condition.IsValid() && ProgressValues->IsValidIndex(ConditionIndex))
+		{
+			ProgressTotal += FMath::Min((*ProgressValues)[ConditionIndex], Condition.RequiredCount);
+		}
+	}
+	return ProgressTotal;
+}
+
+bool UFTObjectiveSubsystem::AreQuestEventConditionsCompleted(const FTQuestStruct& Quest) const
+{
+	return GetQuestEventProgressTotal(Quest) >= GetQuestEventRequiredTotal(Quest);
 }
 
 int32 UFTObjectiveSubsystem::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const

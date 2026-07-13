@@ -61,7 +61,18 @@ FText UFTQuestViewModel::GetSelectedQuestSenderText() const
 FText UFTQuestViewModel::GetSelectedQuestDescriptionText() const
 {
 	const FTQuestStruct* Quest = GetSelectedQuest();
-	return Quest ? Quest->Description : FText::GetEmpty();
+	if (!Quest)
+	{
+		return FText::GetEmpty();
+	}
+
+	FString Description = Quest->Description.ToString().TrimStartAndEnd();
+
+	Description.ReplaceInline(TEXT(". "), TEXT(".\n\n"));
+	Description.ReplaceInline(TEXT("! "), TEXT("!\n\n"));
+	Description.ReplaceInline(TEXT("? "), TEXT("?\n\n"));
+
+	return FText::FromString(Description);
 }
 
 FText UFTQuestViewModel::GetSelectedQuestObjectiveLinesText() const
