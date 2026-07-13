@@ -15,6 +15,7 @@ struct FFTNPCReportPayloadStruct;
 struct FFTMessagePayloadStruct;
 struct FFTSecurityChaseGaugePayloadStruct;
 struct FFTSecurityResponsePayloadStruct;
+struct FFTCharacterDamagePayloadStruct;
 UCLASS()
 class PROJECTFT_API AFTSecurityAIController : public AFTAIControllerBase
 {
@@ -46,6 +47,7 @@ protected:
 public:
 	void SetTargetActor(AActor* NewTargetActor);
 	void StartChase();
+	void ReadyDespawn();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FT|Security")
 	TObjectPtr<AActor> TargetActor;
@@ -170,8 +172,10 @@ private:
 	FGameplayMessageListenerHandle SecurityTargetCapturedListenerHandle;
 	FGameplayMessageListenerHandle SecurityTargetEscapedListenerHandle;
 	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
+	FGameplayMessageListenerHandle CharacterDamagedListenerHandle;
 	void OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnShelfDamaged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload);
 	void OnSecurityTargetCaptured(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnSecurityTargetEscaped(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void OnChaseGaugeChanged(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
