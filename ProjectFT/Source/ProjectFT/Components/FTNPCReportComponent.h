@@ -19,7 +19,7 @@ public:
 	float ReportDuration = 3.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
-	float ReportDecayDuration = 2.0f;
+	float ReportDecayDuration = 8.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ReportAmount = 10.0f;
