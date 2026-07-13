@@ -2,6 +2,8 @@
 
 #include "../../Core/FTLogChannels.h"
 #include "../../Data/FTGameDataAsset.h"
+#include "../../Data/FTItemDataAsset.h"
+#include "../../Data/FTLevelPreloadDataAsset.h"
 #include "../../UI/FTCountdownEscapeWidget.h"
 #include "../../UI/FTEscapedRaidWidget.h"
 #include "../../UI/FTFailWidget.h"
@@ -61,6 +63,54 @@ void UFTAssetManager::PreloadGameDataAssetsAsync(FSimpleDelegate OnLoaded, FFTAs
 	LoadPreloadPathQueue(AssetPaths, 0, AssetPaths.Num(), OnLoaded, OnProgress);
 }
 
+void UFTAssetManager::PreloadLevelAssetsAsync(
+	const TSoftObjectPtr<UFTLevelPreloadDataAsset>& LevelPreloadDataAsset,
+	FSimpleDelegate OnLoaded,
+	FFTAssetLoadProgressDelegate OnProgress)
+{
+	if (LevelPreloadDataAsset.IsNull())
+	{
+		UE_LOG(LogFTAsset, Warning, TEXT("No level preload data asset is assigned for current flow state."));
+		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectInventoryItemPreloadAssetPaths();
+		if (InventoryItemAssetPaths.IsEmpty())
+		{
+			OnLoaded.ExecuteIfBound();
+			return;
+		}
+
+		UE_LOG(LogFTAsset, Log, TEXT("Preloading %d inventory item assets without level preload data."), InventoryItemAssetPaths.Num());
+		LoadPreloadPathQueue(InventoryItemAssetPaths, 0, InventoryItemAssetPaths.Num(), OnLoaded, OnProgress);
+		return;
+	}
+
+	UFTLevelPreloadDataAsset* LoadedLevelPreloadData = GetAsset(LevelPreloadDataAsset);
+	if (!LoadedLevelPreloadData)
+	{
+		UE_LOG(LogFTAsset, Error, TEXT("Failed to load level preload data asset: %s"), *LevelPreloadDataAsset.ToSoftObjectPath().ToString());
+		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectInventoryItemPreloadAssetPaths();
+		if (InventoryItemAssetPaths.IsEmpty())
+		{
+			OnLoaded.ExecuteIfBound();
+			return;
+		}
+
+		UE_LOG(LogFTAsset, Log, TEXT("Preloading %d inventory item assets after level preload data load failed."), InventoryItemAssetPaths.Num());
+		LoadPreloadPathQueue(InventoryItemAssetPaths, 0, InventoryItemAssetPaths.Num(), OnLoaded, OnProgress);
+		return;
+	}
+
+	TArray<FSoftObjectPath> AssetPaths = CollectLevelPreloadAssetPaths(*LoadedLevelPreloadData);
+	if (AssetPaths.IsEmpty())
+	{
+		UE_LOG(LogFTAsset, Warning, TEXT("No assets to preload for level preload data: %s"), *LoadedLevelPreloadData->GetName());
+		OnLoaded.ExecuteIfBound();
+		return;
+	}
+
+	UE_LOG(LogFTAsset, Log, TEXT("Preloading %d assets from level preload data: %s"), AssetPaths.Num(), *LoadedLevelPreloadData->GetName());
+	LoadPreloadPathQueue(AssetPaths, 0, AssetPaths.Num(), OnLoaded, OnProgress);
+}
+
 UObject* UFTAssetManager::SynchronousLoadAsset(const FSoftObjectPath& AssetPath)
 {
 	if (!AssetPath.IsValid())
@@ -112,6 +162,58 @@ TArray<FSoftObjectPath> UFTAssetManager::CollectPreloadAssetPaths(const UFTGameD
 	AppendManualAssetPaths(LoadedGameData.PreloadAssets, AssetPaths);
 	RemoveExcludedAssetPaths(LoadedGameData, AssetPaths);
 	return AssetPaths;
+}
+
+TArray<FSoftObjectPath> UFTAssetManager::CollectLevelPreloadAssetPaths(const UFTLevelPreloadDataAsset& LevelPreloadData) const
+{
+	TArray<FSoftObjectPath> AssetPaths;
+	LevelPreloadData.GetPreloadAssetPaths(AssetPaths);
+
+	if (LevelPreloadData.bPreloadAllInventoryItemDataAssets)
+	{
+		AppendPrimaryAssetPaths(FPrimaryAssetType(TEXT("FTItemItem")), AssetPaths);
+	}
+
+	TSet<FString> ExcludedPathStrings;
+	for (const TSoftObjectPtr<UObject>& ExcludedAsset : LevelPreloadData.ExcludedAssets)
+	{
+		const FSoftObjectPath ExcludedPath = ExcludedAsset.ToSoftObjectPath();
+		if (ExcludedPath.IsValid())
+		{
+			ExcludedPathStrings.Add(ExcludedPath.ToString());
+		}
+	}
+
+	AssetPaths.RemoveAll([&ExcludedPathStrings](const FSoftObjectPath& AssetPath)
+	{
+		return ExcludedPathStrings.Contains(AssetPath.ToString());
+	});
+
+	return AssetPaths;
+}
+
+TArray<FSoftObjectPath> UFTAssetManager::CollectInventoryItemPreloadAssetPaths() const
+{
+	TArray<FSoftObjectPath> AssetPaths;
+	AppendPrimaryAssetPaths(FPrimaryAssetType(TEXT("FTItemItem")), AssetPaths);
+	return AssetPaths;
+}
+
+void UFTAssetManager::AppendPrimaryAssetPaths(FPrimaryAssetType AssetType, TArray<FSoftObjectPath>& AssetPaths) const
+{
+	TArray<FPrimaryAssetId> PrimaryAssetIds;
+	GetPrimaryAssetIdList(AssetType, PrimaryAssetIds);
+
+	TSet<FString> AddedAssetPathStrings;
+	for (const FSoftObjectPath& AssetPath : AssetPaths)
+	{
+		AddedAssetPathStrings.Add(AssetPath.ToString());
+	}
+
+	for (const FPrimaryAssetId& PrimaryAssetId : PrimaryAssetIds)
+	{
+		AddUniqueAssetPath(AssetPaths, AddedAssetPathStrings, GetPrimaryAssetPath(PrimaryAssetId));
+	}
 }
 
 void UFTAssetManager::AppendDirectoryAssetPaths(const TArray<FDirectoryPath>& Directories, TArray<FSoftObjectPath>& AssetPaths) const

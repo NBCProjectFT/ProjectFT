@@ -10,6 +10,7 @@
 
 struct FFTFlowStateDefinition;
 struct FFTMessagePayloadStruct;
+class UFTLevelPreloadDataAsset;
 
 UCLASS()
 class PROJECTFT_API UFTGameFlowSubsystem : public UGameInstanceSubsystem
@@ -55,6 +56,10 @@ public:
 		FSimpleDelegate OnLoaded,
 		FFTAssetLoadProgressDelegate OnProgress = FFTAssetLoadProgressDelegate()) const;
 
+	TSoftObjectPtr<UFTLevelPreloadDataAsset> GetLevelPreloadDataAssetForState(EFTFlowStateType State) const;
+	TSoftObjectPtr<UFTLevelPreloadDataAsset> GetCurrentStateLevelPreloadDataAsset() const;
+	TSoftObjectPtr<UFTLevelPreloadDataAsset> ResolveLevelPreloadDataAssetForCurrentState() const;
+
 private:
 	void HandleStartGameMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleFlowRequestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
@@ -62,12 +67,14 @@ private:
 	void TravelToStateWithLoading(EFTFlowStateType TargetFlowState);
 	const FFTFlowStateDefinition* FindFlowStateDefinition(EFTFlowStateType State) const;
 	FName ResolveLoadingLevelName() const;
+	FName ResolveCurrentWorldLevelName() const;
 	FName ResolveLevelNameForState(EFTFlowStateType State) const;
 	bool ShouldUseLoadingForState(EFTFlowStateType State) const;
 	void OpenLevelByName(FName LevelName) const;
 	void RestoreMenuInputBeforeTravel(FName LevelName) const;
 	void SetFlowState(EFTFlowStateType NewFlowState);
 	void HandleFlowStateEntered(EFTFlowStateType NewFlowState);
+	void PreloadCurrentFlowStateForTest() const;
 	void BroadcastFlowStateChanged() const;
 	void BroadcastFlowEvent(FGameplayTag Channel) const;
 

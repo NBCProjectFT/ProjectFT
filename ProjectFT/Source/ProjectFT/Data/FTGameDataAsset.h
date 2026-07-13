@@ -8,6 +8,7 @@
 
 class UFTItemDataAsset;
 class UDataTable;
+class UFTLevelPreloadDataAsset;
 
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
@@ -38,6 +39,9 @@ struct FFTFlowStateDefinition
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
 	bool bUseLoadingLevel = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Flow")
+	TSoftObjectPtr<UFTLevelPreloadDataAsset> LevelPreloadDataAsset;
 };
 
 UCLASS(BlueprintType)

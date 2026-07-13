@@ -6,6 +6,7 @@
 #include "FTAssetManager.generated.h"
 
 class UFTGameDataAsset;
+class UFTLevelPreloadDataAsset;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
 class UFTHubCraftTestWidget;
@@ -43,6 +44,10 @@ public:
 	void LoadSubclassAsync(const TSoftClassPtr<AssetType>& AssetPointer, TFunction<void(TSubclassOf<AssetType>)> OnLoaded, bool bKeepInMemory = true);
 
 	void PreloadGameDataAssetsAsync(FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress = FFTAssetLoadProgressDelegate());
+	void PreloadLevelAssetsAsync(
+		const TSoftObjectPtr<UFTLevelPreloadDataAsset>& LevelPreloadDataAsset,
+		FSimpleDelegate OnLoaded,
+		FFTAssetLoadProgressDelegate OnProgress = FFTAssetLoadProgressDelegate());
 
 	static void DumpLoadedAssets();
 
@@ -71,6 +76,9 @@ private:
 	void AddLoadedAsset(const UObject* Asset);
 	UFTGameDataAsset* LoadGameData();
 	TArray<FSoftObjectPath> CollectPreloadAssetPaths(const UFTGameDataAsset& LoadedGameData) const;
+	TArray<FSoftObjectPath> CollectLevelPreloadAssetPaths(const UFTLevelPreloadDataAsset& LevelPreloadData) const;
+	TArray<FSoftObjectPath> CollectInventoryItemPreloadAssetPaths() const;
+	void AppendPrimaryAssetPaths(FPrimaryAssetType AssetType, TArray<FSoftObjectPath>& AssetPaths) const;
 	void AppendDirectoryAssetPaths(const TArray<FDirectoryPath>& Directories, TArray<FSoftObjectPath>& AssetPaths) const;
 	void AppendManualAssetPaths(const TArray<TSoftObjectPtr<UObject>>& Assets, TArray<FSoftObjectPath>& AssetPaths) const;
 	void RemoveExcludedAssetPaths(const UFTGameDataAsset& LoadedGameData, TArray<FSoftObjectPath>& AssetPaths) const;

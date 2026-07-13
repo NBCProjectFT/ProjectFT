@@ -4,7 +4,9 @@
 #include "FTLogChannels.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/PackageName.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
+#include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -208,9 +210,72 @@ void UFTGameFlowSubsystem::CompleteLoadingAndOpenCurrentStateLevel()
 
 void UFTGameFlowSubsystem::PreloadCurrentStateAssetsAsync(FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress) const
 {
-	// LoadingGameMode calls this after the flow has selected the active GameData.
-	// MainMenu -> StartGame switches the active GameData to DA_HubData, so this loads DA_HubData's preload range.
-	UFTAssetManager::Get().PreloadGameDataAssetsAsync(OnLoaded, OnProgress);
+	const TSoftObjectPtr<UFTLevelPreloadDataAsset> LevelPreloadDataAsset = GetCurrentStateLevelPreloadDataAsset();
+	if (LevelPreloadDataAsset.IsNull())
+	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Preload has no level preload data candidate. State=%d"),
+			static_cast<uint8>(CurrentFlowState));
+	}
+	else
+	{
+		UE_LOG(LogFTFlow, Log, TEXT("Preloading current state assets. State=%d DataAsset=%s"),
+			static_cast<uint8>(CurrentFlowState),
+			*LevelPreloadDataAsset.ToSoftObjectPath().ToString());
+	}
+
+	UFTAssetManager::Get().PreloadLevelAssetsAsync(LevelPreloadDataAsset, OnLoaded, OnProgress);
+}
+
+TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::GetLevelPreloadDataAssetForState(EFTFlowStateType State) const
+{
+	if (const FFTFlowStateDefinition* Definition = FindFlowStateDefinition(State))
+	{
+		if (!Definition->LevelPreloadDataAsset.IsNull())
+		{
+			return Definition->LevelPreloadDataAsset;
+		}
+	}
+
+	const FName TargetLevelName = ResolveLevelNameForState(State);
+	if (TargetLevelName.IsNone())
+	{
+		return TSoftObjectPtr<UFTLevelPreloadDataAsset>();
+	}
+
+	const FString AssetName = FString::Printf(TEXT("DA_LevelPreload_%s"), *TargetLevelName.ToString());
+	const FString ObjectPath = FString::Printf(TEXT("/Game/Blueprints/LevelPreload/%s.%s"), *AssetName, *AssetName);
+	return TSoftObjectPtr<UFTLevelPreloadDataAsset>(FSoftObjectPath(ObjectPath));
+}
+
+TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::GetCurrentStateLevelPreloadDataAsset() const
+{
+	return GetLevelPreloadDataAssetForState(CurrentFlowState);
+}
+
+TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::ResolveLevelPreloadDataAssetForCurrentState() const
+{
+	if (const FFTFlowStateDefinition* Definition = FindFlowStateDefinition(CurrentFlowState))
+	{
+		if (!Definition->LevelPreloadDataAsset.IsNull())
+		{
+			return Definition->LevelPreloadDataAsset;
+		}
+	}
+
+	FName LevelName = ResolveCurrentWorldLevelName();
+	if (LevelName.IsNone() || LevelName == ResolveLoadingLevelName())
+	{
+		LevelName = ResolveLevelNameForState(CurrentFlowState);
+	}
+
+	if (LevelName.IsNone())
+	{
+		return TSoftObjectPtr<UFTLevelPreloadDataAsset>();
+	}
+
+	const FString AssetName = FString::Printf(TEXT("DA_LevelPreload_%s"), *LevelName.ToString());
+	const FString ObjectPath = FString::Printf(TEXT("/Game/Blueprints/LevelPreload/%s.%s"), *AssetName, *AssetName);
+	return TSoftObjectPtr<UFTLevelPreloadDataAsset>(FSoftObjectPath(ObjectPath));
 }
 
 void UFTGameFlowSubsystem::TravelToState(EFTFlowStateType TargetFlowState)
@@ -261,6 +326,27 @@ FName UFTGameFlowSubsystem::ResolveLoadingLevelName() const
 	}
 
 	return FallbackLoadingLevelName;
+}
+
+FName UFTGameFlowSubsystem::ResolveCurrentWorldLevelName() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return NAME_None;
+	}
+
+	FString MapName = FPackageName::GetShortName(World->GetMapName());
+	if (MapName.StartsWith(TEXT("UEDPIE_")))
+	{
+		const int32 PiePrefixIndex = MapName.Find(TEXT("_"), ESearchCase::CaseSensitive, ESearchDir::FromStart, FString(TEXT("UEDPIE_")).Len());
+		if (PiePrefixIndex != INDEX_NONE)
+		{
+			MapName = MapName.Mid(PiePrefixIndex + 1);
+		}
+	}
+
+	return MapName.IsEmpty() ? NAME_None : FName(*MapName);
 }
 
 FName UFTGameFlowSubsystem::ResolveLevelNameForState(EFTFlowStateType State) const
@@ -350,6 +436,7 @@ void UFTGameFlowSubsystem::SetFlowState(EFTFlowStateType NewFlowState)
 	UE_LOG(LogFTFlow, Log, TEXT("Flow state changed to %d"), static_cast<uint8>(NewFlowState));
 	BroadcastFlowStateChanged();
 	HandleFlowStateEntered(NewFlowState);
+	PreloadCurrentFlowStateForTest();
 }
 
 void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
@@ -382,6 +469,21 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 	default:
 		break;
 	}
+}
+
+void UFTGameFlowSubsystem::PreloadCurrentFlowStateForTest() const
+{
+	// Test Code: Loading Level을 거치지 않고 현재 FlowState 변경만으로 preload 동작을 확인하기 위한 임시 경로다.
+	// 정규 흐름에서는 AFTLoadingGameMode가 FlowState에 맞는 LevelPreloadDataAsset을 선택해 로드한다.
+	PreloadCurrentStateAssetsAsync(
+		FSimpleDelegate::CreateLambda([]()
+		{
+			UE_LOG(LogFTFlow, Log, TEXT("Test preload for current flow state completed."));
+		}),
+		FFTAssetLoadProgressDelegate::CreateLambda([](const FString& AssetName, int32 CompletedCount, int32 TotalCount)
+		{
+			UE_LOG(LogFTFlow, Verbose, TEXT("Test preload progress: %s (%d / %d)"), *AssetName, CompletedCount, TotalCount);
+		}));
 }
 
 void UFTGameFlowSubsystem::BroadcastFlowStateChanged() const
