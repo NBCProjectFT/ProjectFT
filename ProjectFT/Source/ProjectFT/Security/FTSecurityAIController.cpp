@@ -9,10 +9,12 @@
 #include "HAL/IConsoleManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
 #include "ProjectFT/Struct/FTSecurityChaseGaugePayloadStruct.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
@@ -24,8 +26,7 @@
 #include "ProjectFT/Struct/FTSecurityResponsePayloadStruct.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
 
-// 그저 테스트용
-// TODO: 테스트 완료 후 제거. NPC가 FTReportGaugeComponent애서 Call 하는 로직으로 변경 예정.
+// 개발 테스트용 콘솔 명령어. 출시/제출 전 제거 대상.
 static FAutoConsoleCommandWithWorld GFTSecurityTestCallCommand(
 	TEXT("ft.Security.TestCall"),
 	TEXT("Broadcasts Event.Security.Called with the first player pawn as TargetActor."),
@@ -176,6 +177,11 @@ void AFTSecurityAIController::BeginPlay()
 		this,
 		&ThisClass::OnShelfDamaged
 	);
+	CharacterDamagedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_CharacterDamaged,
+		this,
+		&ThisClass::OnCharacterDamaged
+	);
 
 	if (APawn* ControlledPawn = GetPawn())
 	{
@@ -315,6 +321,25 @@ void AFTSecurityAIController::StartChase()
 	}
 }
 
+void AFTSecurityAIController::ReadyDespawn()
+{
+	StopMovement();
+	ClearFocus(EAIFocusPriority::Gameplay);
+
+	if (SecurityPerceptionComponent)
+	{
+		SecurityPerceptionComponent->OnTargetPerceptionUpdated.RemoveDynamic(this, &AFTSecurityAIController::OnTargetPerceptionUpdated);
+		SecurityPerceptionComponent->Deactivate();
+	}
+
+	if (SecurityStateTreeAIComponent && SecurityStateTreeAIComponent->IsComponentTickEnabled())
+	{
+		SecurityStateTreeAIComponent->StopLogic(TEXT("ReadyDespawn"));
+	}
+
+	SetActorTickEnabled(false);
+}
+
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
 {
 	if (bTargetCaptured)
@@ -421,6 +446,73 @@ void AFTSecurityAIController::OnShelfDamaged(
 			TEXT("Security AI '%s' witnessed shelf damage, chasing %s"),
 			*GetName(),
 			*GetNameSafe(SuspectActor));
+	}
+}
+
+void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
+{
+	if (bTargetCaptured || bIsStunned)
+	{
+		return;
+	}
+
+	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
+	if (!IsPlayerActor(SuspectActor))
+	{
+		return;
+	}
+
+	const bool bDamagedSelf = Payload.TargetActor == GetPawn();
+	const bool bWitnessedAssault = !bDamagedSelf && Cast<AFTAICharacterBase>(Payload.TargetActor);
+	if (!bDamagedSelf && !bWitnessedAssault)
+	{
+		return;
+	}
+
+	SetTargetActor(SuspectActor);
+	if (bWitnessedAssault)
+	{
+		const bool bCanSeePlayer = IsTargetCurrentlyVisible();
+		const bool bCanSeeDamagedActor = LineOfSightTo(Payload.TargetActor);
+		if (!bCanSeePlayer || !bCanSeeDamagedActor)
+		{
+			return;
+		}
+	}
+
+	StopMovement();
+	bReturning = false;
+	bReturnRequested = false;
+	bInvestigateRequested = false;
+	bStunRequested = false;
+	bReturnFailureLogged = false;
+	bReturnCollisionIgnored = false;
+	bSecurityCalled = true;
+	InvestigateLocation = SuspectActor->GetActorLocation();
+	UpdateTargetState();
+
+	if (bLogSecurityEventDebug)
+	{
+		if (bDamagedSelf)
+		{
+			UE_LOG(
+				LogFTSecurity,
+				Log,
+				TEXT("Security AI '%s' damaged by player, chasing %s"),
+				*GetName(),
+				*GetNameSafe(SuspectActor)
+			);
+		}
+		else
+		{
+			UE_LOG(
+				LogFTSecurity,
+				Log,
+				TEXT("Security AI '%s' witnessed assault, chasing %s"),
+				*GetName(),
+				*GetNameSafe(SuspectActor)
+			);
+		}
 	}
 }
 
@@ -881,6 +973,10 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (ShelfDamagedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfDamagedListenerHandle);
+	}
+	if (CharacterDamagedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterDamagedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);
