@@ -11,6 +11,7 @@ class UAIPerceptionComponent;
 class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class UFTNPCReportComponent;
+class AFTShoppingPoint;
 struct FFTMessagePayloadStruct;
 struct FFTCharacterDamagePayloadStruct;
 UCLASS()
@@ -64,16 +65,29 @@ public:
 	FVector ShoppingTargetLocation = FVector::ZeroVector;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
-	bool bHasShoppingTarget = false;
+	FVector ShoppingLookLocation = FVector::ZeroVector;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC")
-	FName ShoppingPointTag = TEXT("CustomerShoppingPoint");
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
+	float ShoppingTargetAcceptanceRadius = 100.0f;
+
+	/** 쇼핑 중 시선 목표가 바뀔 때 한 번에 꺾이지 않도록 보간하는 속도다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Shopping", meta = (ClampMin = "0.0"))
+	float ShoppingLookInterpSpeed = 4.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC")
+	bool bHasShoppingTarget = false;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC")
 	bool PickRandomShoppingTarget();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Wander")
 	bool PickRandomWanderTarget();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Wander")
+	void ReleaseShoppingTarget();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Wander")
+	void StartShoppingLook();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ObservedStealingMemorySeconds = 2.0f;
@@ -130,6 +144,13 @@ private:
 	bool bLastLoggedHasSeenTarget = false;
 	bool bLastLoggedIsTargetStealing = false;
 	bool bLastLoggedCanStartReportFlow = false;
+
+	UPROPERTY()
+	TObjectPtr<AFTShoppingPoint> CurrentShoppingPoint;
+
+	FVector CurrentShoppingLookLocation = FVector::ZeroVector;
+	FVector DesiredShoppingLookLocation = FVector::ZeroVector;
+	bool bBlendShoppingLook = false;
 	
 	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
 	FGameplayMessageListenerHandle CharacterDamagedListenerHandle;
@@ -140,6 +161,7 @@ private:
 	bool IsTargetCurrentlyVisible() const;
 	bool IsTargetStealing(const AActor* Actor) const;
 	void SyncReportStateFromComponent();
+	void UpdateShoppingLook(float DeltaTime);
 	void DrawSightDebug() const;
 	void LogReportConditionDebug(bool bTargetCurrentlyStealing);
 };
