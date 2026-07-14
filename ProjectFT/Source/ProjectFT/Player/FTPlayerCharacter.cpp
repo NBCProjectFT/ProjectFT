@@ -27,6 +27,7 @@
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
 #include "ProjectFT/Data/FTLauncherDataAsset.h"
+#include "ProjectFT/Data/FTThrowDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTInventoryViewModel.h"
@@ -92,6 +93,11 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 void AFTPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (UFTInventoryComponent* Inventory = GetInventoryComponent())
+	{
+		Inventory->OnInventoryChanged.AddDynamic(this, &AFTPlayerCharacter::OnInventoryChangedCallback);
+	}
 
 	if (AbilitySystemComponent)
 	{
@@ -606,9 +612,30 @@ FName AFTPlayerCharacter::ResolveHeldItemAttachSocket(const UFTItemDataAsset* It
 			return LauncherData->LauncherActionData.AttachSocketName;
 		}
 	}
+	else if (const UFTThrowDataAsset* ThrowData = Cast<UFTThrowDataAsset>(ItemData))
+	{
+		if (!ThrowData->ThrowActorData.AttachSocketName.IsNone())
+		{
+			return ThrowData->ThrowActorData.AttachSocketName;
+		}
+	}
 
 	// 타입 미지정이거나 소켓이 비어 있으면 폴백 소켓을 쓴다.
 	return HeldItemFallbackSocketName;
+}
+
+void AFTPlayerCharacter::OnInventoryChangedCallback()
+{
+	UFTInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory || CurrentHeldInventoryItem.ItemId.IsNone())
+	{
+		return;
+	}
+
+	if (Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
+	{
+		SetCurrentHeldInventoryItem(FFTInventoryItem());
+	}
 }
 
 void AFTPlayerCharacter::ApplyMovementSpeed()
