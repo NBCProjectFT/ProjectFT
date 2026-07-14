@@ -1,5 +1,6 @@
 #include "FTShopSubsystem.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/AssetManager.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
@@ -8,6 +9,12 @@
 #include "ProjectFT/Data/FTShopDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+
+namespace
+{
+	const FPrimaryAssetType ItemAssetType(TEXT("FTItemItem"));
+	const FName ItemDataPackagePath(TEXT("/Game/Blueprints/Items/Data"));
+}
 
 void UFTShopSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -439,8 +446,13 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 	};
 
 	UAssetManager& AssetManager = UAssetManager::Get();
+	TArray<FString> ItemDataPaths;
+	ItemDataPaths.Add(ItemDataPackagePath.ToString());
+	AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, true);
+
 	TArray<FPrimaryAssetId> ItemAssetIDs;
-	AssetManager.GetPrimaryAssetIdList(FName(TEXT("FTItemItem")), ItemAssetIDs);
+	AssetManager.GetPrimaryAssetIdList(ItemAssetType, ItemAssetIDs);
+	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetManager primary ids=%d"), ItemAssetIDs.Num());
 
 	for (const FPrimaryAssetId& ItemAssetID : ItemAssetIDs)
 	{
@@ -456,6 +468,30 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 
 		UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
 		TryAddItemDataAsset(ItemDataAsset);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetManager collected=%d"), OutItemDataAssets.Num());
+
+	if (OutItemDataAssets.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: using AssetRegistry fallback path=%s"), *ItemDataPackagePath.ToString());
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+		AssetRegistry.ScanPathsSynchronous(ItemDataPaths, true);
+
+		FARFilter Filter;
+		Filter.PackagePaths.Add(ItemDataPackagePath);
+		Filter.ClassPaths.Add(UFTItemDataAsset::StaticClass()->GetClassPathName());
+		Filter.bRecursivePaths = true;
+
+		TArray<FAssetData> ItemAssetDataList;
+		AssetRegistry.GetAssets(Filter, ItemAssetDataList);
+
+		for (const FAssetData& ItemAssetData : ItemAssetDataList)
+		{
+			TryAddItemDataAsset(Cast<UFTItemDataAsset>(ItemAssetData.GetAsset()));
+		}
+		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetRegistry assets=%d collected=%d"), ItemAssetDataList.Num(), OutItemDataAssets.Num());
 	}
 
 	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())

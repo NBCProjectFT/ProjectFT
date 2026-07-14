@@ -50,7 +50,9 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 		CHK_ItemSelected->OnCheckStateChanged.RemoveAll(this);
 		CHK_ItemSelected->SetIsChecked(TileObject->IsChecked());
 		CHK_ItemSelected->SetIsEnabled(!bLocked);
-		CHK_ItemSelected->SetVisibility(ESlateVisibility::HitTestInvisible);
+		CHK_ItemSelected->SetVisibility(TileObject->ShouldShowSelectionCheckBox()
+			? ESlateVisibility::HitTestInvisible
+			: ESlateVisibility::Collapsed);
 	}
 
 	if (TXT_ItemPrice)

@@ -346,6 +346,7 @@ void UFTQuestViewModel::RefreshSelectedQuestItems()
 	{
 		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
 		ItemObject->InitializeIngredient(RequiredItem);
+		ItemObject->SetShowSelectionCheckBox(false);
 		RequiredItemObjects.Add(ItemObject);
 	}
 
@@ -353,6 +354,7 @@ void UFTQuestViewModel::RefreshSelectedQuestItems()
 	{
 		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
 		ItemObject->InitializeIngredient(RewardItem);
+		ItemObject->SetShowSelectionCheckBox(false);
 		RewardItemObjects.Add(ItemObject);
 	}
 }

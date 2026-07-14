@@ -44,6 +44,13 @@ FText UFTHubStorageViewModel::GetPlayerWeightText() const
 	return FText::FromString(FString::Printf(TEXT("%.1f / %.1f kg"), CurrentWeight, MaxWeight));
 }
 
+FText UFTHubStorageViewModel::GetMoveQuantityText() const
+{
+	return GetSelectedEntryCount() == 1
+		? FText::AsNumber(MoveQuantity)
+		: FText::FromString(TEXT("-"));
+}
+
 int32 UFTHubStorageViewModel::GetSelectedEntryCount() const
 {
 	return SelectedItems.Num();
@@ -69,6 +76,16 @@ bool UFTHubStorageViewModel::CanTakeSelected() const
 	return GetStorageSelectedEntryCount() > 0;
 }
 
+bool UFTHubStorageViewModel::CanDecreaseMoveQuantity() const
+{
+	return GetSelectedEntryCount() == 1 && MoveQuantity > 1;
+}
+
+bool UFTHubStorageViewModel::CanIncreaseMoveQuantity() const
+{
+	return GetSelectedEntryCount() == 1 && MoveQuantity < GetMaxMoveQuantity();
+}
+
 bool UFTHubStorageViewModel::CanStoreAll() const
 {
 	return PlayerInventory && PlayerInventory->GetItems().Num() > 0;
@@ -85,6 +102,8 @@ void UFTHubStorageViewModel::RefreshAll()
 {
 	RefreshPlayerItems();
 	RefreshStorageItems();
+	ClampMoveQuantity();
+	SyncSelectionChecks();
 	OnChanged.Broadcast();
 }
 
@@ -107,6 +126,8 @@ void UFTHubStorageViewModel::SetSelectedItems(const EFTHubStorageTransferSource 
 		SelectedSource = EFTHubStorageTransferSource::None;
 	}
 
+	ClampMoveQuantity();
+	SyncSelectionChecks();
 	OnChanged.Broadcast();
 }
 
@@ -114,6 +135,20 @@ void UFTHubStorageViewModel::ClearSelection()
 {
 	SelectedItems.Reset();
 	SelectedSource = EFTHubStorageTransferSource::None;
+	MoveQuantity = 1;
+	SyncSelectionChecks();
+}
+
+void UFTHubStorageViewModel::IncreaseMoveQuantity()
+{
+	MoveQuantity = FMath::Clamp(MoveQuantity + 1, 1, GetMaxMoveQuantity());
+	OnChanged.Broadcast();
+}
+
+void UFTHubStorageViewModel::DecreaseMoveQuantity()
+{
+	MoveQuantity = FMath::Clamp(MoveQuantity - 1, 1, GetMaxMoveQuantity());
+	OnChanged.Broadcast();
 }
 
 void UFTHubStorageViewModel::SetPlayerFilter(const EFTItemCategoryType FilterCategory)
@@ -300,6 +335,55 @@ bool UFTHubStorageViewModel::TryReadItemObject(UObject* ItemObject, FTStorageIte
 	return false;
 }
 
+void UFTHubStorageViewModel::SyncSelectionChecks()
+{
+	const auto IsSelectedItem = [this](const UFTItemTileListObject* TileObject)
+	{
+		if (!TileObject)
+		{
+			return false;
+		}
+
+		for (const FTStorageItemStruct& SelectedItem : SelectedItems)
+		{
+			if (SelectedItem.ItemID == TileObject->GetItemID())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	for (UObject* ItemObject : PlayerItemObjects)
+	{
+		if (UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(ItemObject))
+		{
+			TileObject->SetChecked(SelectedSource == EFTHubStorageTransferSource::Player && IsSelectedItem(TileObject));
+		}
+	}
+
+	for (UObject* ItemObject : StorageItemObjects)
+	{
+		if (UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(ItemObject))
+		{
+			TileObject->SetChecked(SelectedSource == EFTHubStorageTransferSource::Storage && IsSelectedItem(TileObject));
+		}
+	}
+}
+
+int32 UFTHubStorageViewModel::GetMaxMoveQuantity() const
+{
+	return SelectedItems.Num() == 1
+		? FMath::Max(1, SelectedItems[0].Count)
+		: 1;
+}
+
+void UFTHubStorageViewModel::ClampMoveQuantity()
+{
+	MoveQuantity = FMath::Clamp(MoveQuantity, 1, GetMaxMoveQuantity());
+}
+
 bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSource SourceType)
 {
 	UFTStorageSubsystem* StorageSubsystem = GetStorageSubsystem();
@@ -310,11 +394,16 @@ bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSo
 	}
 
 	bool bMovedAnyItem = false;
-	for (const FTStorageItemStruct& SelectedItem : SelectedItems)
+	for (FTStorageItemStruct SelectedItem : SelectedItems)
 	{
 		if (SelectedItem.ItemID.IsNone() || SelectedItem.Count <= 0)
 		{
 			continue;
+		}
+
+		if (SelectedItems.Num() == 1)
+		{
+			SelectedItem.Count = FMath::Clamp(MoveQuantity, 1, SelectedItem.Count);
 		}
 
 		const bool bMoved = SourceType == EFTHubStorageTransferSource::Player

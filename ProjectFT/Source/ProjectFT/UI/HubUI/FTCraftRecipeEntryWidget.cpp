@@ -2,9 +2,9 @@
 
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
-#include "Engine/AssetManager.h"
 #include "Engine/Texture2D.h"
 #include "FTCraftRecipeListObject.h"
+#include "FTHubItemDataResolver.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 
@@ -20,20 +20,7 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 
 	const FTCraftRecipeStruct& Recipe = RecipeObject->GetRecipe();
 	FText RecipeTitle = FText::FromName(Recipe.ResultItemID);
-	const UFTItemDataAsset* ItemDataAsset = nullptr;
-	UAssetManager& AssetManager = UAssetManager::Get();
-	const FPrimaryAssetId AssetID(FName("FTItemItem"), Recipe.ResultItemID);
-	UObject* AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
-	if (!AssetObject)
-	{
-		const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
-		if (AssetPath.IsValid())
-		{
-			AssetObject = AssetPath.TryLoad();
-		}
-	}
-
-	ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
+	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(Recipe.ResultItemID);
 	if (ItemDataAsset)
 	{
 		RecipeTitle = ItemDataAsset->ItemData.ItemName.IsEmpty()

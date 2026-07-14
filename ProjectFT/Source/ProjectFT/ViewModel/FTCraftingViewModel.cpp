@@ -1,12 +1,12 @@
 #include "FTCraftingViewModel.h"
 
-#include "Engine/AssetManager.h"
 #include "Engine/Texture2D.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTCraftingSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTCraftRecipeListObject.h"
+#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 
 void UFTCraftingViewModel::Initialize(
@@ -265,6 +265,7 @@ void UFTCraftingViewModel::RefreshRequiredItemObjects()
 	{
 		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
 		ItemObject->InitializeIngredient(Ingredient, GetOwnedIngredientCount(Ingredient.ItemID));
+		ItemObject->SetShowSelectionCheckBox(false);
 		RequiredItemObjects.Add(ItemObject);
 	}
 }
@@ -328,20 +329,7 @@ const UFTItemDataAsset* UFTCraftingViewModel::FindItemData(const FName ItemID) c
 		return nullptr;
 	}
 
-	UAssetManager& AssetManager = UAssetManager::Get();
-	const FPrimaryAssetId AssetID(FName("FTItemItem"), ItemID);
-
-	UObject* AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
-	if (!AssetObject)
-	{
-		const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
-		if (AssetPath.IsValid())
-		{
-			AssetObject = AssetPath.TryLoad();
-		}
-	}
-
-	return Cast<UFTItemDataAsset>(AssetObject);
+	return FTHubItemDataResolver::FindItemData(ItemID);
 }
 
 void UFTCraftingViewModel::ClearSelectedRecipeDetails()
