@@ -62,12 +62,22 @@ UButton* UFTEscapedRaidWidget::ResolveReturnToBaseButton() const
 		return nullptr;
 	}
 
-	if (UUserWidget* ButtonWidget = Cast<UUserWidget>(WidgetTree->FindWidget(TEXT("WBP_ReturnToBaseButton"))))
+	static const FName ReturnToBaseButtonNames[] =
 	{
-		return ResolveButtonInsideWidget(ButtonWidget, TEXT("FTGameButton"));
+		TEXT("WBP_ReturnToBaseButton_Escaped"),
+		TEXT("WBP_ReturnToBaseButton_Escape"),
+		TEXT("WBP_ReturnToBaseButton")
+	};
+
+	for (const FName ButtonWidgetName : ReturnToBaseButtonNames)
+	{
+		if (UUserWidget* ButtonWidget = Cast<UUserWidget>(WidgetTree->FindWidget(ButtonWidgetName)))
+		{
+			return ResolveButtonInsideWidget(ButtonWidget, TEXT("FTGameButton"));
+		}
 	}
 
-	UE_LOG(LogFTUI, Warning, TEXT("Escaped raid return-to-base button widget was not found. Expected widget name=WBP_ReturnToBaseButton Widget=%s"),
+	UE_LOG(LogFTUI, Warning, TEXT("Escaped raid return-to-base button widget was not found. Expected widget name=WBP_ReturnToBaseButton_Escaped Widget=%s"),
 		*GetNameSafe(this));
 	return nullptr;
 }

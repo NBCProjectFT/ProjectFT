@@ -5,8 +5,10 @@
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
 #include "GameFramework/GameModeBase.h"
+#include "ProjectFT/Struct/FTStorageItemStruct.h"
 #include "FTGameMode.generated.h"
 
+class UFTGameFlowSubsystem;
 class UStaticMesh;
 
 /**
@@ -32,10 +34,17 @@ public:
 	void HandleRaidEscape();
 
 private:
+	void GrantRaidStartTestItemsIfNeeded(const UFTGameFlowSubsystem* GameFlowSubsystem) const;
 	void SpawnRuntimeMeshTest();
 	TArray<TSoftObjectPtr<UStaticMesh>> CollectRuntimeSpawnMeshes() const;
 
 private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Inventory Test", meta = (AllowPrivateAccess = "true"))
+	bool bGrantRaidStartTestItems = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Inventory Test", meta = (AllowPrivateAccess = "true", EditCondition = "bGrantRaidStartTestItems"))
+	TArray<FTStorageItemStruct> RaidStartTestItems;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Preload Test", meta = (AllowPrivateAccess = "true"))
 	bool bEnableRuntimeMeshSpawnTest = true;
 
