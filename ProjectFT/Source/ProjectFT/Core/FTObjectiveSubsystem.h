@@ -4,6 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Enum/FTQuestStateType.h"
+#include "ProjectFT/Struct/FTQuestSaveData.h"
 #include "ProjectFT/Struct/FTQuestStruct.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "FTObjectiveSubsystem.generated.h"
@@ -60,6 +61,17 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Quest")
 	bool TryCompleteQuest(FName QuestID, UFTInventoryComponent* PlayerInventory);
+
+	/** 현재 퀘스트 상태와 이벤트 진행도를 세이브 가능한 스냅샷으로 복사한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Save")
+	void BuildQuestSaveData(FFTQuestSaveData& OutSaveData) const;
+
+	/**
+	 * 저장된 퀘스트 스냅샷을 복원한다.
+	 * QuestDataTable이 연결된 뒤 호출해야 하며, 잘못된 ID와 변경된 조건 배열은 현재 데이터에 맞춰 보정한다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Save")
+	void RestoreQuestSaveData(const FFTQuestSaveData& SaveData);
 
 	void GetQuestList(TArray<FTQuestStruct>& OutQuests) const;
 	void GetQuestListByState(EFTQuestStateType QuestState, TArray<FTQuestStruct>& OutQuests) const;

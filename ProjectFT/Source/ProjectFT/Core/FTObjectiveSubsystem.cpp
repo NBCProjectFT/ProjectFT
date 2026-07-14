@@ -335,6 +335,184 @@ bool UFTObjectiveSubsystem::TryCompleteQuest(FName QuestID, UFTInventoryComponen
 	return true;
 }
 
+void UFTObjectiveSubsystem::BuildQuestSaveData(FFTQuestSaveData& OutSaveData) const
+{
+	OutSaveData = FFTQuestSaveData();
+	OutSaveData.bHasQuestData = true;
+	OutSaveData.AvailableQuestIDs = AvailableQuestIDs.Array();
+	OutSaveData.ActiveQuestIDs = ActiveQuestIDs.Array();
+	OutSaveData.CompletedQuestIDs = CompletedQuestIDs.Array();
+	OutSaveData.CurrentQuestID = CurrentQuestId;
+
+	auto SortQuestIDs = [](TArray<FName>& QuestIDs)
+	{
+		QuestIDs.Sort([](const FName& Left, const FName& Right)
+		{
+			return Left.LexicalLess(Right);
+		});
+	};
+
+	SortQuestIDs(OutSaveData.AvailableQuestIDs);
+	SortQuestIDs(OutSaveData.ActiveQuestIDs);
+	SortQuestIDs(OutSaveData.CompletedQuestIDs);
+
+	for (const FName& QuestID : OutSaveData.ActiveQuestIDs)
+	{
+		FFTQuestEventProgressSaveData ProgressSaveData;
+		ProgressSaveData.QuestID = QuestID;
+		if (const TArray<int32>* ProgressValues = EventConditionProgressByQuest.Find(QuestID))
+		{
+			ProgressSaveData.EventConditionProgress = *ProgressValues;
+		}
+		OutSaveData.EventProgressByQuest.Add(MoveTemp(ProgressSaveData));
+	}
+}
+
+void UFTObjectiveSubsystem::RestoreQuestSaveData(const FFTQuestSaveData& SaveData)
+{
+	if (!SaveData.bHasQuestData)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Quest save restore skipped: no quest snapshot in save data."));
+		return;
+	}
+
+	if (!QuestDataTable)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Quest save restore failed: QuestDataTable is not assigned."));
+		return;
+	}
+
+	auto IsValidQuestID = [this](const FName QuestID)
+	{
+		return !QuestID.IsNone()
+			&& QuestDataTable->FindRow<FTQuestStruct>(QuestID, TEXT("RestoreQuestSaveData"), false) != nullptr;
+	};
+
+	AvailableQuestIDs.Reset();
+	ActiveQuestIDs.Reset();
+	CompletedQuestIDs.Reset();
+	EventConditionProgressByQuest.Reset();
+	CurrentQuestId = NAME_None;
+	RequiredItems.Reset();
+
+	// 완료 상태가 가장 높은 우선순위를 가진다.
+	for (const FName& QuestID : SaveData.CompletedQuestIDs)
+	{
+		if (IsValidQuestID(QuestID))
+		{
+			CompletedQuestIDs.Add(QuestID);
+		}
+	}
+
+	for (const FName& QuestID : SaveData.ActiveQuestIDs)
+	{
+		if (IsValidQuestID(QuestID) && !CompletedQuestIDs.Contains(QuestID))
+		{
+			ActiveQuestIDs.Add(QuestID);
+		}
+	}
+
+	for (const FName& QuestID : SaveData.AvailableQuestIDs)
+	{
+		if (IsValidQuestID(QuestID)
+			&& !CompletedQuestIDs.Contains(QuestID)
+			&& !ActiveQuestIDs.Contains(QuestID))
+		{
+			AvailableQuestIDs.Add(QuestID);
+		}
+	}
+
+	TMap<FName, const FFTQuestEventProgressSaveData*> SavedProgressByQuest;
+	for (const FFTQuestEventProgressSaveData& ProgressSaveData : SaveData.EventProgressByQuest)
+	{
+		if (ActiveQuestIDs.Contains(ProgressSaveData.QuestID))
+		{
+			SavedProgressByQuest.FindOrAdd(ProgressSaveData.QuestID) = &ProgressSaveData;
+		}
+	}
+
+	for (const FName& QuestID : ActiveQuestIDs)
+	{
+		const FTQuestStruct* Quest = FindQuestByID(QuestID);
+		if (!Quest)
+		{
+			continue;
+		}
+
+		TArray<int32>& RestoredProgress = EventConditionProgressByQuest.FindOrAdd(QuestID);
+		RestoredProgress.Init(0, Quest->EventConditions.Num());
+
+		const FFTQuestEventProgressSaveData* const* SavedProgress = SavedProgressByQuest.Find(QuestID);
+		if (!SavedProgress || !*SavedProgress)
+		{
+			continue;
+		}
+
+		const int32 CopyCount = FMath::Min(
+			RestoredProgress.Num(),
+			(*SavedProgress)->EventConditionProgress.Num());
+		for (int32 ConditionIndex = 0; ConditionIndex < CopyCount; ++ConditionIndex)
+		{
+			const int32 RequiredCount = FMath::Max(
+				0,
+				Quest->EventConditions[ConditionIndex].RequiredCount);
+			RestoredProgress[ConditionIndex] = FMath::Clamp(
+				(*SavedProgress)->EventConditionProgress[ConditionIndex],
+				0,
+				RequiredCount);
+		}
+	}
+
+	if (ActiveQuestIDs.Contains(SaveData.CurrentQuestID))
+	{
+		CurrentQuestId = SaveData.CurrentQuestID;
+	}
+	else if (!ActiveQuestIDs.IsEmpty())
+	{
+		TArray<FName> SortedActiveQuestIDs = ActiveQuestIDs.Array();
+		SortedActiveQuestIDs.Sort([](const FName& Left, const FName& Right)
+		{
+			return Left.LexicalLess(Right);
+		});
+		CurrentQuestId = SortedActiveQuestIDs[0];
+	}
+
+	if (!CurrentQuestId.IsNone())
+	{
+		if (const FTQuestStruct* CurrentQuest = FindQuestByID(CurrentQuestId))
+		{
+			for (const FTCraftIngredientStruct& RequiredItem : CurrentQuest->RequiredItems)
+			{
+				if (!RequiredItem.ItemID.IsNone() && RequiredItem.Count > 0)
+				{
+					RequiredItems.Add(RequiredItem.ItemID);
+				}
+			}
+		}
+	}
+
+	if (ActiveQuestIDs.IsEmpty())
+	{
+		// 활성 퀘스트가 없어도 이미 열린 HUD가 목록을 비울 수 있도록 한 번 알린다.
+		BroadcastQuestProgressChanged(NAME_None);
+	}
+	else
+	{
+		for (const FName& QuestID : ActiveQuestIDs)
+		{
+			BroadcastQuestProgressChanged(QuestID);
+		}
+	}
+
+	UE_LOG(
+		LogTemp,
+		Log,
+		TEXT("Quest save restored: Available=%d Active=%d Completed=%d"),
+		AvailableQuestIDs.Num(),
+		ActiveQuestIDs.Num(),
+		CompletedQuestIDs.Num());
+}
+
 void UFTObjectiveSubsystem::GetQuestList(TArray<FTQuestStruct>& OutQuests) const
 {
 	GetQuestListByState(EFTQuestStateType::Available, OutQuests);
