@@ -38,5 +38,5 @@ protected:
 
 	/** AI의 기본 이동 속도 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|AI|Movement", meta = (ClampMin = "0.0"))
-	float InitialMoveSpeed = 300.0f;
+	float InitialMoveSpeed = 200.0f;
 };
