@@ -34,5 +34,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityReturnedToRoom, "Event.Security.Retu
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_StealCompleted, "Event.Steal.Completed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterDamaged, "Event.Character.Damaged");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterKnockedOut, "Event.Character.KnockedOut");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_PlayerDead, "Event.PlayerDead");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_DropItem, "Gameplay.Request.DropItem");

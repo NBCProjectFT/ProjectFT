@@ -6,6 +6,7 @@
 #include "NavigationSystem.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Security/FTSecurityAIController.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTSecurityChaseGaugePayloadStruct.h"
@@ -163,6 +164,7 @@ void AFTSecurityRoomDoor::OnSecurityReturned(FGameplayTag Channel, const FFTSecu
 	}
 
 	UE_LOG(LogFTSecurity, Log, TEXT("Security room '%s' despawning %s"), *GetName(), *GetNameSafe(Payload.SecurityActor));
+	ReadyDespawn(Payload.SecurityActor);
 	Payload.SecurityActor->Destroy();
 	CompactSpawnedSecurityActors();
 
@@ -268,6 +270,20 @@ void AFTSecurityRoomDoor::CompactSpawnedSecurityActors()
 		{
 			SpawnedSecurityActors.RemoveAtSwap(SecurityIndex);
 		}
+	}
+}
+
+void AFTSecurityRoomDoor::ReadyDespawn(AActor* SecurityActor)
+{
+	AFTSecurityCharacter* SecurityCharacter = Cast<AFTSecurityCharacter>(SecurityActor);
+	if (!SecurityCharacter)
+	{
+		return;
+	}
+
+	if (AFTSecurityAIController* SecurityAIController = Cast<AFTSecurityAIController>(SecurityCharacter->GetController()))
+	{
+		SecurityAIController->ReadyDespawn();
 	}
 }
 

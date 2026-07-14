@@ -84,6 +84,7 @@ private:
 	void SpawnMissingSecurity();
 	void BroadcastDeployment(AFTSecurityCharacter* SecurityCharacter);
 	void CompactSpawnedSecurityActors();
+	void ReadyDespawn(AActor* SecurityActor);
 	FVector GetSecuritySlotLocation(const USceneComponent* PointComponent, int32 SecurityIndex) const;
 	FVector ProjectLocationToNavigation(const FVector& DesiredLocation) const;
 };
