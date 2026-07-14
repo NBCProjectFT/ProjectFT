@@ -3,23 +3,44 @@
 
 #include "FTGameMode.h"
 
+#include "FTSaveSubsystem.h"
 #include "FTGameFlowSubsystem.h"
 #include "FTLogChannels.h"
 #include "../Manager/AssetManager/FTAssetManager.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMeshActor.h"
+#include "Kismet/GameplayStatics.h"
 #include "Modules/ModuleManager.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "TimerManager.h"
 
 AFTGameMode::AFTGameMode()
 {
-	
+	FTStorageItemStruct TestItem;
+	TestItem.ItemID = TEXT("AK47");
+	TestItem.Count = 1;
+	RaidStartTestItems.Add(TestItem);
 }
 
 void AFTGameMode::StartPlay()
 {
 	Super::StartPlay();
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTGameFlowSubsystem* GameFlowSubsystem = GameInstance->GetSubsystem<UFTGameFlowSubsystem>())
+		{
+			GameFlowSubsystem->SyncFlowStateWithCurrentLevel();
+
+			if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
+			{
+				SaveSubsystem->RestoreCurrentWorldState();
+			}
+
+			GrantRaidStartTestItemsIfNeeded(GameFlowSubsystem);
+		}
+	}
 
 	// if (bEnableRuntimeMeshSpawnTest)
 	// {
@@ -57,6 +78,36 @@ void AFTGameMode::HandleRaidEscape()
 		{
 			GameFlowSubsystem->RequestEscapeRaid();
 		}
+	}
+}
+
+void AFTGameMode::GrantRaidStartTestItemsIfNeeded(const UFTGameFlowSubsystem* GameFlowSubsystem) const
+{
+	if (!bGrantRaidStartTestItems || !GameFlowSubsystem || GameFlowSubsystem->GetCurrentFlowState() != EFTFlowStateType::RaidInProgress)
+	{
+		return;
+	}
+
+	const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!PlayerPawn)
+	{
+		return;
+	}
+
+	UFTInventoryComponent* PlayerInventory = PlayerPawn->FindComponentByClass<UFTInventoryComponent>();
+	if (!PlayerInventory || !PlayerInventory->GetItems().IsEmpty())
+	{
+		return;
+	}
+
+	for (const FTStorageItemStruct& TestItem : RaidStartTestItems)
+	{
+		if (TestItem.ItemID.IsNone() || TestItem.Count <= 0)
+		{
+			continue;
+		}
+
+		PlayerInventory->AddItem(TestItem.ItemID, TestItem.Count);
 	}
 }
 
