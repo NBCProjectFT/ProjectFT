@@ -80,6 +80,9 @@ private:
 	// 목적지/컨트롤러가 없을 때의 안전 타이머 → 실패.
 	void OnFallbackTimeout();
 
+	// 붙잡은 보안요원이 스턴/행동불능 상태가 되면 잡기를 즉시 해제한다.
+	void OnOwnerImmobilizedTagChanged(const FGameplayTag Tag, int32 NewCount);
+
 	// 성공(bEscaped=true)/실패(false) 공통 마무리. 최초 1회만 효과 적용 후 해방·종료.
 	void FinishGrab(bool bEscaped);
 	void BroadcastCaptureMessage(FGameplayTag Channel) const;
@@ -90,6 +93,7 @@ private:
 	TWeakObjectPtr<UFTCaptureEscapeComponent> TargetEscapeComp;
 	TWeakObjectPtr<AAIController> CachedAIController;
 	FTimerHandle FallbackTimerHandle;
+	FDelegateHandle OwnerImmobilizedTagChangedHandle;
 	bool bResolved = false;
 	bool bBoundMoveCompleted = false;
 	bool bCapturedMessageBroadcast = false;
