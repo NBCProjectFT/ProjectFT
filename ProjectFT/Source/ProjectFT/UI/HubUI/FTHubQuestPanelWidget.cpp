@@ -217,6 +217,12 @@ void UFTHubQuestPanelWidget::HandleQuestClicked(UObject* Item)
 	}
 
 	ViewModel->SelectQuestObject(Item);
+
+	// ListView가 기존 엔트리 위젯을 재사용하더라도 방금 변경된 읽음 색상을 즉시 반영한다.
+	if (LV_Quests)
+	{
+		LV_Quests->RegenerateAllEntries();
+	}
 }
 
 void UFTHubQuestPanelWidget::HandleQuestActionClicked()
