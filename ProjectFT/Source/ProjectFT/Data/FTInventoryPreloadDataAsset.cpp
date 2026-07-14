@@ -1,20 +1,28 @@
-#include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
+#include "ProjectFT/Data/FTInventoryPreloadDataAsset.h"
 
 #include "ProjectFT/Data/FTItemDataAsset.h"
 
-const FPrimaryAssetType UFTLevelPreloadDataAsset::AssetType = TEXT("FTLevelPreload");
+const FPrimaryAssetType UFTInventoryPreloadDataAsset::AssetType = TEXT("FTInventoryPreload");
 
-FPrimaryAssetId UFTLevelPreloadDataAsset::GetPrimaryAssetId() const
+FPrimaryAssetId UFTInventoryPreloadDataAsset::GetPrimaryAssetId() const
 {
 	return FPrimaryAssetId(AssetType, GetFName());
 }
 
-void UFTLevelPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& OutAssetPaths) const
+void UFTInventoryPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& OutAssetPaths) const
 {
 	TSet<FString> ExcludedPathStrings;
 	GetExcludedAssetPaths(ExcludedPathStrings);
 
 	TSet<FString> AddedPathStrings;
+	for (const FSoftObjectPath& ExistingPath : OutAssetPaths)
+	{
+		if (ExistingPath.IsValid())
+		{
+			AddedPathStrings.Add(ExistingPath.ToString());
+		}
+	}
+
 	auto AddAssetPath = [&OutAssetPaths, &AddedPathStrings, &ExcludedPathStrings](const FSoftObjectPath& AssetPath)
 	{
 		const FString AssetPathString = AssetPath.ToString();
@@ -25,7 +33,7 @@ void UFTLevelPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& Out
 		}
 	};
 
-	for (const TSoftObjectPtr<UObject>& Asset : GeneratedEnvironmentAssets)
+	for (const TSoftObjectPtr<UFTItemDataAsset>& Asset : InventoryItemAssets)
 	{
 		AddAssetPath(Asset.ToSoftObjectPath());
 	}
@@ -36,7 +44,7 @@ void UFTLevelPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& Out
 	}
 }
 
-void UFTLevelPreloadDataAsset::GetExcludedAssetPaths(TSet<FString>& OutExcludedPathStrings) const
+void UFTInventoryPreloadDataAsset::GetExcludedAssetPaths(TSet<FString>& OutExcludedPathStrings) const
 {
 	for (const TSoftObjectPtr<UObject>& ExcludedAsset : ExcludedAssets)
 	{
