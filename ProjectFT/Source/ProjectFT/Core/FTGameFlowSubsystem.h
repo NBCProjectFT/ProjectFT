@@ -34,6 +34,12 @@ public:
 	void RequestStartRaid();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	bool RequestStartRaidAtLevel(FName TargetLevelName);
+
+	UFUNCTION(BlueprintPure, Category = "FT|Flow")
+	bool CanStartRaidAtLevel(FName TargetLevelName) const;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void RequestEscapeRaid();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
@@ -84,4 +90,7 @@ private:
 	void BroadcastFlowEvent(FGameplayTag Channel) const;
 
 	TArray<FGameplayMessageListenerHandle> FlowRequestListenerHandles;
+
+	UPROPERTY(Transient)
+	FName PendingRaidLevelName = NAME_None;
 };

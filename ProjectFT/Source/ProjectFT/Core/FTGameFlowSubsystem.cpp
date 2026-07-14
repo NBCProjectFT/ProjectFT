@@ -104,12 +104,27 @@ void UFTGameFlowSubsystem::RequestStartGame()
 
 void UFTGameFlowSubsystem::RequestStartRaid()
 {
-	if (CurrentFlowState == EFTFlowStateType::RaidEntering || CurrentFlowState == EFTFlowStateType::RaidInProgress)
+	RequestStartRaidAtLevel(ResolveLevelNameForState(EFTFlowStateType::RaidEntering));
+}
+
+bool UFTGameFlowSubsystem::RequestStartRaidAtLevel(const FName TargetLevelName)
+{
+	if (!CanStartRaidAtLevel(TargetLevelName))
 	{
-		return;
+		return false;
 	}
 
+	PendingRaidLevelName = TargetLevelName;
 	TravelToState(EFTFlowStateType::RaidEntering);
+	return true;
+}
+
+bool UFTGameFlowSubsystem::CanStartRaidAtLevel(const FName TargetLevelName) const
+{
+	return !TargetLevelName.IsNone()
+		&& CurrentFlowState != EFTFlowStateType::RaidEntering
+		&& CurrentFlowState != EFTFlowStateType::RaidInProgress
+		&& CurrentFlowState != EFTFlowStateType::Escaping;
 }
 
 void UFTGameFlowSubsystem::RequestEscapeRaid()
@@ -168,6 +183,8 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 
 void UFTGameFlowSubsystem::ReturnToBase()
 {
+	PendingRaidLevelName = NAME_None;
+
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
@@ -427,6 +444,16 @@ FName UFTGameFlowSubsystem::ResolveCurrentWorldLevelName() const
 
 FName UFTGameFlowSubsystem::ResolveLevelNameForState(EFTFlowStateType State) const
 {
+	if ((State == EFTFlowStateType::RaidEntering
+		|| State == EFTFlowStateType::RaidInProgress
+		|| State == EFTFlowStateType::Escaping
+		|| State == EFTFlowStateType::Escaped
+		|| State == EFTFlowStateType::Failed)
+		&& !PendingRaidLevelName.IsNone())
+	{
+		return PendingRaidLevelName;
+	}
+
 	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(State))
 	{
 		if (!Route->Level.IsNull())

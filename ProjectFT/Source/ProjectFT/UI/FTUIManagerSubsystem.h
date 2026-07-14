@@ -24,6 +24,9 @@ class UFTHubStorageViewModel;
 class UFTHubStorageWidget;
 class UFTHubCraftTestWidget;
 class UFTInventoryComponent;
+class AFTHubRaidEntrance;
+class UFTRaidSelectWidget;
+class UFTRaidSelectViewModel;
 
 UCLASS()
 class PROJECTFT_API UFTUIManagerSubsystem : public UGameInstanceSubsystem
@@ -101,6 +104,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideStorage();
 
+	void ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFTInventoryComponent* PlayerInventory);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HideRaidSelect();
+
 	void ShowHubMain(
 		AFTHubTerminal* HubTerminal,
 		AFTHubStorage* HubStorage,
@@ -154,6 +162,12 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubCraftTestWidget> HubCraftWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTRaidSelectWidget> RaidSelectWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTRaidSelectViewModel> RaidSelectViewModel = nullptr;
 
 	TArray<FGameplayMessageListenerHandle> UIMessageListenerHandles;
 };

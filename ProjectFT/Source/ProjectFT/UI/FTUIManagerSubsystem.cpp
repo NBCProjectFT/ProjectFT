@@ -12,6 +12,7 @@
 #include "HubUI/FTHubQuestPanelWidget.h"
 #include "HubUI/FTHubShopPanelWidget.h"
 #include "HubUI/FTHubStorageWidget.h"
+#include "HubUI/FTRaidSelectWidget.h"
 #include "Framework/Application/SlateApplication.h"
 #include "../ViewModel/FTCraftingViewModel.h"
 #include "../ViewModel/FTHUDViewModel.h"
@@ -19,12 +20,14 @@
 #include "../ViewModel/FTQuestViewModel.h"
 #include "../ViewModel/FTSettlementViewModel.h"
 #include "../ViewModel/FTHubStorageViewModel.h"
+#include "../ViewModel/FTRaidSelectViewModel.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Core/FTObjectiveSubsystem.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
+#include "ProjectFT/Hub/FTHubRaidEntrance.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -490,6 +493,71 @@ void UFTUIManagerSubsystem::HideStorage()
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
 	{
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
+}
+
+void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFTInventoryComponent* PlayerInventory)
+{
+	if (!RaidEntrance)
+	{
+		return;
+	}
+
+	if (RaidSelectWidget && RaidSelectWidget->IsInViewport())
+	{
+		HideRaidSelect();
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	TSubclassOf<UFTRaidSelectWidget> WidgetClass = RaidEntrance->GetRaidSelectWidgetClass();
+	if (!PlayerController || !WidgetClass)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Raid select widget was not opened. PlayerController=%s WidgetClass=%s"),
+			*GetNameSafe(PlayerController),
+			*GetNameSafe(WidgetClass));
+		return;
+	}
+
+	if (!RaidSelectWidget || !RaidSelectWidget->IsA(WidgetClass))
+	{
+		RaidSelectWidget = CreateWidget<UFTRaidSelectWidget>(PlayerController, WidgetClass);
+	}
+	if (!RaidSelectWidget)
+	{
+		return;
+	}
+
+	if (!RaidSelectViewModel)
+	{
+		RaidSelectViewModel = NewObject<UFTRaidSelectViewModel>(this);
+	}
+	RaidSelectViewModel->Initialize(RaidEntrance, PlayerInventory);
+	RaidSelectWidget->InitializeRaidSelect(RaidSelectViewModel);
+	RaidSelectWidget->AddToViewport(20);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(RaidSelectWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+}
+
+void UFTUIManagerSubsystem::HideRaidSelect()
+{
+	if (RaidSelectWidget)
+	{
+		RaidSelectWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
 	}
