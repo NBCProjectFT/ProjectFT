@@ -1,4 +1,4 @@
-﻿#include "FTProjectileActor.h"
+#include "FTProjectileActor.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
@@ -162,7 +162,7 @@ void AFTProjectileActor::InitializeHeldProjectile(
 
 	if (ProjectileMovementComponent)
 	{
-		ProjectileMovementComponent->UpdatedComponent = ProjectileCollisionComponent;
+		ProjectileMovementComponent->SetUpdatedComponent(nullptr);
 		ProjectileMovementComponent->StopMovementImmediately();
 		ProjectileMovementComponent->Deactivate();
 	}
@@ -201,7 +201,7 @@ void AFTProjectileActor::ReleaseProjectile(const FVector& FireDirection)
 
 	if (ProjectileMovementComponent)
 	{
-		ProjectileMovementComponent->UpdatedComponent = ProjectileCollisionComponent;
+		ProjectileMovementComponent->SetUpdatedComponent(ProjectileCollisionComponent);
 		ProjectileMovementComponent->InitialSpeed = ProjectileData.ProjectileSpeed;
 		ProjectileMovementComponent->MaxSpeed = ProjectileData.MaxSpeed;
 		ProjectileMovementComponent->ProjectileGravityScale = ProjectileData.GravityScale;
