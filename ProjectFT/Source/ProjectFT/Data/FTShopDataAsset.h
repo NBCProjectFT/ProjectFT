@@ -79,5 +79,5 @@ public:
 	int32 RandomSlotCount = 6;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shop|Currency")
-	FName CurrencyItemID = TEXT("ID_Coin");
+	FName CurrencyItemID = TEXT("ID_Common_Coin");
 };
