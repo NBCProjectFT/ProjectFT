@@ -201,6 +201,9 @@ private:
 	// CurrentHeldInventoryItem에 맞춰 손의 아이템 액터를 스폰/어태치하거나(없으면) 제거한다.
 	void RefreshHeldItemActor();
 
+	UFUNCTION()
+	void OnInventoryChangedCallback();
+
 	// 아이템 타입별 데이터 에셋의 AttachSocketName을 우선 사용하고, 없으면 폴백 소켓을 돌려준다.
 	FName ResolveHeldItemAttachSocket(const UFTItemDataAsset* ItemData) const;
     

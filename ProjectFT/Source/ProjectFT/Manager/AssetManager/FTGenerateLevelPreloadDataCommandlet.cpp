@@ -3,6 +3,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/World.h"
 #include "Misc/PackageName.h"
+#include "ProjectFT/Data/FTInventoryPreloadDataAsset.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
 #include "UObject/SavePackage.h"
@@ -13,6 +14,7 @@ namespace
 	const TCHAR* DefaultLevelDirectory = TEXT("/Game/Level");
 	const TCHAR* DefaultItemDataDirectory = TEXT("/Game/Blueprints/Items/Data");
 	const TCHAR* DefaultOutputDirectory = TEXT("/Game/Blueprints/LevelPreload");
+	const TCHAR* DefaultInventoryPreloadAssetName = TEXT("DA_InventoryPreload_Default");
 
 	FString NormalizeContentPath(FString Path)
 	{
@@ -53,6 +55,11 @@ int32 UFTGenerateLevelPreloadDataCommandlet::Main(const FString& Params)
 	FParse::Value(*Params, TEXT("OutputDirectory="), OutputDirectory);
 	OutputDirectory = NormalizeContentPath(OutputDirectory);
 
+	FString InventoryPreloadAssetName = DefaultInventoryPreloadAssetName;
+	FParse::Value(*Params, TEXT("InventoryPreloadAssetName="), InventoryPreloadAssetName);
+
+	const bool bInventoryOnly = FParse::Param(*Params, TEXT("InventoryOnly"));
+
 	if (LevelName.IsEmpty() || ItemDataDirectory.IsEmpty() || OutputDirectory.IsEmpty())
 	{
 		UE_LOG(LogTemp, Error, TEXT("Invalid params. LevelName, ItemDataDirectory, and OutputDirectory must not be empty."));
@@ -62,6 +69,8 @@ int32 UFTGenerateLevelPreloadDataCommandlet::Main(const FString& Params)
 	const FString AssetName = FString::Printf(TEXT("DA_LevelPreload_%s"), *LevelName);
 	const FString PackageName = FString::Printf(TEXT("%s/%s"), *OutputDirectory, *AssetName);
 	const FString ObjectPath = BuildObjectPath(PackageName, AssetName);
+	const FString InventoryPackageName = FString::Printf(TEXT("%s/%s"), *OutputDirectory, *InventoryPreloadAssetName);
+	const FString InventoryObjectPath = BuildObjectPath(InventoryPackageName, InventoryPreloadAssetName);
 
 	UFTLevelPreloadDataAsset* DataAsset = LoadObject<UFTLevelPreloadDataAsset>(nullptr, *ObjectPath);
 	UPackage* Package = DataAsset ? DataAsset->GetOutermost() : CreatePackage(*PackageName);
@@ -75,6 +84,20 @@ int32 UFTGenerateLevelPreloadDataCommandlet::Main(const FString& Params)
 	{
 		DataAsset = NewObject<UFTLevelPreloadDataAsset>(Package, UFTLevelPreloadDataAsset::StaticClass(), *AssetName, RF_Public | RF_Standalone | RF_Transactional);
 		FAssetRegistryModule::AssetCreated(DataAsset);
+	}
+
+	UFTInventoryPreloadDataAsset* InventoryPreloadDataAsset = LoadObject<UFTInventoryPreloadDataAsset>(nullptr, *InventoryObjectPath);
+	UPackage* InventoryPackage = InventoryPreloadDataAsset ? InventoryPreloadDataAsset->GetOutermost() : CreatePackage(*InventoryPackageName);
+	if (!InventoryPackage)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create inventory preload package: %s"), *InventoryPackageName);
+		return 1;
+	}
+
+	if (!InventoryPreloadDataAsset)
+	{
+		InventoryPreloadDataAsset = NewObject<UFTInventoryPreloadDataAsset>(InventoryPackage, UFTInventoryPreloadDataAsset::StaticClass(), *InventoryPreloadAssetName, RF_Public | RF_Standalone | RF_Transactional);
+		FAssetRegistryModule::AssetCreated(InventoryPreloadDataAsset);
 	}
 
 	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
@@ -95,16 +118,41 @@ int32 UFTGenerateLevelPreloadDataCommandlet::Main(const FString& Params)
 	DataAsset->Modify();
 	DataAsset->LevelId = FName(*LevelName);
 	DataAsset->Level = TSoftObjectPtr<UWorld>(FSoftObjectPath(BuildObjectPath(FString::Printf(TEXT("%s/%s"), *LevelDirectory, *LevelName), LevelName)));
-	DataAsset->GeneratedInventoryItemAssets.Reset();
-	DataAsset->GeneratedInventoryItemAssets.Reserve(ItemAssetDataList.Num());
-	DataAsset->bPreloadAllInventoryItemDataAssets = true;
+	DataAsset->bUseInventoryPreloadDataAsset = true;
+	DataAsset->InventoryPreloadDataAsset = TSoftObjectPtr<UFTInventoryPreloadDataAsset>(FSoftObjectPath(InventoryObjectPath));
+
+	InventoryPreloadDataAsset->Modify();
+	InventoryPreloadDataAsset->bIncludeAllPrimaryItemAssets = false;
+	InventoryPreloadDataAsset->InventoryItemAssets.Reset();
+	InventoryPreloadDataAsset->InventoryItemAssets.Reserve(ItemAssetDataList.Num());
 
 	for (const FAssetData& ItemAssetData : ItemAssetDataList)
 	{
-		DataAsset->GeneratedInventoryItemAssets.Add(TSoftObjectPtr<UFTItemDataAsset>(ItemAssetData.ToSoftObjectPath()));
+		InventoryPreloadDataAsset->InventoryItemAssets.Add(TSoftObjectPtr<UFTItemDataAsset>(ItemAssetData.ToSoftObjectPath()));
+	}
+
+	if (bInventoryOnly)
+	{
+		InventoryPackage->MarkPackageDirty();
+
+		const FString InventoryPackageFilename = FPackageName::LongPackageNameToFilename(InventoryPackageName, FPackageName::GetAssetPackageExtension());
+		FSavePackageArgs SaveArgs;
+		SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+		SaveArgs.SaveFlags = SAVE_NoError;
+
+		if (!UPackage::SavePackage(InventoryPackage, InventoryPreloadDataAsset, *InventoryPackageFilename, SaveArgs))
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to save inventory preload DataAsset: %s"), *InventoryObjectPath);
+			return 1;
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("Generated inventory preload DataAsset: %s"), *InventoryObjectPath);
+		UE_LOG(LogTemp, Log, TEXT("Inventory item preload assets: %d"), InventoryPreloadDataAsset->InventoryItemAssets.Num());
+		return 0;
 	}
 
 	Package->MarkPackageDirty();
+	InventoryPackage->MarkPackageDirty();
 
 	const FString PackageFilename = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
 	FSavePackageArgs SaveArgs;
@@ -117,7 +165,15 @@ int32 UFTGenerateLevelPreloadDataCommandlet::Main(const FString& Params)
 		return 1;
 	}
 
+	const FString InventoryPackageFilename = FPackageName::LongPackageNameToFilename(InventoryPackageName, FPackageName::GetAssetPackageExtension());
+	if (!UPackage::SavePackage(InventoryPackage, InventoryPreloadDataAsset, *InventoryPackageFilename, SaveArgs))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to save inventory preload DataAsset: %s"), *InventoryObjectPath);
+		return 1;
+	}
+
 	UE_LOG(LogTemp, Log, TEXT("Generated level preload DataAsset: %s"), *ObjectPath);
-	UE_LOG(LogTemp, Log, TEXT("Inventory item preload assets: %d"), DataAsset->GeneratedInventoryItemAssets.Num());
+	UE_LOG(LogTemp, Log, TEXT("Generated inventory preload DataAsset: %s"), *InventoryObjectPath);
+	UE_LOG(LogTemp, Log, TEXT("Inventory item preload assets: %d"), InventoryPreloadDataAsset->InventoryItemAssets.Num());
 	return 0;
 }

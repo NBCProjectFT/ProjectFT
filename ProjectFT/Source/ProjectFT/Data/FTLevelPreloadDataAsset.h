@@ -5,6 +5,7 @@
 #include "FTLevelPreloadDataAsset.generated.h"
 
 class UFTItemDataAsset;
+class UFTInventoryPreloadDataAsset;
 class UWorld;
 
 UCLASS(BlueprintType)
@@ -29,11 +30,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
 	TArray<TSoftObjectPtr<UObject>> GeneratedEnvironmentAssets;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
+	UPROPERTY(meta = (DeprecatedProperty, DeprecationMessage = "Inventory preload assets are now managed by UFTInventoryPreloadDataAsset."))
 	TArray<TSoftObjectPtr<UFTItemDataAsset>> GeneratedInventoryItemAssets;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
+	UPROPERTY(meta = (DeprecatedProperty, DeprecationMessage = "Use bUseInventoryPreloadDataAsset and InventoryPreloadDataAsset instead."))
 	bool bPreloadAllInventoryItemDataAssets = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
+	bool bUseInventoryPreloadDataAsset = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload", meta = (EditCondition = "bUseInventoryPreloadDataAsset"))
+	TSoftObjectPtr<UFTInventoryPreloadDataAsset> InventoryPreloadDataAsset;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
 	TArray<TSoftObjectPtr<UObject>> AdditionalPreloadAssets;
@@ -42,4 +49,5 @@ public:
 	TArray<TSoftObjectPtr<UObject>> ExcludedAssets;
 
 	void GetPreloadAssetPaths(TArray<FSoftObjectPath>& OutAssetPaths) const;
+	void GetExcludedAssetPaths(TSet<FString>& OutExcludedPathStrings) const;
 };
