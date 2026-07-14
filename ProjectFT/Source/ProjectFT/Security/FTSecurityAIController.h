@@ -10,6 +10,7 @@
 class UAIPerceptionComponent;
 class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
+class UFTSecurityCallComponent;
 class AActor;
 struct FFTNPCReportPayloadStruct;
 struct FFTMessagePayloadStruct;
@@ -40,6 +41,9 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UAISenseConfig_Sight> SightConfig;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Call")
+	TObjectPtr<UFTSecurityCallComponent> SecurityCallComponent;
 	
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
@@ -185,11 +189,13 @@ private:
 	void UpdateTargetFocus();
 	void UpdateAbilityState();
 	void UpdateChaseGaugeTargetSeenState();
+	void UpdateSecurityCallGauge(float DeltaTime);
 	void UpdateReturnCollision();
 	void CompleteReturn();
 	bool bReportedTargetSeenToChaseGauge = false;
 	bool bReturnFailureLogged = false;
 	bool bReturnCollisionIgnored = false;
+	bool bCanRequestSecuritySupport = false;
 	float LastTargetVisibleTime = -BIG_NUMBER;
 
 	UPROPERTY()
