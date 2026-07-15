@@ -158,7 +158,17 @@ void AFTLootShelf::HandleStealCompleted()
 	UE_LOG(LogFTPlayer, Log, TEXT("LootShelf '%s' 훔치기 완료. 인벤토리에 아이템을 추가합니다."), *GetName());
 
 	GiveStealReward();
+	
+	FFTMessagePayloadStruct StealPayload;
+	
+	StealPayload.TargetActor = this;
+	StealPayload.Value = 1.0f;
 
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(
+		TAG_FT_Event_StealCompleted,
+		StealPayload
+	);
+	
 	// 데이터 에셋이 유효하고 쿨다운 대기 시간이 설정된 경우 쿨다운 상태로 이행
 	if (ShelfDataAsset && ShelfDataAsset->CooldownSeconds > 0.0f)
 	{

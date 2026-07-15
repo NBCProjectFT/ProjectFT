@@ -9,6 +9,7 @@
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
+#include "InputCoreTypes.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
 
@@ -52,6 +53,8 @@ UFTHubShopPanelWidget* UFTHubMainWidget::GetShopPanelWidget() const
 void UFTHubMainWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	SetIsFocusable(true);
 
 	if (BTN_MailTab)
 	{
@@ -169,6 +172,17 @@ void UFTHubMainWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
 	RefreshCollectionCoinText();
+}
+
+FReply UFTHubMainWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::E)
+	{
+		HandleCloseClicked();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UFTHubMainWidget::RefreshCollectionCoinText()

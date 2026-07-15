@@ -7,6 +7,7 @@
 #include "Engine/AssetManager.h"
 #include "Engine/World.h"
 #include "Components/WidgetComponent.h"
+#include "InputCoreTypes.h"
 
 void UFTItemPoolSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -235,6 +236,20 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 
 	FVector CameraForward = CameraRotation.Vector();
 
+	// 1. 화면 정중앙(에임)에 조준 중인 액터 조회 (Line Trace)
+	AActor* ActorUnderAim = nullptr;
+	FHitResult AimHit;
+	FVector TraceEnd = CameraLocation + (CameraForward * PreviewMaxDistance);
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(PlayerPawn);
+	if (GetWorld()->LineTraceSingleByChannel(AimHit, CameraLocation, TraceEnd, ECC_Visibility, TraceParams))
+	{
+		ActorUnderAim = AimHit.GetActor();
+	}
+
+	// 2. 미리보기 키(Q)가 꾹 눌려 있는지 감지
+	const bool bIsQKeyDown = PC->IsInputKeyDown(EKeys::Q);
+
 	TArray<TObjectPtr<AFTItemActor>> ToRemove;
 
 	for (TObjectPtr<AFTItemActor> Item : ActiveItemActors)
@@ -254,7 +269,7 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 
 		FVector ItemLocation = Item->GetActorLocation();
 
-		// 1. 거리 검사
+		// 기본 거리 검사 (반드시 특정 거리 이내에 있어야 함)
 		float Distance = FVector::Dist(CameraLocation, ItemLocation);
 		if (Distance > PreviewMaxDistance)
 		{
@@ -262,18 +277,15 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 			continue;
 		}
 
-		// 2. 시야각(Dot Product) 검사
-		FVector DirectionToItem = (ItemLocation - CameraLocation).GetSafeNormal();
-		float DotProduct = FVector::DotProduct(CameraForward, DirectionToItem);
-
-		if (DotProduct < PreviewAngleThreshold)
+		// 3. 조준 및 Q 키 홀드 조건 만족 시에만 미리보기 노출
+		if (Item == ActorUnderAim && bIsQKeyDown)
+		{
+			Item->SetTooltipVisibility(true);
+		}
+		else
 		{
 			Item->SetTooltipVisibility(false);
-			continue;
 		}
-
-		// 거리 및 시야각 통과 시 UI 노출 활성화
-		Item->SetTooltipVisibility(true);
 	}
 
 	// 유효하지 않은 액터 제거

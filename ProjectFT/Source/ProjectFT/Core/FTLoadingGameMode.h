@@ -5,6 +5,7 @@
 #include "FTLoadingGameMode.generated.h"
 
 class UFTLoadingWidget;
+class UFTLevelPreloadDataAsset;
 
 UCLASS()
 class PROJECTFT_API AFTLoadingGameMode : public AGameModeBase

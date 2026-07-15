@@ -6,6 +6,7 @@
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Struct/FTSavedInventoryStateStruct.h"
 #include "FTInventoryComponent.generated.h"
 
 /** @brief 인벤토리 슬롯 한 칸의 정보를 담는 구조체 */
@@ -164,6 +165,9 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory|QuickSlot")
 	bool GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& OutItem) const;
+
+	void ExportSaveState(FFTSavedInventoryStateStruct& OutSaveState) const;
+	void ImportSaveState(const FFTSavedInventoryStateStruct& SaveState);
 
 protected:
 	virtual void BeginPlay() override;

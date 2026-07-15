@@ -11,7 +11,7 @@ public class ProjectFT : ModuleRules
 	
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayTags", "GameplayTasks", "GameplayAbilities", "GameplayMessageRuntime", "UMG", "AIModule" , "Slate", "SlateCore", "MotionWarping", "StateTreeModule"});
-		PrivateDependencyModuleNames.AddRange(new string[] { "GameplayStateTreeModule", "NavigationSystem" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "AssetRegistry", "GameplayStateTreeModule", "NavigationSystem" });
 
 
 

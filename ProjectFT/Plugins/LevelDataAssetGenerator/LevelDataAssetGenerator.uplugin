@@ -1,0 +1,23 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.0",
+	"FriendlyName": "Level Data Asset Generator",
+	"Description": "Analyzes the current editor level and updates level preload DataAssets.",
+	"Category": "Editor",
+	"CreatedBy": "LevelDataAssetGenerator",
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"Modules": [
+		{
+			"Name": "LevelDataAssetGenerator",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "LevelDataAssetGeneratorEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}

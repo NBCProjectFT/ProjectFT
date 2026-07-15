@@ -17,6 +17,10 @@ protected:
 	virtual void NativeOnItemSelectionChanged(bool bIsSelected) override;
 
 	void ApplySelectionVisual(bool bIsSelected);
+	void ApplyTextVisual(UTextBlock* TextBlock, bool bIsSelected) const;
+
+	bool bQuestAccepted = false;
+	bool bQuestCanComplete = false;
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* TXT_QuestName;

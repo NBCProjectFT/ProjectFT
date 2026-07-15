@@ -313,6 +313,62 @@ bool UFTInventoryComponent::GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& 
 	return true;
 }
 
+void UFTInventoryComponent::ExportSaveState(FFTSavedInventoryStateStruct& OutSaveState) const
+{
+	OutSaveState.Items.Reset();
+	OutSaveState.QuickSlots = QuickSlots;
+	OutSaveState.MaxWeight = MaxWeight;
+
+	for (const FFTInventoryItem& Item : Items)
+	{
+		if (Item.ItemId.IsNone() || Item.Quantity <= 0)
+		{
+			continue;
+		}
+
+		FFTSavedInventoryItemStruct SavedItem;
+		SavedItem.ItemId = Item.ItemId;
+		SavedItem.Quantity = Item.Quantity;
+		OutSaveState.Items.Add(SavedItem);
+	}
+}
+
+void UFTInventoryComponent::ImportSaveState(const FFTSavedInventoryStateStruct& SaveState)
+{
+	Items.Reset();
+	MaxWeight = SaveState.MaxWeight;
+	QuickSlots = SaveState.QuickSlots;
+
+	if (QuickSlots.Num() == 0)
+	{
+		QuickSlots.Init(NAME_None, 6);
+	}
+
+	for (const FFTSavedInventoryItemStruct& SavedItem : SaveState.Items)
+	{
+		if (SavedItem.ItemId.IsNone() || SavedItem.Quantity <= 0)
+		{
+			continue;
+		}
+
+		UFTItemDataAsset* ItemDataAsset = FindItemData(SavedItem.ItemId);
+		if (!ItemDataAsset)
+		{
+			UE_LOG(LogFTItem, Warning, TEXT("Save import skipped missing item data. ItemId=%s"), *SavedItem.ItemId.ToString());
+			continue;
+		}
+
+		FFTInventoryItem RestoredItem;
+		RestoredItem.ItemId = SavedItem.ItemId;
+		RestoredItem.Quantity = SavedItem.Quantity;
+		RestoredItem.ItemDataAsset = ItemDataAsset;
+		Items.Add(RestoredItem);
+	}
+
+	UpdateWeight();
+	OnInventoryChanged.Broadcast();
+}
+
 bool UFTInventoryComponent::GetInventoryItemAtIndex(int32 SlotIndex, FFTInventoryItem& OutItem) const
 {
 	if (!Items.IsValidIndex(SlotIndex))

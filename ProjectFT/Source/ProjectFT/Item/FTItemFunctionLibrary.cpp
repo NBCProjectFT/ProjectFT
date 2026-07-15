@@ -1,10 +1,42 @@
 #include "FTItemFunctionLibrary.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/AssetManager.h"
+#include "Modules/ModuleManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
+
+namespace
+{
+	const FName FTItemPrimaryAssetType(TEXT("FTItemItem"));
+	const FName FTItemDataDirectory(TEXT("/Game/Blueprints/Items/Data"));
+
+	UFTItemDataAsset* FindItemDataByScanningDirectory(FName ItemId)
+	{
+		IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+
+		FARFilter Filter;
+		Filter.PackagePaths.Add(FTItemDataDirectory);
+		Filter.ClassPaths.Add(UFTItemDataAsset::StaticClass()->GetClassPathName());
+		Filter.bRecursivePaths = true;
+		Filter.bRecursiveClasses = true;
+
+		TArray<FAssetData> ItemAssetDataList;
+		AssetRegistry.GetAssets(Filter, ItemAssetDataList);
+		for (const FAssetData& ItemAssetData : ItemAssetDataList)
+		{
+			UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(ItemAssetData.GetAsset());
+			if (ItemDataAsset && ItemDataAsset->ItemData.ItemId == ItemId)
+			{
+				return ItemDataAsset;
+			}
+		}
+
+		return nullptr;
+	}
+}
 
 UFTItemDataAsset* UFTItemFunctionLibrary::FindItemData(const UObject* WorldContextObject, FName ItemId)
 {
@@ -14,7 +46,7 @@ UFTItemDataAsset* UFTItemFunctionLibrary::FindItemData(const UObject* WorldConte
 	}
 
 	UAssetManager& AssetManager = UAssetManager::Get();
-	FPrimaryAssetId AssetId = FPrimaryAssetId(FName("FTItemItem"), ItemId);
+	FPrimaryAssetId AssetId = FPrimaryAssetId(FTItemPrimaryAssetType, ItemId);
 	
 	// 1. 이미 메모리에 로드되어 있는지 확인
 	UObject* AssetObj = AssetManager.GetPrimaryAssetObject(AssetId);
@@ -28,7 +60,12 @@ UFTItemDataAsset* UFTItemFunctionLibrary::FindItemData(const UObject* WorldConte
 		}
 	}
 	
-	return Cast<UFTItemDataAsset>(AssetObj);
+	if (UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(AssetObj))
+	{
+		return ItemDataAsset;
+	}
+
+	return FindItemDataByScanningDirectory(ItemId);
 }
 
 int32 UFTItemFunctionLibrary::GetPlayerItemQuantity(const UObject* WorldContextObject, FName ItemId)

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "FTGA_ItemAbility.h"
@@ -36,7 +36,22 @@ public:
 		const FGameplayEventData* TriggerEventData
 	) override;
 
+protected:
+	// 몽타주 재생 중 AnimNotify가 오면 실제 투사체를 발사하는 함수
+	UFUNCTION()
+	void HandleThrowReleaseEvent(FGameplayEventData Payload);
+
+	// 몽타주 완료/인터럽트 시 어빌리티 종료 처리
+	UFUNCTION()
+	void HandleMontageCompleted();
+
+	UFUNCTION()
+	void HandleMontageInterrupted();
+
 private:
+	// 실제 투사체 스폰 및 탄약 소모 처리
+	bool ExecuteFire();
+
 	// 발사기 소켓/카메라 방향 기준으로 ProjectileActor를 스폰하고 초기 속도를 부여한다.
 	bool FireProjectile();
 
@@ -70,4 +85,8 @@ private:
 	// 실제로 스폰할 ProjectileActor의 데이터.
 	UPROPERTY(Transient)
 	TObjectPtr<UFTProjectileActorDataAsset> ProjectileActorData = nullptr;
+
+	// 한 활성화 주기 내 중복 발사 방지용 플래그
+	UPROPERTY(Transient)
+	bool bHasFiredInThisActivation = false;
 };

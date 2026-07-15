@@ -111,6 +111,7 @@ void AFTNPCAIController::Tick(float DeltaTime)
 
 	UpdateTargetState();
 	UpdateShoppingLook(DeltaTime);
+	UpdateReportFocus();
 	DrawSightDebug();
 }
 
@@ -247,7 +248,10 @@ void AFTNPCAIController::ReleaseShoppingTarget()
 	CurrentShoppingLookLocation = FVector::ZeroVector;
 	DesiredShoppingLookLocation = FVector::ZeroVector;
 	bHasShoppingTarget = false;
-	ClearFocus(EAIFocusPriority::Gameplay);
+	if (!bUsingReportFocus)
+	{
+		ClearFocus(EAIFocusPriority::Gameplay);
+	}
 }
 
 void AFTNPCAIController::StartShoppingLook()
@@ -276,7 +280,7 @@ void AFTNPCAIController::StartShoppingLook()
 
 void AFTNPCAIController::UpdateShoppingLook(float DeltaTime)
 {
-	if (!bBlendShoppingLook)
+	if (!bBlendShoppingLook || bUsingReportFocus)
 	{
 		return;
 	}
@@ -298,6 +302,29 @@ void AFTNPCAIController::UpdateShoppingLook(float DeltaTime)
 	CurrentShoppingLookLocation = DesiredShoppingLookLocation;
 	SetFocalPoint(CurrentShoppingLookLocation, EAIFocusPriority::Gameplay);
 	bBlendShoppingLook = false;
+}
+
+void AFTNPCAIController::UpdateReportFocus()
+{
+	const bool bShouldFocusReportTarget = TargetActor
+		&& bHasSeenTarget
+		&& CurrentReportProgress > 0.0f
+		&& !bReportCompleted
+		&& !bIsStunned;
+
+	if (bShouldFocusReportTarget)
+	{
+		// 신고 게이지가 남아 있고 대상이 보이면 의심 대상을 계속 응시한다.
+		SetFocus(TargetActor, EAIFocusPriority::Gameplay);
+		bUsingReportFocus = true;
+		return;
+	}
+
+	if (bUsingReportFocus)
+	{
+		ClearFocus(EAIFocusPriority::Gameplay);
+		bUsingReportFocus = false;
+	}
 }
 
 void AFTNPCAIController::EnterSuspicious()
@@ -391,7 +418,7 @@ void AFTNPCAIController::UpdateTargetState()
 	const bool bHasObservedShelfDamaged = NPCReportComponent && NPCReportComponent->bObservedShelfDamaged;
 	const bool bHasObservedAssault = NPCReportComponent && NPCReportComponent->bObservedAssault;
 	bCanStartReportFlow = !bIsStunned && TargetActor &&
-		((bHasSeenTarget && bIsTargetActivelyStealing) || bHasObservedShelfDamaged || bHasObservedAssault);
+		((bHasSeenTarget && bIsTargetStealing) || bHasObservedShelfDamaged || bHasObservedAssault);
 
 	if (NPCReportComponent)
 	{

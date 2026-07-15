@@ -4,19 +4,15 @@
 #include "FTLogChannels.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/PackageName.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
+#include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
+#include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTFlowLevelRouteStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
-
-namespace
-{
-	const FName FallbackLoadingLevelName(TEXT("Lvl_Loading"));
-	const FName FallbackMainMenuLevelName(TEXT("Lvl_MainMenu"));
-	const FName FallbackBaseLevelName(TEXT("Lvl_Hub"));
-	const FName FallbackRaidLevelName(TEXT("Market_Test"));
-}
 
 void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -120,6 +116,9 @@ void UFTGameFlowSubsystem::RequestEscapeRaid()
 {
 	if (CurrentFlowState != EFTFlowStateType::RaidInProgress && CurrentFlowState != EFTFlowStateType::Escaping)
 	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Start escape request ignored because current flow state is not raid. CurrentFlowState=%d CurrentLevel=%s"),
+			static_cast<uint8>(CurrentFlowState),
+			*ResolveCurrentWorldLevelName().ToString());
 		return;
 	}
 
@@ -140,9 +139,13 @@ void UFTGameFlowSubsystem::RequestCompleteEscape()
 {
 	if (CurrentFlowState != EFTFlowStateType::Escaping)
 	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Complete escape request ignored because current flow state is not escaping. CurrentFlowState=%d CurrentLevel=%s"),
+			static_cast<uint8>(CurrentFlowState),
+			*ResolveCurrentWorldLevelName().ToString());
 		return;
 	}
 
+	UE_LOG(LogFTFlow, Log, TEXT("Escape completed. Entering escaped flow state."));
 	SetFlowState(EFTFlowStateType::Escaped);
 }
 
@@ -208,9 +211,95 @@ void UFTGameFlowSubsystem::CompleteLoadingAndOpenCurrentStateLevel()
 
 void UFTGameFlowSubsystem::PreloadCurrentStateAssetsAsync(FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress) const
 {
-	// LoadingGameMode calls this after the flow has selected the active GameData.
-	// MainMenu -> StartGame switches the active GameData to DA_HubData, so this loads DA_HubData's preload range.
-	UFTAssetManager::Get().PreloadGameDataAssetsAsync(OnLoaded, OnProgress);
+	const TSoftObjectPtr<UFTLevelPreloadDataAsset> LevelPreloadDataAsset = GetCurrentStateLevelPreloadDataAsset();
+	if (LevelPreloadDataAsset.IsNull())
+	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Preload has no level preload data candidate. State=%d"),
+			static_cast<uint8>(CurrentFlowState));
+	}
+	else
+	{
+		UE_LOG(LogFTFlow, Log, TEXT("Preloading current state assets. State=%d DataAsset=%s"),
+			static_cast<uint8>(CurrentFlowState),
+			*LevelPreloadDataAsset.ToSoftObjectPath().ToString());
+	}
+
+	UFTAssetManager::Get().PreloadLevelAssetsAsync(LevelPreloadDataAsset, OnLoaded, OnProgress);
+}
+
+void UFTGameFlowSubsystem::SyncFlowStateWithCurrentLevel()
+{
+	const EFTFlowStateType ResolvedFlowState = ResolveFlowStateForCurrentWorld();
+	if (ResolvedFlowState == CurrentFlowState)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (AFTGameState* FTGameState = World->GetGameState<AFTGameState>())
+			{
+				FTGameState->SetFlowState(CurrentFlowState);
+			}
+		}
+		return;
+	}
+
+	UE_LOG(LogFTFlow, Log, TEXT("Syncing flow state from current level. Level=%s From=%d To=%d"),
+		*ResolveCurrentWorldLevelName().ToString(),
+		static_cast<uint8>(CurrentFlowState),
+		static_cast<uint8>(ResolvedFlowState));
+
+	SetFlowState(ResolvedFlowState);
+}
+
+TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::GetLevelPreloadDataAssetForState(EFTFlowStateType State) const
+{
+	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(State))
+	{
+		if (!Route->LevelPreloadDataAsset.IsNull())
+		{
+			return Route->LevelPreloadDataAsset;
+		}
+	}
+
+	const FName TargetLevelName = ResolveLevelNameForState(State);
+	if (TargetLevelName.IsNone())
+	{
+		return TSoftObjectPtr<UFTLevelPreloadDataAsset>();
+	}
+
+	const FString AssetName = FString::Printf(TEXT("DA_LevelPreload_%s"), *TargetLevelName.ToString());
+	const FString ObjectPath = FString::Printf(TEXT("/Game/Blueprints/LevelPreload/%s.%s"), *AssetName, *AssetName);
+	return TSoftObjectPtr<UFTLevelPreloadDataAsset>(FSoftObjectPath(ObjectPath));
+}
+
+TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::GetCurrentStateLevelPreloadDataAsset() const
+{
+	return GetLevelPreloadDataAssetForState(CurrentFlowState);
+}
+
+TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::ResolveLevelPreloadDataAssetForCurrentState() const
+{
+	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(CurrentFlowState))
+	{
+		if (!Route->LevelPreloadDataAsset.IsNull())
+		{
+			return Route->LevelPreloadDataAsset;
+		}
+	}
+
+	FName LevelName = ResolveCurrentWorldLevelName();
+	if (LevelName.IsNone() || LevelName == ResolveLoadingLevelName())
+	{
+		LevelName = ResolveLevelNameForState(CurrentFlowState);
+	}
+
+	if (LevelName.IsNone())
+	{
+		return TSoftObjectPtr<UFTLevelPreloadDataAsset>();
+	}
+
+	const FString AssetName = FString::Printf(TEXT("DA_LevelPreload_%s"), *LevelName.ToString());
+	const FString ObjectPath = FString::Printf(TEXT("/Game/Blueprints/LevelPreload/%s.%s"), *AssetName, *AssetName);
+	return TSoftObjectPtr<UFTLevelPreloadDataAsset>(FSoftObjectPath(ObjectPath));
 }
 
 void UFTGameFlowSubsystem::TravelToState(EFTFlowStateType TargetFlowState)
@@ -231,19 +320,70 @@ void UFTGameFlowSubsystem::TravelToStateWithLoading(EFTFlowStateType TargetFlowS
 	OpenLevelByName(ResolveLoadingLevelName());
 }
 
-const FFTFlowStateDefinition* UFTGameFlowSubsystem::FindFlowStateDefinition(EFTFlowStateType State) const
+const FFTFlowLevelRouteStruct* UFTGameFlowSubsystem::FindFlowLevelRouteByState(EFTFlowStateType State) const
 {
 	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
-	if (!GameData)
+	if (!GameData || GameData->FlowLevelRouteDataTable.IsNull())
 	{
 		return nullptr;
 	}
 
-	for (const FFTFlowStateDefinition& Definition : GameData->FlowStateDefinitions)
+	const UDataTable* RouteTable = UFTAssetManager::GetAsset(GameData->FlowLevelRouteDataTable);
+	if (!RouteTable)
 	{
-		if (Definition.State == State)
+		UE_LOG(LogFTFlow, Warning, TEXT("Flow route data table failed to load: %s"),
+			*GameData->FlowLevelRouteDataTable.ToSoftObjectPath().ToString());
+		return nullptr;
+	}
+
+	TArray<FFTFlowLevelRouteStruct*> Routes;
+	RouteTable->GetAllRows(TEXT("FTGameFlowSubsystem.FindFlowLevelRouteByState"), Routes);
+	for (const FFTFlowLevelRouteStruct* Route : Routes)
+	{
+		if (Route && Route->State == State)
 		{
-			return &Definition;
+			return Route;
+		}
+	}
+
+	return nullptr;
+}
+
+const FFTFlowLevelRouteStruct* UFTGameFlowSubsystem::FindFlowLevelRouteByLevelName(FName LevelName) const
+{
+	if (LevelName.IsNone())
+	{
+		return nullptr;
+	}
+
+	const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData();
+	if (!GameData || GameData->FlowLevelRouteDataTable.IsNull())
+	{
+		return nullptr;
+	}
+
+	const UDataTable* RouteTable = UFTAssetManager::GetAsset(GameData->FlowLevelRouteDataTable);
+	if (!RouteTable)
+	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Flow route data table failed to load: %s"),
+			*GameData->FlowLevelRouteDataTable.ToSoftObjectPath().ToString());
+		return nullptr;
+	}
+
+	TArray<FFTFlowLevelRouteStruct*> Routes;
+	RouteTable->GetAllRows(TEXT("FTGameFlowSubsystem.FindFlowLevelRouteByLevelName"), Routes);
+	for (const FFTFlowLevelRouteStruct* Route : Routes)
+	{
+		if (!Route || Route->Level.IsNull())
+		{
+			continue;
+		}
+
+		const FSoftObjectPath LevelPath = Route->Level.ToSoftObjectPath();
+		const FName RouteLevelName(*FPackageName::GetShortName(LevelPath.GetLongPackageName()));
+		if (RouteLevelName == LevelName)
+		{
+			return Route;
 		}
 	}
 
@@ -254,50 +394,84 @@ FName UFTGameFlowSubsystem::ResolveLoadingLevelName() const
 {
 	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
 	{
-		if (!GameData->LoadingLevelName.IsNone())
+		if (!GameData->LoadingLevel.IsNull())
 		{
-			return GameData->LoadingLevelName;
+			return FName(*FPackageName::GetShortName(GameData->LoadingLevel.ToSoftObjectPath().GetLongPackageName()));
 		}
 	}
 
-	return FallbackLoadingLevelName;
+	UE_LOG(LogFTFlow, Warning, TEXT("Loading level is not set in FTGameDataAsset."));
+	return NAME_None;
+}
+
+FName UFTGameFlowSubsystem::ResolveCurrentWorldLevelName() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return NAME_None;
+	}
+
+	FString MapName = FPackageName::GetShortName(World->GetMapName());
+	if (MapName.StartsWith(TEXT("UEDPIE_")))
+	{
+		const int32 PiePrefixIndex = MapName.Find(TEXT("_"), ESearchCase::CaseSensitive, ESearchDir::FromStart, FString(TEXT("UEDPIE_")).Len());
+		if (PiePrefixIndex != INDEX_NONE)
+		{
+			MapName = MapName.Mid(PiePrefixIndex + 1);
+		}
+	}
+
+	return MapName.IsEmpty() ? NAME_None : FName(*MapName);
 }
 
 FName UFTGameFlowSubsystem::ResolveLevelNameForState(EFTFlowStateType State) const
 {
-	if (const FFTFlowStateDefinition* Definition = FindFlowStateDefinition(State))
+	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(State))
 	{
-		if (!Definition->TargetLevelName.IsNone())
+		if (!Route->Level.IsNull())
 		{
-			return Definition->TargetLevelName;
+			return FName(*FPackageName::GetShortName(Route->Level.ToSoftObjectPath().GetLongPackageName()));
 		}
 	}
 
-	switch (State)
+	UE_LOG(LogFTFlow, Warning, TEXT("No level route is set for flow state. State=%d"),
+		static_cast<uint8>(State));
+	return NAME_None;
+}
+
+EFTFlowStateType UFTGameFlowSubsystem::ResolveFlowStateForCurrentWorld() const
+{
+	const FName CurrentLevelName = ResolveCurrentWorldLevelName();
+	if (CurrentLevelName.IsNone() || CurrentLevelName == ResolveLoadingLevelName())
 	{
-	case EFTFlowStateType::MainMenu:
-		return FallbackMainMenuLevelName;
-	case EFTFlowStateType::Base:
-		return FallbackBaseLevelName;
-	case EFTFlowStateType::RaidEntering:
-	case EFTFlowStateType::RaidInProgress:
-	case EFTFlowStateType::Escaping:
-	case EFTFlowStateType::Escaped:
-	case EFTFlowStateType::Failed:
-		return FallbackRaidLevelName;
-	default:
-		return NAME_None;
+		return CurrentFlowState;
 	}
+
+	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByLevelName(CurrentLevelName))
+	{
+		if (Route->State == EFTFlowStateType::RaidEntering
+			|| Route->State == EFTFlowStateType::Escaping
+			|| Route->State == EFTFlowStateType::Escaped
+			|| Route->State == EFTFlowStateType::Failed)
+		{
+			return EFTFlowStateType::RaidInProgress;
+		}
+
+		return Route->State;
+	}
+
+	return CurrentFlowState;
 }
 
 bool UFTGameFlowSubsystem::ShouldUseLoadingForState(EFTFlowStateType State) const
 {
-	if (const FFTFlowStateDefinition* Definition = FindFlowStateDefinition(State))
+	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(State))
 	{
-		return Definition->bUseLoadingLevel;
+		return Route->bUseLoadingLevel;
 	}
 
-	return State == EFTFlowStateType::Base || State == EFTFlowStateType::RaidEntering;
+	return false;
 }
 
 void UFTGameFlowSubsystem::OpenLevelByName(FName LevelName) const
@@ -314,6 +488,14 @@ void UFTGameFlowSubsystem::OpenLevelByName(FName LevelName) const
 		*LevelName.ToString(),
 		static_cast<uint8>(CurrentFlowState),
 		*GetNameSafe(World->GetAuthGameMode()));
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
+		{
+			SaveSubsystem->SaveBeforeLevelTransition(LevelName, CurrentFlowState);
+		}
+	}
 
 	RestoreMenuInputBeforeTravel(LevelName);
 	UGameplayStatics::OpenLevel(World, LevelName, true);
@@ -350,6 +532,7 @@ void UFTGameFlowSubsystem::SetFlowState(EFTFlowStateType NewFlowState)
 	UE_LOG(LogFTFlow, Log, TEXT("Flow state changed to %d"), static_cast<uint8>(NewFlowState));
 	BroadcastFlowStateChanged();
 	HandleFlowStateEntered(NewFlowState);
+	PreloadCurrentFlowStateForTest();
 }
 
 void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
@@ -382,6 +565,21 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 	default:
 		break;
 	}
+}
+
+void UFTGameFlowSubsystem::PreloadCurrentFlowStateForTest() const
+{
+	// Test Code: Loading Level을 거치지 않고 현재 FlowState 변경만으로 preload 동작을 확인하기 위한 임시 경로다.
+	// 정규 흐름에서는 AFTLoadingGameMode가 FlowState에 맞는 LevelPreloadDataAsset을 선택해 로드한다.
+	PreloadCurrentStateAssetsAsync(
+		FSimpleDelegate::CreateLambda([]()
+		{
+			UE_LOG(LogFTFlow, Log, TEXT("Test preload for current flow state completed."));
+		}),
+		FFTAssetLoadProgressDelegate::CreateLambda([](const FString& AssetName, int32 CompletedCount, int32 TotalCount)
+		{
+			UE_LOG(LogFTFlow, Verbose, TEXT("Test preload progress: %s (%d / %d)"), *AssetName, CompletedCount, TotalCount);
+		}));
 }
 
 void UFTGameFlowSubsystem::BroadcastFlowStateChanged() const

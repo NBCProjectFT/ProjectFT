@@ -1,4 +1,4 @@
-﻿#include "FTProjectileActor.h"
+#include "FTProjectileActor.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
@@ -12,6 +12,8 @@
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Data/FTProjectileActorDataAsset.h"
 #include "ProjectFT/Struct/FTProjectileActorStruct.h"
+#include "ProjectFT/Interface/FTDamageable.h"
+#include "Kismet/GameplayStatics.h"
 
 AFTProjectileActor::AFTProjectileActor()
 {
@@ -162,7 +164,7 @@ void AFTProjectileActor::InitializeHeldProjectile(
 
 	if (ProjectileMovementComponent)
 	{
-		ProjectileMovementComponent->UpdatedComponent = ProjectileCollisionComponent;
+		ProjectileMovementComponent->SetUpdatedComponent(nullptr);
 		ProjectileMovementComponent->StopMovementImmediately();
 		ProjectileMovementComponent->Deactivate();
 	}
@@ -201,7 +203,7 @@ void AFTProjectileActor::ReleaseProjectile(const FVector& FireDirection)
 
 	if (ProjectileMovementComponent)
 	{
-		ProjectileMovementComponent->UpdatedComponent = ProjectileCollisionComponent;
+		ProjectileMovementComponent->SetUpdatedComponent(ProjectileCollisionComponent);
 		ProjectileMovementComponent->InitialSpeed = ProjectileData.ProjectileSpeed;
 		ProjectileMovementComponent->MaxSpeed = ProjectileData.MaxSpeed;
 		ProjectileMovementComponent->ProjectileGravityScale = ProjectileData.GravityScale;
@@ -353,8 +355,25 @@ void AFTProjectileActor::HandleProjectileImpact(AActor* HitActor)
 
 	if (ProjectileData.bExplodeOnImpact)
 	{
-		Explode(HitActor);
-		return;
+		bool bShouldPostponeExplosion = false;
+		if (ProjectileActorData)
+		{
+			const FGameplayTag DamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage"));
+			if (ProjectileActorData->ItemData.UseData.EffectMagnitudes.Contains(DamageTag))
+			{
+				const float DamageValue = ProjectileActorData->ItemData.UseData.EffectMagnitudes[DamageTag];
+				if (DamageValue > 0.0f && (!HitActor || !HitActor->Implements<UFTDamageable>()))
+				{
+					bShouldPostponeExplosion = true;
+				}
+			}
+		}
+
+		if (!bShouldPostponeExplosion)
+		{
+			Explode(HitActor);
+			return;
+		}
 	}
 
 	if (bDestroyOnImpact)
@@ -459,6 +478,30 @@ void AFTProjectileActor::Explode(AActor* DirectHitActor)
 		for (AActor* TargetActor : ExplosionTargets)
 		{
 			SendTargetHitEvent(TargetActor);
+
+			if (TargetActor && TargetActor->Implements<UFTDamageable>())
+			{
+				float DamageValue = 0.0f;
+				if (ProjectileActorData)
+				{
+					const FGameplayTag DamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage"));
+					if (ProjectileActorData->ItemData.UseData.EffectMagnitudes.Contains(DamageTag))
+					{
+						DamageValue = ProjectileActorData->ItemData.UseData.EffectMagnitudes[DamageTag];
+					}
+				}
+
+				if (DamageValue > 0.0f)
+				{
+					UGameplayStatics::ApplyDamage(
+						TargetActor,
+						DamageValue,
+						GetInstigatorController(),
+						this,
+						UDamageType::StaticClass()
+					);
+				}
+			}
 		}
 	}
 
@@ -528,6 +571,17 @@ bool AFTProjectileActor::IsValidDirectHitTarget(AActor* TargetActor) const
 {
 	if (!TargetActor || !ProjectileActorData)
 	{
+		return false;
+	}
+
+	// 매대 등 파괴 가능한 타겟(IFTDamageable)은 에셋에 Data.Damage가 0보다 크게 설정된 경우에만 즉시 충돌/폭발 대상으로 인정합니다.
+	if (TargetActor->Implements<UFTDamageable>())
+	{
+		const FGameplayTag DamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage"));
+		if (ProjectileActorData->ItemData.UseData.EffectMagnitudes.Contains(DamageTag))
+		{
+			return ProjectileActorData->ItemData.UseData.EffectMagnitudes[DamageTag] > 0.0f;
+		}
 		return false;
 	}
 

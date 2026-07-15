@@ -6,6 +6,8 @@
 #include "FTAssetManager.generated.h"
 
 class UFTGameDataAsset;
+class UFTInventoryPreloadDataAsset;
+class UFTLevelPreloadDataAsset;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
 class UFTHubCraftTestWidget;
@@ -42,7 +44,10 @@ public:
 	template <typename AssetType>
 	void LoadSubclassAsync(const TSoftClassPtr<AssetType>& AssetPointer, TFunction<void(TSubclassOf<AssetType>)> OnLoaded, bool bKeepInMemory = true);
 
-	void PreloadGameDataAssetsAsync(FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress = FFTAssetLoadProgressDelegate());
+	void PreloadLevelAssetsAsync(
+		const TSoftObjectPtr<UFTLevelPreloadDataAsset>& LevelPreloadDataAsset,
+		FSimpleDelegate OnLoaded,
+		FFTAssetLoadProgressDelegate OnProgress = FFTAssetLoadProgressDelegate());
 
 	static void DumpLoadedAssets();
 
@@ -70,12 +75,10 @@ private:
 
 	void AddLoadedAsset(const UObject* Asset);
 	UFTGameDataAsset* LoadGameData();
-	TArray<FSoftObjectPath> CollectPreloadAssetPaths(const UFTGameDataAsset& LoadedGameData) const;
-	void AppendDirectoryAssetPaths(const TArray<FDirectoryPath>& Directories, TArray<FSoftObjectPath>& AssetPaths) const;
-	void AppendManualAssetPaths(const TArray<TSoftObjectPtr<UObject>>& Assets, TArray<FSoftObjectPath>& AssetPaths) const;
-	void RemoveExcludedAssetPaths(const UFTGameDataAsset& LoadedGameData, TArray<FSoftObjectPath>& AssetPaths) const;
-	bool IsAssetPathExcluded(const FSoftObjectPath& AssetPath, const UFTGameDataAsset& LoadedGameData) const;
-	bool IsPathInDirectory(const FString& AssetPath, const FString& DirectoryPath) const;
+	TArray<FSoftObjectPath> CollectLevelPreloadAssetPaths(const UFTLevelPreloadDataAsset& LevelPreloadData) const;
+	TArray<FSoftObjectPath> CollectInventoryPreloadAssetPaths(const UFTInventoryPreloadDataAsset& InventoryPreloadData) const;
+	TArray<FSoftObjectPath> CollectAllInventoryItemPreloadAssetPaths() const;
+	void AppendPrimaryAssetPaths(FPrimaryAssetType AssetType, TArray<FSoftObjectPath>& AssetPaths) const;
 	void AddUniqueAssetPath(TArray<FSoftObjectPath>& AssetPaths, TSet<FString>& AddedAssetPathStrings, const FSoftObjectPath& AssetPath) const;
 	void LoadPreloadPathQueue(TArray<FSoftObjectPath> PendingPaths, int32 CompletedCount, int32 TotalCount, FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress);
 	void HandlePreloadPathLoaded(FSoftObjectPath LoadedPath, TArray<FSoftObjectPath> PendingPaths, int32 CompletedCount, int32 TotalCount, FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress);
