@@ -577,6 +577,14 @@ bool AFTProjectileActor::IsValidDirectHitTarget(AActor* TargetActor) const
 	// 매대 등 파괴 가능한 타겟(IFTDamageable)은 에셋에 Data.Damage가 0보다 크게 설정된 경우에만 즉시 충돌/폭발 대상으로 인정합니다.
 	if (TargetActor->Implements<UFTDamageable>())
 	{
+		// 단, ASC를 가진 GAS 액터(캐릭터/AI)는 데미지가 없어도 GameplayEffect(버블/스턴 등 비살상 효과)를 받을 수 있으므로 항상 유효 타겟으로 본다.
+		// 캐릭터도 IFTDamageable을 구현하므로, ASC 유무로 '파괴형 프롭(매대)'과 'GE 대상(캐릭터)'을 구분한다.
+		// (이 구분이 없으면 Data.Damage가 없는 비살상 투사체가 캐릭터에 대해 무효 처리돼 버블/스턴이 아예 적용되지 않는다.)
+		if (UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor))
+		{
+			return true;
+		}
+
 		const FGameplayTag DamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage"));
 		if (ProjectileActorData->ItemData.UseData.EffectMagnitudes.Contains(DamageTag))
 		{
