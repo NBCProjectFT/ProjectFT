@@ -15,6 +15,11 @@ AFTNPCCharacter::AFTNPCCharacter()
 	ReportGaugeWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 120.0f));
 }
 
+void AFTNPCCharacter::SetIsFleeing(bool bNewIsFleeing)
+{
+	bIsFleeing = bNewIsFleeing;
+}
+
 void AFTNPCCharacter::BeginPlay()
 {
 	Super::BeginPlay();
