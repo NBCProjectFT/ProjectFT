@@ -173,6 +173,20 @@ namespace LevelDataAssetGeneratorEditor
 		return FString::Printf(TEXT("%s.%s"), *PackageName, *ObjectName);
 	}
 
+	FString GetInventoryPreloadAssetPackageName(const ULevelDataAssetGeneratorSettings* Settings)
+	{
+		return FString::Printf(
+			TEXT("%s/%s"),
+			*NormalizeContentDirectoryPath(Settings->InventoryPreloadOutputFolder.Path),
+			*Settings->InventoryPreloadAssetName);
+	}
+
+	FString GetInventoryPreloadAssetObjectPath(const ULevelDataAssetGeneratorSettings* Settings)
+	{
+		const FString PackageName = GetInventoryPreloadAssetPackageName(Settings);
+		return FString::Printf(TEXT("%s.%s"), *PackageName, *Settings->InventoryPreloadAssetName);
+	}
+
 	void SyncBrowserToObjectPath(const FSoftObjectPath& ObjectPath)
 	{
 		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
@@ -272,7 +286,7 @@ namespace LevelDataAssetGeneratorEditor
 
 	void CollectInventoryItemAssets(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings)
 	{
-		if (!Settings || !Settings->bGenerateInventoryItemPreloadAssets)
+		if (!Settings)
 		{
 			return;
 		}
@@ -337,8 +351,6 @@ namespace LevelDataAssetGeneratorEditor
 			}
 		}
 
-		CollectInventoryItemAssets(Result, Settings);
-
 		Result.Entries.Sort([](const TSharedPtr<FLevelPreloadEntry>& Left, const TSharedPtr<FLevelPreloadEntry>& Right)
 		{
 			if (!Left.IsValid() || !Right.IsValid())
@@ -349,6 +361,31 @@ namespace LevelDataAssetGeneratorEditor
 			if (Left->SourceType != Right->SourceType)
 			{
 				return static_cast<uint8>(Left->SourceType) < static_cast<uint8>(Right->SourceType);
+			}
+
+			return Left->AssetPath.ToString() < Right->AssetPath.ToString();
+		});
+
+		return Result;
+	}
+
+	FScanResult ScanInventoryPreload()
+	{
+		FScanResult Result;
+		const ULevelDataAssetGeneratorSettings* Settings = GetDefault<ULevelDataAssetGeneratorSettings>();
+		if (!Settings)
+		{
+			return Result;
+		}
+
+		Result.LevelPackageName = GetInventoryPreloadAssetPackageName(Settings);
+		CollectInventoryItemAssets(Result, Settings);
+
+		Result.Entries.Sort([](const TSharedPtr<FLevelPreloadEntry>& Left, const TSharedPtr<FLevelPreloadEntry>& Right)
+		{
+			if (!Left.IsValid() || !Right.IsValid())
+			{
+				return Left.IsValid();
 			}
 
 			return Left->AssetPath.ToString() < Right->AssetPath.ToString();
@@ -383,11 +420,44 @@ namespace LevelDataAssetGeneratorEditor
 		return true;
 	}
 
+	bool SetSoftObjectProperty(UObject* DataAsset, FName PropertyName, const FSoftObjectPath& AssetPath)
+	{
+		FSoftObjectProperty* SoftObjectProperty = FindFProperty<FSoftObjectProperty>(DataAsset->GetClass(), PropertyName);
+		if (!SoftObjectProperty)
+		{
+			FMessageDialog::Open(
+				EAppMsgType::Ok,
+				FText::Format(
+					LOCTEXT("MissingSoftObjectProperty", "Missing soft object property: {0}"),
+					FText::FromName(PropertyName)));
+			return false;
+		}
+
+		SoftObjectProperty->SetPropertyValue_InContainer(DataAsset, FSoftObjectPtr(AssetPath));
+		return true;
+	}
+
+	bool SetBoolProperty(UObject* DataAsset, FName PropertyName, bool bValue)
+	{
+		FBoolProperty* BoolProperty = FindFProperty<FBoolProperty>(DataAsset->GetClass(), PropertyName);
+		if (!BoolProperty)
+		{
+			FMessageDialog::Open(
+				EAppMsgType::Ok,
+				FText::Format(
+					LOCTEXT("MissingBoolProperty", "Missing bool property: {0}"),
+					FText::FromName(PropertyName)));
+			return false;
+		}
+
+		BoolProperty->SetPropertyValue_InContainer(DataAsset, bValue);
+		return true;
+	}
+
 	bool SetLevelDataAssetProperties(
 		UObject* DataAsset,
 		const FScanResult& Result,
-		const TArray<FSoftObjectPath>& IncludedEnvironmentAssets,
-		const TArray<FSoftObjectPath>& IncludedInventoryItemAssets)
+		const TArray<FSoftObjectPath>& IncludedEnvironmentAssets)
 	{
 		const ULevelDataAssetGeneratorSettings* Settings = GetDefault<ULevelDataAssetGeneratorSettings>();
 		if (!DataAsset || !Settings)
@@ -410,32 +480,53 @@ namespace LevelDataAssetGeneratorEditor
 			return false;
 		}
 
-		if (Settings->bGenerateInventoryItemPreloadAssets)
+		if (!SetBoolProperty(DataAsset, Settings->bUseInventoryPreloadDataAssetPropertyName, Settings->bAssignInventoryPreloadToLevelDataAssets))
 		{
-			if (!SetSoftObjectArrayProperty(DataAsset, Settings->GeneratedInventoryItemAssetsPropertyName, IncludedInventoryItemAssets))
-			{
-				return false;
-			}
+			return false;
 		}
 
-		return true;
+		return SetSoftObjectProperty(
+			DataAsset,
+			Settings->InventoryPreloadDataAssetPropertyName,
+			Settings->bAssignInventoryPreloadToLevelDataAssets
+				? FSoftObjectPath(GetInventoryPreloadAssetObjectPath(Settings))
+				: FSoftObjectPath());
 	}
 
-	UObject* LoadOrCreateGeneratedDataAsset(const FScanResult& Result)
+	bool SetInventoryPreloadDataAssetProperties(
+		UObject* DataAsset,
+		const TArray<FSoftObjectPath>& IncludedInventoryItemAssets)
 	{
 		const ULevelDataAssetGeneratorSettings* Settings = GetDefault<ULevelDataAssetGeneratorSettings>();
-		if (!Settings || Result.LevelPackageName.IsEmpty())
+		if (!DataAsset || !Settings)
+		{
+			return false;
+		}
+
+		if (!SetBoolProperty(DataAsset, Settings->bIncludeAllPrimaryItemAssetsPropertyName, false))
+		{
+			return false;
+		}
+
+		return SetSoftObjectArrayProperty(DataAsset, Settings->InventoryItemAssetsPropertyName, IncludedInventoryItemAssets);
+	}
+
+	UObject* LoadOrCreateDataAsset(
+		const FString& ObjectPath,
+		const FString& PackageName,
+		const FString& ObjectName,
+		UClass* DataAssetClass)
+	{
+		if (ObjectPath.IsEmpty() || PackageName.IsEmpty() || ObjectName.IsEmpty())
 		{
 			return nullptr;
 		}
 
-		const FString ObjectPath = GetGeneratedAssetObjectPath(Result.LevelPackageName, Settings);
 		if (UObject* ExistingAsset = LoadObject<UObject>(nullptr, *ObjectPath))
 		{
 			return ExistingAsset;
 		}
 
-		UClass* DataAssetClass = Settings->GeneratedDataAssetClass.LoadSynchronous();
 		if (!DataAssetClass || DataAssetClass->HasAnyClassFlags(CLASS_Abstract))
 		{
 			FMessageDialog::Open(
@@ -444,8 +535,6 @@ namespace LevelDataAssetGeneratorEditor
 			return nullptr;
 		}
 
-		const FString PackageName = GetGeneratedAssetPackageName(Result.LevelPackageName, Settings);
-		const FString ObjectName = GetGeneratedAssetObjectName(Result.LevelPackageName, Settings);
 		UPackage* Package = CreatePackage(*PackageName);
 		if (!Package)
 		{
@@ -458,6 +547,36 @@ namespace LevelDataAssetGeneratorEditor
 		return NewAsset;
 	}
 
+	UObject* LoadOrCreateGeneratedDataAsset(const FScanResult& Result)
+	{
+		const ULevelDataAssetGeneratorSettings* Settings = GetDefault<ULevelDataAssetGeneratorSettings>();
+		if (!Settings || Result.LevelPackageName.IsEmpty())
+		{
+			return nullptr;
+		}
+
+		return LoadOrCreateDataAsset(
+			GetGeneratedAssetObjectPath(Result.LevelPackageName, Settings),
+			GetGeneratedAssetPackageName(Result.LevelPackageName, Settings),
+			GetGeneratedAssetObjectName(Result.LevelPackageName, Settings),
+			Settings->GeneratedDataAssetClass.LoadSynchronous());
+	}
+
+	UObject* LoadOrCreateInventoryPreloadDataAsset()
+	{
+		const ULevelDataAssetGeneratorSettings* Settings = GetDefault<ULevelDataAssetGeneratorSettings>();
+		if (!Settings)
+		{
+			return nullptr;
+		}
+
+		return LoadOrCreateDataAsset(
+			GetInventoryPreloadAssetObjectPath(Settings),
+			GetInventoryPreloadAssetPackageName(Settings),
+			Settings->InventoryPreloadAssetName,
+			Settings->InventoryPreloadDataAssetClass.LoadSynchronous());
+	}
+
 	bool GenerateDataAssetFromEntries(const FScanResult& Result)
 	{
 		UObject* DataAsset = LoadOrCreateGeneratedDataAsset(Result);
@@ -467,9 +586,7 @@ namespace LevelDataAssetGeneratorEditor
 		}
 
 		TArray<FSoftObjectPath> IncludedEnvironmentAssets;
-		TArray<FSoftObjectPath> IncludedInventoryItemAssets;
 		TSet<FString> AddedEnvironmentPaths;
-		TSet<FString> AddedInventoryItemPaths;
 		for (const TSharedPtr<FLevelPreloadEntry>& Entry : Result.Entries)
 		{
 			if (!Entry.IsValid() || !Entry->bIncluded)
@@ -478,15 +595,7 @@ namespace LevelDataAssetGeneratorEditor
 			}
 
 			const FString AssetPathString = Entry->AssetPath.ToString();
-			if (Entry->SourceType == ELevelPreloadEntrySourceType::InventoryItem)
-			{
-				if (!AddedInventoryItemPaths.Contains(AssetPathString))
-				{
-					IncludedInventoryItemAssets.Add(Entry->AssetPath);
-					AddedInventoryItemPaths.Add(AssetPathString);
-				}
-			}
-			else if (!AddedEnvironmentPaths.Contains(AssetPathString))
+			if (Entry->SourceType == ELevelPreloadEntrySourceType::Environment && !AddedEnvironmentPaths.Contains(AssetPathString))
 			{
 				IncludedEnvironmentAssets.Add(Entry->AssetPath);
 				AddedEnvironmentPaths.Add(AssetPathString);
@@ -494,7 +603,47 @@ namespace LevelDataAssetGeneratorEditor
 		}
 
 		DataAsset->Modify();
-		if (!SetLevelDataAssetProperties(DataAsset, Result, IncludedEnvironmentAssets, IncludedInventoryItemAssets))
+		if (!SetLevelDataAssetProperties(DataAsset, Result, IncludedEnvironmentAssets))
+		{
+			return false;
+		}
+
+		DataAsset->MarkPackageDirty();
+
+		TArray<UPackage*> PackagesToSave;
+		PackagesToSave.Add(DataAsset->GetOutermost());
+		FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, false);
+		SyncBrowserToObjectPath(FSoftObjectPath(DataAsset));
+		return true;
+	}
+
+	bool GenerateInventoryPreloadDataAssetFromEntries(const FScanResult& Result)
+	{
+		UObject* DataAsset = LoadOrCreateInventoryPreloadDataAsset();
+		if (!DataAsset)
+		{
+			return false;
+		}
+
+		TArray<FSoftObjectPath> IncludedInventoryItemAssets;
+		TSet<FString> AddedInventoryItemPaths;
+		for (const TSharedPtr<FLevelPreloadEntry>& Entry : Result.Entries)
+		{
+			if (!Entry.IsValid() || !Entry->bIncluded || Entry->SourceType != ELevelPreloadEntrySourceType::InventoryItem)
+			{
+				continue;
+			}
+
+			const FString AssetPathString = Entry->AssetPath.ToString();
+			if (!AddedInventoryItemPaths.Contains(AssetPathString))
+			{
+				IncludedInventoryItemAssets.Add(Entry->AssetPath);
+				AddedInventoryItemPaths.Add(AssetPathString);
+			}
+		}
+
+		DataAsset->Modify();
+		if (!SetInventoryPreloadDataAssetProperties(DataAsset, IncludedInventoryItemAssets))
 		{
 			return false;
 		}
@@ -599,6 +748,7 @@ public:
 
 		UnregisterSettings();
 		GenerateCurrentLevelConsoleCommand.Reset();
+		GenerateInventoryPreloadConsoleCommand.Reset();
 	}
 
 private:
@@ -608,6 +758,11 @@ private:
 			TEXT("FT.LevelDataAssetGenerator.GenerateCurrentLevelPreloadData"),
 			TEXT("Scan the currently opened editor level and generate its level preload DataAsset."),
 			FConsoleCommandDelegate::CreateRaw(this, &FLevelDataAssetGeneratorEditorModule::GenerateCurrentLevelPreloadDataAsset));
+
+		GenerateInventoryPreloadConsoleCommand = MakeUnique<FAutoConsoleCommand>(
+			TEXT("FT.LevelDataAssetGenerator.GenerateInventoryItemPreloadData"),
+			TEXT("Scan configured inventory item DataAssets and generate the shared inventory preload DataAsset."),
+			FConsoleCommandDelegate::CreateRaw(this, &FLevelDataAssetGeneratorEditorModule::GenerateInventoryItemPreloadDataAsset));
 	}
 
 	void RegisterSettings()
@@ -644,6 +799,13 @@ private:
 			LOCTEXT("GenerateFromCurrentLevelTooltip", "Scan current level environment meshes and update the level preload DataAsset."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateRaw(this, &FLevelDataAssetGeneratorEditorModule::OpenGenerateWindow)));
+
+		Section.AddMenuEntry(
+			TEXT("LevelDataAssetGeneratorGenerateInventoryItemPreload"),
+			LOCTEXT("GenerateInventoryItemPreload", "Generate Inventory Item Preload Data Asset"),
+			LOCTEXT("GenerateInventoryItemPreloadTooltip", "Scan configured inventory item DataAssets and update the shared inventory preload DataAsset."),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateRaw(this, &FLevelDataAssetGeneratorEditorModule::OpenGenerateInventoryWindow)));
 	}
 
 	void GenerateCurrentLevelPreloadDataAsset()
@@ -667,6 +829,22 @@ private:
 		{
 			UE_LOG(LogTemp, Error, TEXT("LevelDataAssetGenerator: Failed to generate preload DataAsset for %s."),
 				*Result.LevelPackageName);
+		}
+	}
+
+	void GenerateInventoryItemPreloadDataAsset()
+	{
+		using namespace LevelDataAssetGeneratorEditor;
+
+		const FScanResult Result = ScanInventoryPreload();
+		if (GenerateInventoryPreloadDataAssetFromEntries(Result))
+		{
+			UE_LOG(LogTemp, Log, TEXT("LevelDataAssetGenerator: Generated inventory preload DataAsset with %d entries."),
+				Result.Entries.Num());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("LevelDataAssetGenerator: Failed to generate inventory preload DataAsset."));
 		}
 	}
 
@@ -749,7 +927,80 @@ private:
 		FSlateApplication::Get().AddWindow(Window);
 	}
 
+	void OpenGenerateInventoryWindow()
+	{
+		using namespace LevelDataAssetGeneratorEditor;
+
+		TSharedRef<FScanResult> Result = MakeShared<FScanResult>(ScanInventoryPreload());
+
+		TSharedRef<SListView<TSharedPtr<FLevelPreloadEntry>>> ListView =
+			SNew(SListView<TSharedPtr<FLevelPreloadEntry>>)
+			.ListItemsSource(&Result->Entries)
+			.OnGenerateRow_Lambda([](TSharedPtr<FLevelPreloadEntry> Entry, const TSharedRef<STableViewBase>& OwnerTable)
+			{
+				return SNew(SLevelDataAssetGeneratorEntryRow, OwnerTable).Entry(Entry);
+			})
+			.HeaderRow
+			(
+				SNew(SHeaderRow)
+				+ SHeaderRow::Column(TEXT("Include")).DefaultLabel(LOCTEXT("IncludeColumn", "Include")).FixedWidth(70.0f)
+				+ SHeaderRow::Column(TEXT("Asset")).DefaultLabel(LOCTEXT("AssetColumn", "Asset")).FillWidth(0.32f)
+				+ SHeaderRow::Column(TEXT("Class")).DefaultLabel(LOCTEXT("ClassColumn", "Class")).FillWidth(0.14f)
+				+ SHeaderRow::Column(TEXT("Source")).DefaultLabel(LOCTEXT("SourceColumn", "Source")).FillWidth(0.45f)
+				+ SHeaderRow::Column(TEXT("Sync")).DefaultLabel(LOCTEXT("SyncColumn", "Sync")).FixedWidth(70.0f)
+			);
+
+		TSharedRef<SWindow> Window = SNew(SWindow)
+			.Title(LOCTEXT("GenerateInventoryWindowTitle", "Level Data Asset Generator - Inventory Item Preload"))
+			.ClientSize(FVector2D(1000.0f, 580.0f));
+
+		Window->SetContent(
+			SNew(SBorder)
+			.Padding(8.0f)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 8.0f)
+				[
+					SNew(STextBlock)
+					.Text_Lambda([Result]()
+					{
+						return FText::Format(
+							LOCTEXT("InventoryScanSummary", "Inventory Preload DataAsset: {0} / Item DataAssets: {1}"),
+							FText::FromString(Result->LevelPackageName),
+							FText::AsNumber(Result->Entries.Num()));
+					})
+				]
+				+ SVerticalBox::Slot()
+				.FillHeight(1.0f)
+				[
+					ListView
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Right)
+				.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("GenerateInventoryButton", "Generate Inventory Item Preload Data Asset"))
+					.OnClicked_Lambda([Result, Window]()
+					{
+						if (LevelDataAssetGeneratorEditor::GenerateInventoryPreloadDataAssetFromEntries(*Result))
+						{
+							Window->RequestDestroyWindow();
+						}
+
+						return FReply::Handled();
+					})
+				]
+			]);
+
+		FSlateApplication::Get().AddWindow(Window);
+	}
+
 	TUniquePtr<FAutoConsoleCommand> GenerateCurrentLevelConsoleCommand;
+	TUniquePtr<FAutoConsoleCommand> GenerateInventoryPreloadConsoleCommand;
 };
 
 IMPLEMENT_MODULE(FLevelDataAssetGeneratorEditorModule, LevelDataAssetGeneratorEditor)

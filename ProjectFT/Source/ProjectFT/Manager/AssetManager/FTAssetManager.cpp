@@ -2,6 +2,7 @@
 
 #include "../../Core/FTLogChannels.h"
 #include "../../Data/FTGameDataAsset.h"
+#include "../../Data/FTInventoryPreloadDataAsset.h"
 #include "../../Data/FTItemDataAsset.h"
 #include "../../Data/FTLevelPreloadDataAsset.h"
 #include "../../UI/FTCountdownEscapeWidget.h"
@@ -46,7 +47,7 @@ void UFTAssetManager::PreloadLevelAssetsAsync(
 	if (LevelPreloadDataAsset.IsNull())
 	{
 		UE_LOG(LogFTAsset, Warning, TEXT("No level preload data asset is assigned for current flow state."));
-		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectInventoryItemPreloadAssetPaths();
+		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectAllInventoryItemPreloadAssetPaths();
 		if (InventoryItemAssetPaths.IsEmpty())
 		{
 			OnLoaded.ExecuteIfBound();
@@ -62,7 +63,7 @@ void UFTAssetManager::PreloadLevelAssetsAsync(
 	if (!LoadedLevelPreloadData)
 	{
 		UE_LOG(LogFTAsset, Error, TEXT("Failed to load level preload data asset: %s"), *LevelPreloadDataAsset.ToSoftObjectPath().ToString());
-		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectInventoryItemPreloadAssetPaths();
+		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectAllInventoryItemPreloadAssetPaths();
 		if (InventoryItemAssetPaths.IsEmpty())
 		{
 			OnLoaded.ExecuteIfBound();
@@ -135,20 +136,37 @@ TArray<FSoftObjectPath> UFTAssetManager::CollectLevelPreloadAssetPaths(const UFT
 	TArray<FSoftObjectPath> AssetPaths;
 	LevelPreloadData.GetPreloadAssetPaths(AssetPaths);
 
-	if (LevelPreloadData.bPreloadAllInventoryItemDataAssets)
+	if (LevelPreloadData.bUseInventoryPreloadDataAsset)
 	{
-		AppendPrimaryAssetPaths(FPrimaryAssetType(TEXT("FTItemItem")), AssetPaths);
+		if (LevelPreloadData.InventoryPreloadDataAsset.IsNull())
+		{
+			UE_LOG(LogFTAsset, Warning, TEXT("Level preload data uses inventory preload, but InventoryPreloadDataAsset is not assigned: %s"), *LevelPreloadData.GetName());
+		}
+		else if (UFTInventoryPreloadDataAsset* InventoryPreloadData = GetAsset(LevelPreloadData.InventoryPreloadDataAsset))
+		{
+			TArray<FSoftObjectPath> InventoryAssetPaths = CollectInventoryPreloadAssetPaths(*InventoryPreloadData);
+			TSet<FString> AddedAssetPathStrings;
+			for (const FSoftObjectPath& AssetPath : AssetPaths)
+			{
+				if (AssetPath.IsValid())
+				{
+					AddedAssetPathStrings.Add(AssetPath.ToString());
+				}
+			}
+
+			for (const FSoftObjectPath& InventoryAssetPath : InventoryAssetPaths)
+			{
+				AddUniqueAssetPath(AssetPaths, AddedAssetPathStrings, InventoryAssetPath);
+			}
+		}
+		else
+		{
+			UE_LOG(LogFTAsset, Warning, TEXT("Failed to load inventory preload data asset: %s"), *LevelPreloadData.InventoryPreloadDataAsset.ToSoftObjectPath().ToString());
+		}
 	}
 
 	TSet<FString> ExcludedPathStrings;
-	for (const TSoftObjectPtr<UObject>& ExcludedAsset : LevelPreloadData.ExcludedAssets)
-	{
-		const FSoftObjectPath ExcludedPath = ExcludedAsset.ToSoftObjectPath();
-		if (ExcludedPath.IsValid())
-		{
-			ExcludedPathStrings.Add(ExcludedPath.ToString());
-		}
-	}
+	LevelPreloadData.GetExcludedAssetPaths(ExcludedPathStrings);
 
 	AssetPaths.RemoveAll([&ExcludedPathStrings](const FSoftObjectPath& AssetPath)
 	{
@@ -158,7 +176,28 @@ TArray<FSoftObjectPath> UFTAssetManager::CollectLevelPreloadAssetPaths(const UFT
 	return AssetPaths;
 }
 
-TArray<FSoftObjectPath> UFTAssetManager::CollectInventoryItemPreloadAssetPaths() const
+TArray<FSoftObjectPath> UFTAssetManager::CollectInventoryPreloadAssetPaths(const UFTInventoryPreloadDataAsset& InventoryPreloadData) const
+{
+	TArray<FSoftObjectPath> AssetPaths;
+	InventoryPreloadData.GetPreloadAssetPaths(AssetPaths);
+
+	if (InventoryPreloadData.bIncludeAllPrimaryItemAssets)
+	{
+		AppendPrimaryAssetPaths(FPrimaryAssetType(TEXT("FTItemItem")), AssetPaths);
+	}
+
+	TSet<FString> ExcludedPathStrings;
+	InventoryPreloadData.GetExcludedAssetPaths(ExcludedPathStrings);
+
+	AssetPaths.RemoveAll([&ExcludedPathStrings](const FSoftObjectPath& AssetPath)
+	{
+		return ExcludedPathStrings.Contains(AssetPath.ToString());
+	});
+
+	return AssetPaths;
+}
+
+TArray<FSoftObjectPath> UFTAssetManager::CollectAllInventoryItemPreloadAssetPaths() const
 {
 	TArray<FSoftObjectPath> AssetPaths;
 	AppendPrimaryAssetPaths(FPrimaryAssetType(TEXT("FTItemItem")), AssetPaths);

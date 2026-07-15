@@ -40,10 +40,28 @@ public:
 	FName GeneratedEnvironmentAssetsPropertyName = TEXT("GeneratedEnvironmentAssets");
 
 	UPROPERTY(EditAnywhere, Config, Category = "Generation")
-	FName GeneratedInventoryItemAssetsPropertyName = TEXT("GeneratedInventoryItemAssets");
+	FName bUseInventoryPreloadDataAssetPropertyName = TEXT("bUseInventoryPreloadDataAsset");
+
+	UPROPERTY(EditAnywhere, Config, Category = "Generation")
+	FName InventoryPreloadDataAssetPropertyName = TEXT("InventoryPreloadDataAsset");
 
 	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
-	bool bGenerateInventoryItemPreloadAssets = true;
+	TSoftClassPtr<UPrimaryDataAsset> InventoryPreloadDataAssetClass;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
+	FDirectoryPath InventoryPreloadOutputFolder;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
+	FString InventoryPreloadAssetName = TEXT("DA_InventoryPreload_Default");
+
+	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
+	FName InventoryItemAssetsPropertyName = TEXT("InventoryItemAssets");
+
+	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
+	FName bIncludeAllPrimaryItemAssetsPropertyName = TEXT("bIncludeAllPrimaryItemAssets");
+
+	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
+	bool bAssignInventoryPreloadToLevelDataAssets = true;
 
 	UPROPERTY(EditAnywhere, Config, Category = "Inventory")
 	FDirectoryPath InventoryItemDataDirectory;

@@ -6,6 +6,7 @@
 #include "FTAssetManager.generated.h"
 
 class UFTGameDataAsset;
+class UFTInventoryPreloadDataAsset;
 class UFTLevelPreloadDataAsset;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
@@ -75,7 +76,8 @@ private:
 	void AddLoadedAsset(const UObject* Asset);
 	UFTGameDataAsset* LoadGameData();
 	TArray<FSoftObjectPath> CollectLevelPreloadAssetPaths(const UFTLevelPreloadDataAsset& LevelPreloadData) const;
-	TArray<FSoftObjectPath> CollectInventoryItemPreloadAssetPaths() const;
+	TArray<FSoftObjectPath> CollectInventoryPreloadAssetPaths(const UFTInventoryPreloadDataAsset& InventoryPreloadData) const;
+	TArray<FSoftObjectPath> CollectAllInventoryItemPreloadAssetPaths() const;
 	void AppendPrimaryAssetPaths(FPrimaryAssetType AssetType, TArray<FSoftObjectPath>& AssetPaths) const;
 	void AddUniqueAssetPath(TArray<FSoftObjectPath>& AssetPaths, TSet<FString>& AddedAssetPathStrings, const FSoftObjectPath& AssetPath) const;
 	void LoadPreloadPathQueue(TArray<FSoftObjectPath> PendingPaths, int32 CompletedCount, int32 TotalCount, FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress);

@@ -12,14 +12,7 @@ FPrimaryAssetId UFTLevelPreloadDataAsset::GetPrimaryAssetId() const
 void UFTLevelPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& OutAssetPaths) const
 {
 	TSet<FString> ExcludedPathStrings;
-	for (const TSoftObjectPtr<UObject>& ExcludedAsset : ExcludedAssets)
-	{
-		const FSoftObjectPath ExcludedPath = ExcludedAsset.ToSoftObjectPath();
-		if (ExcludedPath.IsValid())
-		{
-			ExcludedPathStrings.Add(ExcludedPath.ToString());
-		}
-	}
+	GetExcludedAssetPaths(ExcludedPathStrings);
 
 	TSet<FString> AddedPathStrings;
 	auto AddAssetPath = [&OutAssetPaths, &AddedPathStrings, &ExcludedPathStrings](const FSoftObjectPath& AssetPath)
@@ -37,13 +30,20 @@ void UFTLevelPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& Out
 		AddAssetPath(Asset.ToSoftObjectPath());
 	}
 
-	for (const TSoftObjectPtr<UFTItemDataAsset>& Asset : GeneratedInventoryItemAssets)
-	{
-		AddAssetPath(Asset.ToSoftObjectPath());
-	}
-
 	for (const TSoftObjectPtr<UObject>& Asset : AdditionalPreloadAssets)
 	{
 		AddAssetPath(Asset.ToSoftObjectPath());
+	}
+}
+
+void UFTLevelPreloadDataAsset::GetExcludedAssetPaths(TSet<FString>& OutExcludedPathStrings) const
+{
+	for (const TSoftObjectPtr<UObject>& ExcludedAsset : ExcludedAssets)
+	{
+		const FSoftObjectPath ExcludedPath = ExcludedAsset.ToSoftObjectPath();
+		if (ExcludedPath.IsValid())
+		{
+			OutExcludedPathStrings.Add(ExcludedPath.ToString());
+		}
 	}
 }

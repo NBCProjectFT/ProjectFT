@@ -53,6 +53,8 @@ ULevelDataAssetGeneratorSettings::ULevelDataAssetGeneratorSettings()
 {
 	GeneratedDataAssetClass = TSoftClassPtr<UPrimaryDataAsset>(FSoftObjectPath(TEXT("/Script/ProjectFT.FTLevelPreloadDataAsset")));
 	OutputFolder.Path = TEXT("/Game/Generated/LevelPreload");
+	InventoryPreloadDataAssetClass = TSoftClassPtr<UPrimaryDataAsset>(FSoftObjectPath(TEXT("/Script/ProjectFT.FTInventoryPreloadDataAsset")));
+	InventoryPreloadOutputFolder.Path = TEXT("/Game/Generated/LevelPreload");
 	InventoryItemDataDirectory.Path = TEXT("/Game/Blueprints/Items/Data");
 	InventoryItemDataAssetClass = TSoftClassPtr<UPrimaryDataAsset>(FSoftObjectPath(TEXT("/Script/ProjectFT.FTItemDataAsset")));
 }
@@ -63,6 +65,7 @@ void ULevelDataAssetGeneratorSettings::PostEditChangeProperty(FPropertyChangedEv
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	OutputFolder.Path = LevelDataAssetGeneratorSettings::NormalizeContentDirectoryPath(OutputFolder.Path);
+	InventoryPreloadOutputFolder.Path = LevelDataAssetGeneratorSettings::NormalizeContentDirectoryPath(InventoryPreloadOutputFolder.Path);
 	InventoryItemDataDirectory.Path = LevelDataAssetGeneratorSettings::NormalizeContentDirectoryPath(InventoryItemDataDirectory.Path);
 
 	for (FDirectoryPath& IgnoredPath : IgnoredPaths)
