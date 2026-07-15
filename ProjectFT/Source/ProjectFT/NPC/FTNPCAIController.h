@@ -11,7 +11,8 @@ class UAIPerceptionComponent;
 class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class UFTNPCReportComponent;
-class AFTShoppingPoint;
+class UFTNPCReactionComponent;
+class UFTNPCShoppingComponent;
 struct FFTMessagePayloadStruct;
 struct FFTCharacterDamagePayloadStruct;
 UCLASS()
@@ -38,6 +39,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	TObjectPtr<UFTNPCReportComponent> NPCReportComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Reaction")
+	TObjectPtr<UFTNPCReactionComponent> NPCReactionComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Shopping")
+	TObjectPtr<UFTNPCShoppingComponent> NPCShoppingComponent;
 
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
@@ -89,6 +96,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Wander")
 	void StartShoppingLook();
 
+	/** 플레이어의 반대 방향으로 도망갈 NavMesh 위치를 계산한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Reaction")
+	bool PickFleeLocationFrom(AActor* ThreatActor);
+
+	/**
+	 * 현재 TargetActor를 기준으로 도망을 요청한다.
+	 *
+	 * @return 도망 위치를 찾고 도망 요청을 설정했으면 true
+	 */
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Reaction")
+	bool RequestFleeFromTarget();
+
+	/** 도망 상태가 끝난 뒤 도망 관련 요청 값을 초기화한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Reaction")
+	void FinishFlee();
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ObservedStealingMemorySeconds = 2.0f;
 
@@ -118,6 +141,30 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	bool bObservedAssault = false;
 
+	/** 스턴이 풀린 뒤 공포 상태로 진입해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Reaction")
+	bool bPanicRequested = false;
+
+	/** 플레이어에게서 도망 상태로 진입해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Reaction")
+	bool bFleeRequested = false;
+
+	/** HP가 0이 되어 무력화 상태로 진입했는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Reaction")
+	bool bKnockedOut = false;
+
+	/** 도망 상태에서 이동할 목표 위치다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|NPC|Reaction")
+	FVector FleeLocation = FVector::ZeroVector;
+
+	/** 도망 상태에서 사용할 이동 속도다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Reaction", meta = (ClampMin = "0.0"))
+	float FleeMoveSpeed = 600.0f;
+
+	/** 공포 상태에 진입할 때 위협 대상을 바라보도록 설정한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Reaction")
+	void EnterPanic();
+
 	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Report")
 	void EnterSuspicious();
 
@@ -138,6 +185,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|NPC|Target")
 	bool CanStartReportFlow() const;
 
+	void ClearReactionFocusState();
+
+	bool IsUsingReportFocus() const;
 
 private:
 	float LastObservedStealingTime = -FLT_MAX;
@@ -145,12 +195,6 @@ private:
 	bool bLastLoggedIsTargetStealing = false;
 	bool bLastLoggedCanStartReportFlow = false;
 
-	UPROPERTY()
-	TObjectPtr<AFTShoppingPoint> CurrentShoppingPoint;
-
-	FVector CurrentShoppingLookLocation = FVector::ZeroVector;
-	FVector DesiredShoppingLookLocation = FVector::ZeroVector;
-	bool bBlendShoppingLook = false;
 	bool bUsingReportFocus = false;
 	
 	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
@@ -162,7 +206,6 @@ private:
 	bool IsTargetCurrentlyVisible() const;
 	bool IsTargetStealing(const AActor* Actor) const;
 	void SyncReportStateFromComponent();
-	void UpdateShoppingLook(float DeltaTime);
 	void UpdateReportFocus();
 	void DrawSightDebug() const;
 	void LogReportConditionDebug(bool bTargetCurrentlyStealing);

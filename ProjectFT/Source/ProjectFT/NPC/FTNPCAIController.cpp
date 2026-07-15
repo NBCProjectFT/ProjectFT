@@ -4,7 +4,6 @@
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 #include "Components/StateTreeAIComponent.h"
-#include "EngineUtils.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -13,10 +12,11 @@
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Components/FTNPCReportComponent.h"
+#include "ProjectFT/Components/FTNPCReactionComponent.h"
+#include "ProjectFT/Components/FTNPCShoppingComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
-#include "ProjectFT/NPC/FTShoppingPoint.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
@@ -61,6 +61,8 @@ AFTNPCAIController::AFTNPCAIController()
 	ConfigureSight(NPCPerceptionComponent, SightConfig, 1500.0f, 40.0f, 2.0f);
 
 	NPCReportComponent = CreateDefaultSubobject<UFTNPCReportComponent>(TEXT("NPCReportComponent"));
+	NPCReactionComponent = CreateDefaultSubobject<UFTNPCReactionComponent>(TEXT("NPCReactionComponent"));
+	NPCShoppingComponent = CreateDefaultSubobject<UFTNPCShoppingComponent>(TEXT("NPCShoppingComponent"));
 }	
 
 
@@ -110,7 +112,14 @@ void AFTNPCAIController::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	UpdateTargetState();
-	UpdateShoppingLook(DeltaTime);
+	if (NPCReactionComponent)
+	{
+		NPCReactionComponent->TickReaction();
+	}
+	if (NPCShoppingComponent)
+	{
+		NPCShoppingComponent->TickShoppingLook(DeltaTime);
+	}
 	UpdateReportFocus();
 	DrawSightDebug();
 }
@@ -146,88 +155,9 @@ void AFTNPCAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus St
 
 bool AFTNPCAIController::PickRandomShoppingTarget()
 {
-	ReleaseShoppingTarget();
-
-	TArray<AFTShoppingPoint*> PreferredShoppingPoints;
-	TArray<AFTShoppingPoint*> FallbackShoppingPoints;
-	float PreferredTotalWeight = 0.0f;
-	float FallbackTotalWeight = 0.0f;
-	if (UWorld* World = GetWorld())
-	{
-		for (TActorIterator<AFTShoppingPoint> It(World); It; ++It)
-		{
-			AFTShoppingPoint* ShoppingPoint = *It;
-			if (!ShoppingPoint || ShoppingPoint->SelectionWeight <= 0.0f)
-			{
-				continue;
-			}
-
-			FallbackShoppingPoints.Add(ShoppingPoint);
-			FallbackTotalWeight += ShoppingPoint->SelectionWeight;
-
-			if (ShoppingPoint->CanSelectPreferred())
-			{
-				PreferredShoppingPoints.Add(ShoppingPoint);
-				PreferredTotalWeight += ShoppingPoint->SelectionWeight;
-			}
-		}
-	}
-
-	const TArray<AFTShoppingPoint*>& ShoppingPoints = PreferredShoppingPoints.IsEmpty()
-		? FallbackShoppingPoints
-		: PreferredShoppingPoints;
-	const float TotalWeight = PreferredShoppingPoints.IsEmpty()
-		? FallbackTotalWeight
-		: PreferredTotalWeight;
-
-	if (ShoppingPoints.IsEmpty() || TotalWeight <= 0.0f)
-	{
-		ShoppingTargetLocation = FVector::ZeroVector;
-		ShoppingLookLocation = FVector::ZeroVector;
-		ShoppingTargetAcceptanceRadius = 100.0f;
-		bHasShoppingTarget = false;
-		if (bLogShoppingDebug)
-		{
-			UE_LOG(LogFTNPC, Warning, TEXT("NPC AI: No available shopping point found"));
-		}
-		return false;
-	}
-
-	// 여유 슬롯이 있는 포인트를 우선 선택하고, 없으면 모든 포인트 중에서 가중치로 선택한다.
-	AFTShoppingPoint* SelectedShoppingPoint = nullptr;
-	float RandomWeight = FMath::FRandRange(0.0f, TotalWeight);
-	for (AFTShoppingPoint* ShoppingPoint : ShoppingPoints)
-	{
-		RandomWeight -= ShoppingPoint->SelectionWeight;
-		if (RandomWeight <= 0.0f)
-		{
-			SelectedShoppingPoint = ShoppingPoint;
-			break;
-		}
-	}
-
-	if (!SelectedShoppingPoint)
-	{
-		SelectedShoppingPoint = ShoppingPoints.Last();
-	}
-
-	CurrentShoppingPoint = SelectedShoppingPoint;
-	SelectedShoppingPoint->Reserve();
-	SelectedShoppingPoint->GetRandomShoppingLocation(this, ShoppingTargetLocation);
-	ShoppingLookLocation = ShoppingTargetLocation + SelectedShoppingPoint->GetActorForwardVector() * 500.0f;
-	ShoppingTargetAcceptanceRadius = SelectedShoppingPoint->AcceptanceRadius;
-	bHasShoppingTarget = true;
-
-	if (bLogShoppingDebug)
-	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("NPC AI: Picked shopping target %s at %s"),
-			*SelectedShoppingPoint->GetName(),
-			*ShoppingTargetLocation.ToString());
-	}
-	return true;
+	return NPCShoppingComponent
+		? NPCShoppingComponent->PickRandomShoppingTarget()
+		: false;
 }
 
 bool AFTNPCAIController::PickRandomWanderTarget()
@@ -237,71 +167,18 @@ bool AFTNPCAIController::PickRandomWanderTarget()
 
 void AFTNPCAIController::ReleaseShoppingTarget()
 {
-	if (CurrentShoppingPoint)
+	if (NPCShoppingComponent)
 	{
-		CurrentShoppingPoint->Release();
-		CurrentShoppingPoint = nullptr;
-	}
-
-	// 다음 쇼핑 목적지로 이동할 때 이전 시선 보간 상태를 정리한다.
-	bBlendShoppingLook = false;
-	CurrentShoppingLookLocation = FVector::ZeroVector;
-	DesiredShoppingLookLocation = FVector::ZeroVector;
-	bHasShoppingTarget = false;
-	if (!bUsingReportFocus)
-	{
-		ClearFocus(EAIFocusPriority::Gameplay);
+		NPCShoppingComponent->ReleaseShoppingTarget();
 	}
 }
 
 void AFTNPCAIController::StartShoppingLook()
 {
-	if (!bHasShoppingTarget)
+	if (NPCShoppingComponent)
 	{
-		return;
+		NPCShoppingComponent->StartShoppingLook();
 	}
-
-	// 현재 바라보는 방향에서 쇼핑 목표 방향으로 천천히 보간하기 위해 목표 지점만 저장한다.
-	DesiredShoppingLookLocation = ShoppingLookLocation;
-	if (CurrentShoppingLookLocation.IsNearlyZero())
-	{
-		if (const APawn* ControlledPawn = GetPawn())
-		{
-			CurrentShoppingLookLocation = ControlledPawn->GetActorLocation() + ControlledPawn->GetActorForwardVector() * 500.0f;
-		}
-		else
-		{
-			CurrentShoppingLookLocation = DesiredShoppingLookLocation;
-		}
-	}
-
-	bBlendShoppingLook = true;
-}
-
-void AFTNPCAIController::UpdateShoppingLook(float DeltaTime)
-{
-	if (!bBlendShoppingLook || bUsingReportFocus)
-	{
-		return;
-	}
-
-	// Focus 지점을 바로 바꾸지 않고 보간해서 손님 NPC의 시선 전환이 갑자기 꺾이지 않게 한다.
-	CurrentShoppingLookLocation = FMath::VInterpTo(
-		CurrentShoppingLookLocation,
-		DesiredShoppingLookLocation,
-		DeltaTime,
-		ShoppingLookInterpSpeed);
-
-	SetFocalPoint(CurrentShoppingLookLocation, EAIFocusPriority::Gameplay);
-
-	if (FVector::DistSquared(CurrentShoppingLookLocation, DesiredShoppingLookLocation) > FMath::Square(10.0f))
-	{
-		return;
-	}
-
-	CurrentShoppingLookLocation = DesiredShoppingLookLocation;
-	SetFocalPoint(CurrentShoppingLookLocation, EAIFocusPriority::Gameplay);
-	bBlendShoppingLook = false;
 }
 
 void AFTNPCAIController::UpdateReportFocus()
@@ -310,7 +187,10 @@ void AFTNPCAIController::UpdateReportFocus()
 		&& bHasSeenTarget
 		&& CurrentReportProgress > 0.0f
 		&& !bReportCompleted
-		&& !bIsStunned;
+		&& !bIsStunned
+		&& !bFleeRequested
+		&& !bPanicRequested
+		&& !bKnockedOut;
 
 	if (bShouldFocusReportTarget)
 	{
@@ -325,6 +205,20 @@ void AFTNPCAIController::UpdateReportFocus()
 		ClearFocus(EAIFocusPriority::Gameplay);
 		bUsingReportFocus = false;
 	}
+}
+
+void AFTNPCAIController::ClearReactionFocusState()
+{
+	if (NPCShoppingComponent)
+	{
+		NPCShoppingComponent->ClearShoppingFocusState();
+	}
+	bUsingReportFocus = false;
+}
+
+bool AFTNPCAIController::IsUsingReportFocus() const
+{
+	return bUsingReportFocus;
 }
 
 void AFTNPCAIController::EnterSuspicious()
@@ -367,14 +261,51 @@ void AFTNPCAIController::CancelReport()
 	}
 }
 
+void AFTNPCAIController::EnterPanic()
+{
+	if (NPCReactionComponent)
+	{
+		NPCReactionComponent->EnterPanic();
+	}
+}
+
 void AFTNPCAIController::HandleStunStateChanged(bool bStunned)
 {
-	bIsStunned = bStunned;
+	if (NPCReactionComponent)
+	{
+		NPCReactionComponent->HandleImmobilizedStateChanged(bStunned);
+	}
+	else
+	{
+		bIsStunned = bStunned;
+	}
 
 	if (NPCReportComponent)
 	{
 		NPCReportComponent->HandleStunStateChanged(bIsStunned);
 		SyncReportStateFromComponent();
+	}
+}
+
+bool AFTNPCAIController::PickFleeLocationFrom(AActor* ThreatActor)
+{
+	return NPCReactionComponent
+		? NPCReactionComponent->PickFleeLocationFrom(ThreatActor)
+		: false;
+}
+
+bool AFTNPCAIController::RequestFleeFromTarget()
+{
+	return NPCReactionComponent
+		? NPCReactionComponent->RequestFleeFromTarget()
+		: false;
+}
+
+void AFTNPCAIController::FinishFlee()
+{
+	if (NPCReactionComponent)
+	{
+		NPCReactionComponent->FinishFlee();
 	}
 }
 
@@ -563,23 +494,70 @@ void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTChara
 {
 	if (Payload.TargetActor == GetPawn())
 	{
-		if (!NPCReportComponent || NPCReportComponent->CurrentReportProgress <= 0.0f || NPCReportComponent->bReportCompleted)
+		AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
+		const bool bAttackerIsPlayer = IsPlayerActor(SuspectActor);
+		const bool bHasDamage = Payload.DamageAmount > 0.0f;
+		const bool bTargetKnockedOut = Payload.bTargetKnockedOut;
+		bool bHasStunTag = false;
+
+		if (IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(Payload.TargetActor))
 		{
-			return;
+			if (UAbilitySystemComponent* TargetASC = AbilitySystemInterface->GetAbilitySystemComponent())
+			{
+				// 스턴 계열 효과는 실제 스턴 태그와 공통 행동불능 태그를 함께 확인한다.
+				bHasStunTag =
+					TargetASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Stun)
+					|| TargetASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized);
+			}
 		}
 
-		CancelReport();
-
-		if (bLogReportDebug)
+		if (bAttackerIsPlayer)
 		{
-			UE_LOG(
-				LogFTNPC,
-				Log,
-				TEXT("[NPC] Report reset by damage: NPC=%s Instigator=%s Damage=%.1f"),
-				*GetNameSafe(GetPawn()),
-				*GetNameSafe(Payload.InstigatorActor),
-				Payload.DamageAmount
-			);
+			TargetActor = SuspectActor;
+			if (NPCReactionComponent)
+			{
+				NPCReactionComponent->SetLastThreatActor(SuspectActor);
+			}
+
+			if (NPCReportComponent && NPCReportComponent->CurrentReportProgress > 0.0f && !NPCReportComponent->bReportCompleted)
+			{
+				CancelReport();
+			}
+
+			if (bTargetKnockedOut)
+			{
+				bKnockedOut = true;
+				bFleeRequested = false;
+				bPanicRequested = false;
+			}
+			else if (bHasDamage && !bHasStunTag)
+			{
+				if (NPCReactionComponent)
+				{
+					bFleeRequested = NPCReactionComponent->PickFleeLocationFrom(SuspectActor);
+					if (bFleeRequested)
+					{
+						NPCReactionComponent->RequestFleeFromTarget();
+					}
+				}
+				bPanicRequested = false;
+			}
+
+			if (bLogReportDebug)
+			{
+				UE_LOG(
+					LogFTNPC,
+					Log,
+					TEXT("[NPC] Damaged by player: NPC=%s Player=%s Damage=%.1f Stunned=%s KnockedOut=%s FleeRequested=%s PanicRequested=%s"),
+					*GetNameSafe(GetPawn()),
+					*GetNameSafe(SuspectActor),
+					Payload.DamageAmount,
+					bHasStunTag ? TEXT("true") : TEXT("false"),
+					bTargetKnockedOut ? TEXT("true") : TEXT("false"),
+					bFleeRequested ? TEXT("true") : TEXT("false"),
+					bPanicRequested ? TEXT("true") : TEXT("false")
+				);
+			}
 		}
 
 		return;
