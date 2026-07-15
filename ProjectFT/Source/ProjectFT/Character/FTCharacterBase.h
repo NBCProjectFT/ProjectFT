@@ -18,6 +18,8 @@ class UAbilitySystemComponent;
 class UFTAttributeSet;
 class UGameplayAbility;
 struct FOnAttributeChangeData;
+struct FGameplayEffectSpec;
+struct FActiveGameplayEffectHandle;
 
 /**
  * 플레이어/AI가 공유하는 캐릭터 베이스. GAS '배선(plumbing)'만 담는다.
@@ -72,6 +74,11 @@ protected:
 
 	// 행동불능 시작/해제 시 확장 훅(AI 로직 정지, 애니 등). 기본 구현 없음 — 이동 정지/복원은 베이스가 이미 처리.
 	virtual void OnImmobilizedStateChanged(bool bImmobilized);
+
+	// GE가 자신에게 적용될 때마다 호출(BeginPlay에서 ASC의 OnGameplayEffectAppliedDelegateToSelf에 바인딩 — instant/duration 모두).
+	// 적대적 행동(Effect.Hostile 에셋 태그)을 부여하는 GE면 데미지/상태이상 구분 없이 "공격당함"으로 간주해,
+	// 공격자(EffectContext에서 추출, 더미 속성 불필요)를 담아 Event.Character.Attacked를 발행한다. 어그로는 이 단일 신호를 구독한다.
+	void OnHostileEffectApplied(UAbilitySystemComponent* Source, const FGameplayEffectSpec& Spec, FActiveGameplayEffectHandle Handle);
 
 	// GAS: 능력/이펙트/속성의 허브. 공용 속성값(체력/이동속도)은 AttributeSet이 보유한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|GAS", meta = (AllowPrivateAccess = "true"))

@@ -10,6 +10,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse_Channeled, "Ability.ItemUse.Channe
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Ability_ItemUse_Aimed, "Ability.ItemUse.Aimed");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Immobilized, "State.Debuff.Immobilized");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Effect_Hostile, "Effect.Hostile");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff, "State.Debuff");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Poison, "State.Debuff.Poison");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Slow, "State.Debuff.Slow");
