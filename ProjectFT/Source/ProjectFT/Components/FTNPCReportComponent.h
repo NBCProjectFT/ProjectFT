@@ -6,6 +6,8 @@
 #include "FTNPCReportComponent.generated.h"
 
 class AFTNPCAIController;
+struct FFTCharacterAttackedPayloadStruct;
+struct FFTMessagePayloadStruct;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTFT_API UFTNPCReportComponent : public UActorComponent
@@ -46,6 +48,8 @@ public:
 	bool TickReporting(float DeltaTime);
 	void CancelReport();
 	void HandleReportFlowAvailability(bool bCanStartReportFlow, bool bLogReportDebug);
+	bool HandleShelfDamaged(const FFTMessagePayloadStruct& Payload);
+	bool HandleObservedAssault(const FFTCharacterAttackedPayloadStruct& Payload);
 	void MarkObservedShelfDamage();
 	void MarkObservedAssault();
 	void HandleStunStateChanged(bool bStunned);
@@ -56,6 +60,8 @@ private:
 	int32 LastLoggedReportDecayPercent = 101;
 
 	AFTNPCAIController* GetNPCAIController() const;
+	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
+	bool IsPlayerActor(const AActor* Actor) const;
 	bool ShouldCancelReport(const AFTNPCAIController* Controller) const;
 	void CompleteReport();
 	void BroadcastReportMessage(FGameplayTag Channel, AActor* TargetActor, float InReportAmount, float ReportProgress) const;

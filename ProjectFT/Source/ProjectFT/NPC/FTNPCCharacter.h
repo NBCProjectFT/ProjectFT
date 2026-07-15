@@ -14,6 +14,12 @@ class PROJECTFT_API AFTNPCCharacter : public AFTAICharacterBase
 public:
 	AFTNPCCharacter();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|NPC|State")
+	bool bIsFleeing = false;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|State")
+	void SetIsFleeing(bool bNewIsFleeing);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnImmobilizedStateChanged(bool bImmobilized) override;
