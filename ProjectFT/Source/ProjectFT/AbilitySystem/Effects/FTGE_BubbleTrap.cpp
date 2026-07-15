@@ -6,6 +6,7 @@
 #include "GameplayEffectComponents/TargetTagRequirementsGameplayEffectComponent.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 
 UFTGE_BubbleTrap::UFTGE_BubbleTrap()
 {
@@ -45,4 +46,11 @@ UFTGE_BubbleTrap::UFTGE_BubbleTrap()
 	UTargetTagRequirementsGameplayEffectComponent* RequirementsComponent = CreateDefaultSubobject<UTargetTagRequirementsGameplayEffectComponent>(TEXT("RequirementsComponent"));
 	RequirementsComponent->ApplicationTagRequirements.IgnoreTags.AddTag(TAG_FT_State_Captured);
 	GEComponents.Add(RequirementsComponent);
+
+	// 버블에 갇힐 때 체력을 -1 감산 적용 (데미지 1을 주어 공격자 정보를 AI에게 전달 및 피격 이벤트 트리거)
+	FGameplayModifierInfo DamageMod;
+	DamageMod.Attribute = UFTAttributeSet::GetHealthAttribute();
+	DamageMod.ModifierOp = EGameplayModOp::Additive;
+	DamageMod.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(-1.0f));
+	Modifiers.Add(DamageMod);
 }
