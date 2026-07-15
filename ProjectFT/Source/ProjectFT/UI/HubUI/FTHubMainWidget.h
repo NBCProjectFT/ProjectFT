@@ -5,6 +5,7 @@
 #include "FTHubMainWidget.generated.h"
 
 class AFTHubTerminal;
+class AFTHubStorage;
 class UButton;
 class UTextBlock;
 class UWidget;
@@ -34,7 +35,8 @@ public:
 	void InitializeHubMain(
 		AFTHubTerminal* InHubTerminal,
 		UFTShopSubsystem* InShopSubsystem,
-		UFTInventoryComponent* InPlayerInventory
+		UFTInventoryComponent* InPlayerInventory,
+		AFTHubStorage* InHubStorage
 	);
 
 	UFTHubQuestPanelWidget* GetQuestPanelWidget() const;
@@ -55,7 +57,7 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
-	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual void NativeDestruct() override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -135,6 +137,8 @@ protected:
 
 	
 private:
+	void BindCurrencyInventoryDelegates();
+	void UnbindCurrencyInventoryDelegates();
 	void RefreshCollectionCoinText();
 	void ShowQuestPanel();
 	void ShowMarketPanel();
@@ -200,6 +204,9 @@ private:
 	UFUNCTION()
 	void HandleShopAppOpenAnimationFinished();
 
+	UFUNCTION()
+	void HandleCurrencyInventoryChanged();
+
 	UPROPERTY(Transient)
 	AFTHubTerminal* HubTerminal;
 
@@ -208,6 +215,9 @@ private:
 
 	UPROPERTY(Transient)
 	UFTInventoryComponent* PlayerInventory;
+
+	UPROPERTY(Transient)
+	UFTInventoryComponent* StorageInventory;
 
 	TSet<EFTHubTerminalAppType> OpeningApps;
 	TSet<EFTHubTerminalAppType> ClosingApps;
