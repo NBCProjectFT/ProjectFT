@@ -6,11 +6,9 @@
 #include "Components/StateTreeAIComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
-#include "Kismet/GameplayStatics.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
-#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Components/FTNPCReportComponent.h"
 #include "ProjectFT/Components/FTNPCReactionComponent.h"
 #include "ProjectFT/Components/FTNPCShoppingComponent.h"
@@ -421,77 +419,16 @@ void AFTNPCAIController::OnShelfDamaged(
 	FGameplayTag Channel,
 	const FFTMessagePayloadStruct& Payload)
 {
-	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
-	AActor* DamagedShelf = Payload.TargetActor;
-	if (!SuspectActor)
+	if (NPCReportComponent && NPCReportComponent->HandleShelfDamaged(Payload))
 	{
-		// TODO: Shelf damage 발행 측에서 실제 플레이어를 InstigatorActor로 보장하면 이 fallback을 제거한다.
-		SuspectActor = UGameplayStatics::GetPlayerPawn(this, 0);
-	}
-
-	if (!IsPlayerActor(SuspectActor) || !DamagedShelf)
-	{
-		if (bLogReportDebug)
-		{
-			UE_LOG(
-				LogFTNPC,
-				Warning,
-				TEXT("[NPC] Ignored shelf damage: Instigator=%s ResolvedPlayer=%s Shelf=%s"),
-				*GetNameSafe(Payload.InstigatorActor),
-				*GetNameSafe(SuspectActor),
-				*GetNameSafe(DamagedShelf)
-			);
-		}
-		return;
-	}
-
-	if (bIsStunned)
-	{
-		return;
-	}
-
-	TargetActor = SuspectActor;
-	UpdateTargetState();
-
-	const bool bCanSeeDamagedShelf = LineOfSightTo(DamagedShelf);
-	if (!bHasSeenTarget || !bCanSeeDamagedShelf)
-	{
-		if (bLogReportDebug)
-		{
-			UE_LOG(
-				LogFTNPC,
-				Log,
-				TEXT("[NPC] Shelf damage not witnessed: PlayerVisible=%s ShelfVisible=%s Player=%s Shelf=%s"),
-				bHasSeenTarget ? TEXT("true") : TEXT("false"),
-				bCanSeeDamagedShelf ? TEXT("true") : TEXT("false"),
-				*GetNameSafe(SuspectActor),
-				*GetNameSafe(DamagedShelf)
-			);
-		}
-		return;
-	}
-
-	if (NPCReportComponent)
-	{
-		NPCReportComponent->MarkObservedShelfDamage();
-	}
-	SyncReportStateFromComponent();
-	bCanStartReportFlow = true;
-
-	if (bLogReportDebug)
-	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("[NPC] Observed shelf damage: Player=%s Shelf=%s"),
-			*GetNameSafe(SuspectActor),
-			*GetNameSafe(DamagedShelf)
-		);
+		SyncReportStateFromComponent();
+		bCanStartReportFlow = true;
 	}
 }
 
 void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
 {
+	// 메시지의 TargetActor가 손님NPC인지 확인
 	if (Payload.TargetActor == GetPawn())
 	{
 		AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
@@ -500,8 +437,10 @@ void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTChara
 		const bool bTargetKnockedOut = Payload.bTargetKnockedOut;
 		bool bHasStunTag = false;
 
+		// 맞은 대상이 AbilitySystemComponent가진 Actor인지 확인
 		if (IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(Payload.TargetActor))
 		{
+			// 맞은 대상의 ASC 가져오기
 			if (UAbilitySystemComponent* TargetASC = AbilitySystemInterface->GetAbilitySystemComponent())
 			{
 				// 스턴 계열 효과는 실제 스턴 태그와 공통 행동불능 태그를 함께 확인한다.
@@ -510,7 +449,8 @@ void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTChara
 					|| TargetASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized);
 			}
 		}
-
+		
+		// 공격자가 플레이어일때
 		if (bAttackerIsPlayer)
 		{
 			TargetActor = SuspectActor;
@@ -523,13 +463,15 @@ void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTChara
 			{
 				CancelReport();
 			}
-
+			
+			// HP0이 되어 사망일 때
 			if (bTargetKnockedOut)
 			{
 				bKnockedOut = true;
 				bFleeRequested = false;
 				bPanicRequested = false;
 			}
+			// 스턴태그 없고 데미지를 입었을 때
 			else if (bHasDamage && !bHasStunTag)
 			{
 				if (NPCReactionComponent)
@@ -542,7 +484,7 @@ void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTChara
 				}
 				bPanicRequested = false;
 			}
-
+			
 			if (bLogReportDebug)
 			{
 				UE_LOG(
@@ -563,58 +505,17 @@ void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTChara
 		return;
 	}
 
-	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
-	AActor* DamagedActor = Payload.TargetActor;
-	if (!NPCReportComponent || bIsStunned || !IsPlayerActor(SuspectActor) || !DamagedActor)
+	if (NPCReportComponent && NPCReportComponent->HandleObservedAssault(Payload))
 	{
-		return;
-	}
-
-	if (!Cast<AFTAICharacterBase>(DamagedActor))
-	{
-		return;
-	}
-
-	TargetActor = SuspectActor;
-	UpdateTargetState();
-
-	const bool bCanSeeDamagedActor = LineOfSightTo(DamagedActor);
-	if (!bHasSeenTarget || !bCanSeeDamagedActor)
-	{
-		if (bLogReportDebug)
-		{
-			UE_LOG(
-				LogFTNPC,
-				Log,
-				TEXT("[NPC] Assault not witnessed: PlayerVisible=%s VictimVisible=%s Player=%s Victim=%s"),
-				bHasSeenTarget ? TEXT("true") : TEXT("false"),
-				bCanSeeDamagedActor ? TEXT("true") : TEXT("false"),
-				*GetNameSafe(SuspectActor),
-				*GetNameSafe(DamagedActor)
-			);
-		}
-		return;
-	}
-
-	NPCReportComponent->MarkObservedAssault();
-	SyncReportStateFromComponent();
-	bCanStartReportFlow = true;
-
-	if (bLogReportDebug)
-	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("[NPC] Observed assault: Player=%s Victim=%s Damage=%.1f"),
-			*GetNameSafe(SuspectActor),
-			*GetNameSafe(DamagedActor),
-			Payload.DamageAmount
-		);
+		SyncReportStateFromComponent();
+		bCanStartReportFlow = true;
 	}
 }
 
+// 신고컴포넌트의 상태를 AIController쪽 변수로 복사합니다.
 void AFTNPCAIController::SyncReportStateFromComponent()
 {
+	// 방어코드. 신고 컴포넌트 없으면 종료
 	if (!NPCReportComponent)
 	{
 		return;
@@ -627,11 +528,13 @@ void AFTNPCAIController::SyncReportStateFromComponent()
 	bObservedAssault = NPCReportComponent->bObservedAssault;
 }
 
+// 손님 NPC 시야 표시용
 void AFTNPCAIController::DrawSightDebug() const
 {
 	DrawFlatSightDebug(SightConfig, FColor::Cyan, 1.5f);
 }
 
+// 손님 신고 조건 로그 표시용
 void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 {
 	if (!bLogReportDebug)
@@ -639,6 +542,7 @@ void AFTNPCAIController::LogReportConditionDebug(bool bTargetCurrentlyStealing)
 		return;
 	}
 
+	// 이전 상태와 지금 상태 비교 후 같으면 로그 찍지 않음
 	if (bLastLoggedHasSeenTarget == bHasSeenTarget &&
 		bLastLoggedIsTargetStealing == bIsTargetStealing &&
 		bLastLoggedCanStartReportFlow == bCanStartReportFlow)
