@@ -6,12 +6,13 @@
 #include "FTFailWidget.h"
 #include "FTInventoryWidget.h"
 #include "FTMainMenuWidget.h"
-#include "HubUI/FTHubCraftTestWidget.h"
+#include "HubUI/FTHubCraftWidget.h"
 #include "HubUI/FTHubMainWidget.h"
 #include "HubUI/FTHubMarketPanelWidget.h"
 #include "HubUI/FTHubQuestPanelWidget.h"
 #include "HubUI/FTHubShopPanelWidget.h"
 #include "HubUI/FTHubStorageWidget.h"
+#include "HubUI/FTRaidSelectWidget.h"
 #include "Framework/Application/SlateApplication.h"
 #include "../ViewModel/FTCraftingViewModel.h"
 #include "../ViewModel/FTHUDViewModel.h"
@@ -19,12 +20,14 @@
 #include "../ViewModel/FTQuestViewModel.h"
 #include "../ViewModel/FTSettlementViewModel.h"
 #include "../ViewModel/FTHubStorageViewModel.h"
+#include "../ViewModel/FTRaidSelectViewModel.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Core/FTObjectiveSubsystem.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
+#include "ProjectFT/Hub/FTHubRaidEntrance.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -380,7 +383,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 		return;
 	}
 
-	TSubclassOf<UFTHubCraftTestWidget> CraftWidgetClass = UFTAssetManager::Get().GetHubCraftWidgetClass();
+	TSubclassOf<UFTHubCraftWidget> CraftWidgetClass = UFTAssetManager::Get().GetHubCraftWidgetClass();
 
 	if (!CraftWidgetClass)
 	{
@@ -390,7 +393,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 
 	if (!HubCraftWidget || !HubCraftWidget->IsA(CraftWidgetClass))
 	{
-		HubCraftWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, CraftWidgetClass);
+		HubCraftWidget = CreateWidget<UFTHubCraftWidget>(PlayerController, CraftWidgetClass);
 		if (!HubCraftWidget)
 		{
 			return;
@@ -402,7 +405,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
 	}
 
-	HubCraftWidget->InitializeCraftTest(PlayerInventory, StorageInventory, CraftingViewModel);
+	HubCraftWidget->InitializeCraftWidget(PlayerInventory, StorageInventory, CraftingViewModel);
 	HubCraftWidget->AddToViewport(20);
 
 	FInputModeGameAndUI InputMode;
@@ -495,6 +498,72 @@ void UFTUIManagerSubsystem::HideStorage()
 	}
 }
 
+void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFTInventoryComponent* PlayerInventory)
+{
+	if (!RaidEntrance)
+	{
+		return;
+	}
+
+	if (RaidSelectWidget && RaidSelectWidget->IsInViewport())
+	{
+		HideRaidSelect();
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	TSubclassOf<UFTRaidSelectWidget> WidgetClass = RaidEntrance->GetRaidSelectWidgetClass();
+	if (!PlayerController || !WidgetClass)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Raid select widget was not opened. PlayerController=%s WidgetClass=%s"),
+			*GetNameSafe(PlayerController),
+			*GetNameSafe(WidgetClass));
+		return;
+	}
+
+	if (!RaidSelectWidget || !RaidSelectWidget->IsA(WidgetClass))
+	{
+		RaidSelectWidget = CreateWidget<UFTRaidSelectWidget>(PlayerController, WidgetClass);
+	}
+	if (!RaidSelectWidget)
+	{
+		return;
+	}
+
+	if (!RaidSelectViewModel)
+	{
+		RaidSelectViewModel = NewObject<UFTRaidSelectViewModel>(this);
+	}
+	RaidSelectViewModel->Initialize(RaidEntrance, PlayerInventory);
+	RaidSelectWidget->InitializeRaidSelect(RaidSelectViewModel);
+	RaidSelectWidget->AddToViewport(20);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(RaidSelectWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+	RaidSelectWidget->SetKeyboardFocus();
+}
+
+void UFTUIManagerSubsystem::HideRaidSelect()
+{
+	if (RaidSelectWidget)
+	{
+		RaidSelectWidget->RemoveFromParent();
+	}
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
+}
+
 void UFTUIManagerSubsystem::ShowHubMain(
 	AFTHubTerminal* HubTerminal,
 	AFTHubStorage* HubStorage,
@@ -547,7 +616,7 @@ void UFTUIManagerSubsystem::ShowHubMain(
 		UE_LOG(LogFTUI, Warning, TEXT("Hub shop and market panels will be empty because ShopSubsystem is missing."));
 	}
 
-	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory);
+	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory, HubStorage);
 
 	if (UFTHubQuestPanelWidget* QuestPanelWidget = HubMainWidget->GetQuestPanelWidget())
 	{
