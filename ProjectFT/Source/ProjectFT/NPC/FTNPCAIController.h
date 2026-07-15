@@ -15,6 +15,7 @@ class UFTNPCReactionComponent;
 class UFTNPCShoppingComponent;
 struct FFTMessagePayloadStruct;
 struct FFTCharacterDamagePayloadStruct;
+struct FFTCharacterAttackedPayloadStruct;
 UCLASS()
 class PROJECTFT_API AFTNPCAIController : public AFTAIControllerBase
 {
@@ -199,8 +200,10 @@ private:
 	
 	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
 	FGameplayMessageListenerHandle CharacterDamagedListenerHandle;
+	FGameplayMessageListenerHandle CharacterAttackedListenerHandle;
 	void OnShelfDamaged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload);
+	void OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload);
 	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;

@@ -7,7 +7,7 @@
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/NPC/FTNPCAIController.h"
-#include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
+#include "ProjectFT/Struct/FTCharacterAttackedPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 
@@ -248,7 +248,7 @@ bool UFTNPCReportComponent::HandleShelfDamaged(const FFTMessagePayloadStruct& Pa
 	return true;
 }
 
-bool UFTNPCReportComponent::HandleObservedAssault(const FFTCharacterDamagePayloadStruct& Payload)
+bool UFTNPCReportComponent::HandleObservedAssault(const FFTCharacterAttackedPayloadStruct& Payload)
 {
 	AFTNPCAIController* Controller = GetNPCAIController();
 	if (!Controller)
@@ -303,10 +303,9 @@ bool UFTNPCReportComponent::HandleObservedAssault(const FFTCharacterDamagePayloa
 		UE_LOG(
 			LogFTNPC,
 			Log,
-			TEXT("[NPC] Observed assault: Player=%s Victim=%s Damage=%.1f"),
+			TEXT("[NPC] Observed assault: Player=%s Victim=%s"),
 			*GetNameSafe(SuspectActor),
-			*GetNameSafe(DamagedActor),
-			Payload.DamageAmount
+			*GetNameSafe(DamagedActor)
 		);
 	}
 

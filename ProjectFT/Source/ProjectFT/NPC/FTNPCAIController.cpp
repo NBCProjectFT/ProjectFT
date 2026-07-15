@@ -18,6 +18,7 @@
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
+#include "ProjectFT/Struct/FTCharacterAttackedPayloadStruct.h"
 
 namespace
 {
@@ -85,6 +86,11 @@ void AFTNPCAIController::BeginPlay()
 		this,
 		&ThisClass::OnCharacterDamaged
 	);
+	CharacterAttackedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_CharacterAttacked,
+		this,
+		&ThisClass::OnCharacterAttacked
+	);
 }
 
 void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -99,6 +105,10 @@ void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (CharacterDamagedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterDamagedListenerHandle);
+	}
+	if (CharacterAttackedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterAttackedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -428,78 +438,85 @@ void AFTNPCAIController::OnShelfDamaged(
 
 void AFTNPCAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
 {
-	// 메시지의 TargetActor가 손님NPC인지 확인
+	if (Payload.TargetActor != GetPawn() || !Payload.bTargetKnockedOut)
+	{
+		return;
+	}
+
+	bKnockedOut = true;
+	bFleeRequested = false;
+	bPanicRequested = false;
+
+	if (bLogReportDebug)
+	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[NPC] Knocked out: NPC=%s Instigator=%s Damage=%.1f"),
+			*GetNameSafe(GetPawn()),
+			*GetNameSafe(Payload.InstigatorActor),
+			Payload.DamageAmount
+		);
+	}
+}
+
+void AFTNPCAIController::OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload)
+{
 	if (Payload.TargetActor == GetPawn())
 	{
 		AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
-		const bool bAttackerIsPlayer = IsPlayerActor(SuspectActor);
-		const bool bHasDamage = Payload.DamageAmount > 0.0f;
-		const bool bTargetKnockedOut = Payload.bTargetKnockedOut;
-		bool bHasStunTag = false;
-
-		// 맞은 대상이 AbilitySystemComponent가진 Actor인지 확인
-		if (IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(Payload.TargetActor))
+		if (!IsPlayerActor(SuspectActor))
 		{
-			// 맞은 대상의 ASC 가져오기
-			if (UAbilitySystemComponent* TargetASC = AbilitySystemInterface->GetAbilitySystemComponent())
+			return;
+		}
+
+		bool bHasImmobilizeTag = Payload.EffectTags.HasTag(TAG_FT_State_Debuff_Immobilized);
+
+		if (!bHasImmobilizeTag)
+		{
+			if (IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(Payload.TargetActor))
 			{
-				// 스턴 계열 효과는 실제 스턴 태그와 공통 행동불능 태그를 함께 확인한다.
-				bHasStunTag =
-					TargetASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Stun)
-					|| TargetASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized);
+				if (UAbilitySystemComponent* TargetASC = AbilitySystemInterface->GetAbilitySystemComponent())
+				{
+					// Hostile Payload에 상태 태그가 없더라도 이미 적용된 행동불능 태그가 있으면 즉시 도망치지 않는다.
+					bHasImmobilizeTag = TargetASC->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized);
+				}
 			}
 		}
-		
-		// 공격자가 플레이어일때
-		if (bAttackerIsPlayer)
-		{
-			TargetActor = SuspectActor;
-			if (NPCReactionComponent)
-			{
-				NPCReactionComponent->SetLastThreatActor(SuspectActor);
-			}
 
-			if (NPCReportComponent && NPCReportComponent->CurrentReportProgress > 0.0f && !NPCReportComponent->bReportCompleted)
+		TargetActor = SuspectActor;
+		if (NPCReactionComponent)
+		{
+			NPCReactionComponent->SetLastThreatActor(SuspectActor);
+		}
+
+		if (NPCReportComponent && NPCReportComponent->CurrentReportProgress > 0.0f && !NPCReportComponent->bReportCompleted)
+		{
+			CancelReport();
+		}
+
+		if (!bHasImmobilizeTag && !bKnockedOut && NPCReactionComponent)
+		{
+			bFleeRequested = NPCReactionComponent->PickFleeLocationFrom(SuspectActor);
+			if (bFleeRequested)
 			{
-				CancelReport();
+				NPCReactionComponent->RequestFleeFromTarget();
 			}
-			
-			// HP0이 되어 사망일 때
-			if (bTargetKnockedOut)
-			{
-				bKnockedOut = true;
-				bFleeRequested = false;
-				bPanicRequested = false;
-			}
-			// 스턴태그 없고 데미지를 입었을 때
-			else if (bHasDamage && !bHasStunTag)
-			{
-				if (NPCReactionComponent)
-				{
-					bFleeRequested = NPCReactionComponent->PickFleeLocationFrom(SuspectActor);
-					if (bFleeRequested)
-					{
-						NPCReactionComponent->RequestFleeFromTarget();
-					}
-				}
-				bPanicRequested = false;
-			}
-			
-			if (bLogReportDebug)
-			{
-				UE_LOG(
-					LogFTNPC,
-					Log,
-					TEXT("[NPC] Damaged by player: NPC=%s Player=%s Damage=%.1f Stunned=%s KnockedOut=%s FleeRequested=%s PanicRequested=%s"),
-					*GetNameSafe(GetPawn()),
-					*GetNameSafe(SuspectActor),
-					Payload.DamageAmount,
-					bHasStunTag ? TEXT("true") : TEXT("false"),
-					bTargetKnockedOut ? TEXT("true") : TEXT("false"),
-					bFleeRequested ? TEXT("true") : TEXT("false"),
-					bPanicRequested ? TEXT("true") : TEXT("false")
-				);
-			}
+			bPanicRequested = false;
+		}
+
+		if (bLogReportDebug)
+		{
+			UE_LOG(
+				LogFTNPC,
+				Log,
+				TEXT("[NPC] Attacked by player: NPC=%s Player=%s Immobilized=%s FleeRequested=%s PanicRequested=%s"),
+				*GetNameSafe(GetPawn()),
+				*GetNameSafe(SuspectActor),
+				bHasImmobilizeTag ? TEXT("true") : TEXT("false"),
+				bFleeRequested ? TEXT("true") : TEXT("false"),
+				bPanicRequested ? TEXT("true") : TEXT("false")
+			);
 		}
 
 		return;

@@ -6,7 +6,7 @@
 #include "FTNPCReportComponent.generated.h"
 
 class AFTNPCAIController;
-struct FFTCharacterDamagePayloadStruct;
+struct FFTCharacterAttackedPayloadStruct;
 struct FFTMessagePayloadStruct;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -49,7 +49,7 @@ public:
 	void CancelReport();
 	void HandleReportFlowAvailability(bool bCanStartReportFlow, bool bLogReportDebug);
 	bool HandleShelfDamaged(const FFTMessagePayloadStruct& Payload);
-	bool HandleObservedAssault(const FFTCharacterDamagePayloadStruct& Payload);
+	bool HandleObservedAssault(const FFTCharacterAttackedPayloadStruct& Payload);
 	void MarkObservedShelfDamage();
 	void MarkObservedAssault();
 	void HandleStunStateChanged(bool bStunned);
