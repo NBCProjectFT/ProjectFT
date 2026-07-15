@@ -13,7 +13,7 @@
 #include "../../UI/FTMainHUDWidget.h"
 #include "../../UI/FTMainMenuWidget.h"
 #include "../../UI/FTQuestListWidget.h"
-#include "../../UI/HubUI/FTHubCraftTestWidget.h"
+#include "../../UI/HubUI/FTHubCraftWidget.h"
 #include "../../UI/HubUI/FTHubStorageWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Engine/World.h"
@@ -356,7 +356,7 @@ TSubclassOf<UFTHubStorageWidget> UFTAssetManager::GetHubStorageWidgetClass()
 	return LoadedGameData ? GetSubclass(LoadedGameData->HubStorageWidgetClass) : nullptr;
 }
 
-TSubclassOf<UFTHubCraftTestWidget> UFTAssetManager::GetHubCraftWidgetClass()
+TSubclassOf<UFTHubCraftWidget> UFTAssetManager::GetHubCraftWidgetClass()
 {
 	const UFTGameDataAsset* LoadedGameData = LoadGameData();
 	return LoadedGameData ? GetSubclass(LoadedGameData->HubCraftWidgetClass) : nullptr;

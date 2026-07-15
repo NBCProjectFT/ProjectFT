@@ -28,6 +28,8 @@ public:
 	bool HasOwnedCount() const;
 	bool IsChecked() const;
 	void SetChecked(bool bInChecked);
+	bool ShouldShowSelectionCheckBox() const;
+	void SetShowSelectionCheckBox(bool bInShowSelectionCheckBox);
 	const FText& GetDisplayName() const;
 	const FText& GetDescription() const;
 	FText GetCategoryText() const;
@@ -44,6 +46,7 @@ private:
 	EFTItemCategoryType CategoryType = EFTItemCategoryType::None;
 	bool bLocked = false;
 	bool bChecked = false;
+	bool bShowSelectionCheckBox = true;
 	FText DisplayName;
 	FText Description;
 	TSoftObjectPtr<UTexture2D> ItemIcon;

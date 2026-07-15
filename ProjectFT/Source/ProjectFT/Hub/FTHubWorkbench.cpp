@@ -12,8 +12,6 @@ AFTHubWorkbench::AFTHubWorkbench()
 
 bool AFTHubWorkbench::Interact_Implementation(AActor* Interactor)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Hub Workbench Interacted"));
-
 	OpenCraftWidget(Interactor);
 
 	return true;

@@ -29,6 +29,9 @@ public:
 	bool BuyItem(FName ItemID, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
+	bool BuyItemCount(FName ItemID, int32 PurchaseCount, UFTInventoryComponent* PlayerInventory);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
 	bool SellItemToShop(FName ItemID, int32 Count, UFTInventoryComponent* PlayerInventory);
 
 	UFUNCTION(BlueprintPure, Category = "FT|Shop")

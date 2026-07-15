@@ -10,7 +10,7 @@ class UFTInventoryPreloadDataAsset;
 class UFTLevelPreloadDataAsset;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
-class UFTHubCraftTestWidget;
+class UFTHubCraftWidget;
 class UFTHubStorageWidget;
 class UFTCountdownEscapeWidget;
 class UFTInventoryWidget;
@@ -58,7 +58,7 @@ public:
 	TSubclassOf<UFTInventoryWidget> GetInventoryWidgetClass();
 	TSubclassOf<UFTQuestListWidget> GetQuestListWidgetClass();
 	TSubclassOf<UFTHubStorageWidget> GetHubStorageWidgetClass();
-	TSubclassOf<UFTHubCraftTestWidget> GetHubCraftWidgetClass();
+	TSubclassOf<UFTHubCraftWidget> GetHubCraftWidgetClass();
 	TSubclassOf<UFTCountdownEscapeWidget> GetCountdownEscapeWidgetClass();
 	TSubclassOf<UFTEscapedRaidWidget> GetEscapedRaidWidgetClass();
 	TSubclassOf<UFTFailWidget> GetFailWidgetClass();

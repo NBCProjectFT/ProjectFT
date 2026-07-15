@@ -36,6 +36,12 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Ability_ItemUse_Aimed);
 // 카운트가 곧 '동시에 활성인 행동불능 수' — 하나 풀려도 남아있으면 유지, 전부 사라져야 해제된다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_State_Debuff_Immobilized);
 
+// 적대적 행동(공격) 식별용 '에셋' 태그. 대상을 해치려는 의도의 GE라면 종류(데미지/스턴/슬로우/독/비눗방울 등)를
+// 불문하고 이 태그를 자기 에셋 태그로 단다. 대상 캐릭터(AFTCharacterBase)는 GE 적용 시 이 태그 하나만 보고
+// "공격당함"으로 간주해 어그로 신호(Event.Character.Attacked)를 발행한다 — 카테고리별 처리를 늘리지 않는 단일 판정 기준.
+// (부여 태그 State.Debuff.*는 '대상의 상태'를 표현하고, 이 에셋 태그는 'GE의 의도'를 표현한다 — 층위가 다르다.)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Effect_Hostile);
+
 // ── 버프/디버프 상태 태그 ──────────────────────────────────────────────
 // GE가 활성인 동안 대상에게 부여되어 "걸려있음"을 표현한다(ASC HasMatchingGameplayTag로 판정).
 // 계층적이라 부모 태그로 일괄 처리 가능: State.Debuff 하나로 "디버프 있나?" 질의나, 해독 아이템의

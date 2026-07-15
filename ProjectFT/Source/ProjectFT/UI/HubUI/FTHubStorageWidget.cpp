@@ -6,6 +6,7 @@
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
+#include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 #include "ProjectFT/ViewModel/FTHubStorageViewModel.h"
 #include "Types/SlateEnums.h"
 
@@ -82,6 +83,18 @@ void UFTHubStorageWidget::NativeConstruct()
 	{
 		BTN_TakeAll->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleTakeAllClicked);
 		BTN_TakeAll->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleTakeAllClicked);
+	}
+
+	if (BTN_QuantityMinus)
+	{
+		BTN_QuantityMinus->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleQuantityMinusClicked);
+		BTN_QuantityMinus->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleQuantityMinusClicked);
+	}
+
+	if (BTN_QuantityPlus)
+	{
+		BTN_QuantityPlus->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleQuantityPlusClicked);
+		BTN_QuantityPlus->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleQuantityPlusClicked);
 	}
 
 	if (BTN_PlayerFilterAll)
@@ -169,9 +182,19 @@ void UFTHubStorageWidget::RefreshFromViewModel()
 		const int32 SelectedCount = ViewModel->GetSelectedEntryCount();
 		const bool bHasSelection = SelectedCount > 0;
 		SPB_MoveCount->SetMinValue(1.0f);
-		SPB_MoveCount->SetMaxValue(FMath::Max(1, SelectedCount));
-		SPB_MoveCount->SetValue(bHasSelection ? 1.0f : 0.0f);
-		SPB_MoveCount->SetIsEnabled(bHasSelection);
+		SPB_MoveCount->SetMaxValue(999.0f);
+		SPB_MoveCount->SetValue(bHasSelection ? FCString::Atoi(*ViewModel->GetMoveQuantityText().ToString()) : 0.0f);
+		SPB_MoveCount->SetIsEnabled(false);
+	}
+
+	if (TXT_MoveQuantity)
+	{
+		TXT_MoveQuantity->SetText(ViewModel->GetMoveQuantityText());
+	}
+
+	if (TXT_TradeQuantity)
+	{
+		TXT_TradeQuantity->SetText(ViewModel->GetMoveQuantityText());
 	}
 
 	if (BTN_Store)
@@ -192,6 +215,16 @@ void UFTHubStorageWidget::RefreshFromViewModel()
 	if (BTN_TakeAll)
 	{
 		BTN_TakeAll->SetIsEnabled(ViewModel->CanTakeAll());
+	}
+
+	if (BTN_QuantityMinus)
+	{
+		BTN_QuantityMinus->SetIsEnabled(ViewModel->CanDecreaseMoveQuantity());
+	}
+
+	if (BTN_QuantityPlus)
+	{
+		BTN_QuantityPlus->SetIsEnabled(ViewModel->CanIncreaseMoveQuantity());
 	}
 }
 
@@ -217,6 +250,10 @@ void UFTHubStorageWidget::PopulateItems(UListView* ItemsView, const TArray<TObje
 	for (UObject* Item : Items)
 	{
 		ItemsView->AddItem(Item);
+		if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item))
+		{
+			ItemsView->SetItemSelection(Item, TileObject->IsChecked());
+		}
 	}
 }
 
@@ -225,6 +262,13 @@ void UFTHubStorageWidget::PushSelectedItemsToViewModel(UListView* ItemsView, con
 	if (bRefreshingFromViewModel || !ViewModel || !ItemsView)
 	{
 		return;
+	}
+
+	if (UListView* OtherItemsView = bFromPlayerItems ? GetStorageItemsView() : GetPlayerItemsView())
+	{
+		bRefreshingFromViewModel = true;
+		OtherItemsView->ClearSelection();
+		bRefreshingFromViewModel = false;
 	}
 
 	TArray<UObject*> SelectedItems;
@@ -293,6 +337,22 @@ void UFTHubStorageWidget::HandleTakeAllClicked()
 	if (ViewModel)
 	{
 		ViewModel->TakeAllItems();
+	}
+}
+
+void UFTHubStorageWidget::HandleQuantityMinusClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->DecreaseMoveQuantity();
+	}
+}
+
+void UFTHubStorageWidget::HandleQuantityPlusClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->IncreaseMoveQuantity();
 	}
 }
 
