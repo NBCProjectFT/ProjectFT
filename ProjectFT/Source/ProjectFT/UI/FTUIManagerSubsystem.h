@@ -22,7 +22,7 @@ class AFTHubTerminal;
 class UFTHubMainWidget;
 class UFTHubStorageViewModel;
 class UFTHubStorageWidget;
-class UFTHubCraftTestWidget;
+class UFTHubCraftWidget;
 class UFTInventoryComponent;
 class AFTHubRaidEntrance;
 class UFTRaidSelectWidget;
@@ -161,7 +161,7 @@ private:
 	TObjectPtr<UFTHubStorageWidget> HubStorageWidget = nullptr;
 
 	UPROPERTY(Transient)
-	TObjectPtr<UFTHubCraftTestWidget> HubCraftWidget = nullptr;
+	TObjectPtr<UFTHubCraftWidget> HubCraftWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTRaidSelectWidget> RaidSelectWidget = nullptr;

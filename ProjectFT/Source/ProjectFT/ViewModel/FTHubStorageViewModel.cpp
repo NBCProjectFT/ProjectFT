@@ -1,10 +1,10 @@
 #include "FTHubStorageViewModel.h"
 
-#include "Engine/AssetManager.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
+#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 
 void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
@@ -298,26 +298,7 @@ EFTItemCategoryType UFTHubStorageViewModel::GetItemCategory(const FName ItemID) 
 		return EFTItemCategoryType::None;
 	}
 
-	const UFTItemDataAsset* ItemDataAsset = PlayerInventory
-		? PlayerInventory->FindItemData(ItemID)
-		: nullptr;
-
-	if (!ItemDataAsset)
-	{
-		UAssetManager& AssetManager = UAssetManager::Get();
-		const FPrimaryAssetId AssetID(FName("FTItemItem"), ItemID);
-		UObject* AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
-		if (!AssetObject)
-		{
-			const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
-			if (AssetPath.IsValid())
-			{
-				AssetObject = AssetPath.TryLoad();
-			}
-		}
-
-		ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
-	}
+	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
 
 	return ItemDataAsset ? ItemDataAsset->ItemData.CategoryType : EFTItemCategoryType::None;
 }

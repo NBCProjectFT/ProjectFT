@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "ProjectFT/Struct/FTCraftRecipeStruct.h"
-#include "FTHubCraftTestWidget.generated.h"
+#include "FTHubCraftWidget.generated.h"
 
 class UButton;
 class UCheckBox;
@@ -16,13 +16,13 @@ class UTextBlock;
 class UTileView;
 
 UCLASS()
-class PROJECTFT_API UFTHubCraftTestWidget : public UUserWidget
+class PROJECTFT_API UFTHubCraftWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Craft")
-	void InitializeCraftTest(
+	void InitializeCraftWidget(
 		UFTInventoryComponent* InPlayerInventory,
 		UFTInventoryComponent* InStorageInventory,
 		UFTCraftingViewModel* InViewModel);

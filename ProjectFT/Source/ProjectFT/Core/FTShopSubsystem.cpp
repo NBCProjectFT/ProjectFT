@@ -5,6 +5,7 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
+#include "ProjectFT/Data/FTInventoryPreloadDataAsset.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTShopDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
@@ -14,6 +15,7 @@ namespace
 {
 	const FPrimaryAssetType ItemAssetType(TEXT("FTItemItem"));
 	const FName ItemDataPackagePath(TEXT("/Game/Blueprints/Items/Data"));
+	const FName InventoryPreloadPackagePath(TEXT("/Game/Blueprints/LevelPreload"));
 }
 
 void UFTShopSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -55,16 +57,22 @@ void UFTShopSubsystem::RefreshShopItems()
 
 bool UFTShopSubsystem::BuyItem(FName ItemID, UFTInventoryComponent* PlayerInventory)
 {
+	return BuyItemCount(ItemID, 1, PlayerInventory);
+}
+
+bool UFTShopSubsystem::BuyItemCount(FName ItemID, const int32 PurchaseCount, UFTInventoryComponent* PlayerInventory)
+{
 	EnsureShopDataLoaded();
 
+	const int32 SafePurchaseCount = FMath::Max(0, PurchaseCount);
 	const FTShopItemStruct* ShopItem = FindCurrentShopItem(ItemID);
-	if (!ShopItem || !CanBuyItem(ItemID, PlayerInventory))
+	if (!ShopItem || SafePurchaseCount <= 0 || !CanBuyItem(ItemID, PlayerInventory))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Shop Buy Failed: %s"), *ItemID.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Shop Buy Failed: %s x%d"), *ItemID.ToString(), PurchaseCount);
 		return false;
 	}
 
-	const int32 Price = FMath::Max(0, ShopItem->Price);
+	const int32 Price = FMath::Max(0, ShopItem->Price) * SafePurchaseCount;
 	if (!RemoveCurrency(PlayerInventory, Price))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Shop Buy Currency Failed: %s / Price %d"), *ItemID.ToString(), Price);
@@ -72,14 +80,15 @@ bool UFTShopSubsystem::BuyItem(FName ItemID, UFTInventoryComponent* PlayerInvent
 	}
 
 	const FName ResolvedItemID = ShopItem->GetResolvedItemID();
-	if (!PlayerInventory->AddItem(ResolvedItemID, ShopItem->Count))
+	const int32 RewardCount = ShopItem->Count * SafePurchaseCount;
+	if (!PlayerInventory->AddItem(ResolvedItemID, RewardCount))
 	{
 		AddCurrency(PlayerInventory, Price);
-		UE_LOG(LogTemp, Warning, TEXT("Shop Buy Reward Failed: %s"), *ItemID.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Shop Buy Reward Failed: %s x%d"), *ItemID.ToString(), RewardCount);
 		return false;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Shop Buy Success: %s x%d / Price %d"), *ResolvedItemID.ToString(), ShopItem->Count, Price);
+	UE_LOG(LogTemp, Warning, TEXT("Shop Buy Success: %s x%d / Price %d"), *ResolvedItemID.ToString(), RewardCount, Price);
 	return true;
 }
 
@@ -378,7 +387,7 @@ void UFTShopSubsystem::LoadShopData()
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Hub shop data asset is not set. Building temporary shop pool from item data assets."));
+		UE_LOG(LogTemp, Warning, TEXT("Hub shop data asset is not set. Building fallback shop pool from item data assets."));
 	}
 
 	if (RandomItemPool.IsEmpty())
@@ -432,48 +441,182 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 	{
 		if (!ItemDataAsset)
 		{
-			return;
+			return false;
 		}
 
 		const FName ItemID = ItemDataAsset->ItemData.ItemId;
 		if (ItemID.IsNone() || ItemID == CurrencyItemID || AddedItemIDs.Contains(ItemID))
 		{
-			return;
+			return false;
 		}
 
 		OutItemDataAssets.Add(ItemDataAsset);
 		AddedItemIDs.Add(ItemID);
+		return true;
 	};
 
 	UAssetManager& AssetManager = UAssetManager::Get();
-	TArray<FString> ItemDataPaths;
-	ItemDataPaths.Add(ItemDataPackagePath.ToString());
-	AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, true);
-
-	TArray<FPrimaryAssetId> ItemAssetIDs;
-	AssetManager.GetPrimaryAssetIdList(ItemAssetType, ItemAssetIDs);
-	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetManager primary ids=%d"), ItemAssetIDs.Num());
-
-	for (const FPrimaryAssetId& ItemAssetID : ItemAssetIDs)
+	const auto LoadItemDataFromPath = [&TryAddItemDataAsset](const FSoftObjectPath& AssetPath)
 	{
-		UObject* AssetObject = AssetManager.GetPrimaryAssetObject(ItemAssetID);
+		if (!AssetPath.IsValid())
+		{
+			return false;
+		}
+
+		UObject* AssetObject = AssetPath.ResolveObject();
 		if (!AssetObject)
 		{
-			const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(ItemAssetID);
-			if (AssetPath.IsValid())
+			AssetObject = AssetPath.TryLoad();
+		}
+
+		return TryAddItemDataAsset(Cast<UFTItemDataAsset>(AssetObject));
+	};
+
+	TArray<FString> InventoryPreloadPaths;
+	InventoryPreloadPaths.Add(InventoryPreloadPackagePath.ToString());
+	AssetManager.ScanPathsForPrimaryAssets(UFTInventoryPreloadDataAsset::AssetType, InventoryPreloadPaths, UFTInventoryPreloadDataAsset::StaticClass(), false, true);
+
+	TArray<FPrimaryAssetId> InventoryPreloadAssetIDs;
+	AssetManager.GetPrimaryAssetIdList(UFTInventoryPreloadDataAsset::AssetType, InventoryPreloadAssetIDs);
+	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload primary ids=%d"), InventoryPreloadAssetIDs.Num());
+	if (InventoryPreloadAssetIDs.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload not found. path=%s"), *InventoryPreloadPackagePath.ToString());
+	}
+
+	for (const FPrimaryAssetId& InventoryPreloadAssetID : InventoryPreloadAssetIDs)
+	{
+		const int32 BeforePreloadCollectCount = OutItemDataAssets.Num();
+		UObject* InventoryPreloadObject = AssetManager.GetPrimaryAssetObject(InventoryPreloadAssetID);
+		if (!InventoryPreloadObject)
+		{
+			const FSoftObjectPath InventoryPreloadPath = AssetManager.GetPrimaryAssetPath(InventoryPreloadAssetID);
+			if (InventoryPreloadPath.IsValid())
 			{
-				AssetObject = AssetPath.TryLoad();
+				InventoryPreloadObject = InventoryPreloadPath.TryLoad();
 			}
 		}
 
-		UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
-		TryAddItemDataAsset(ItemDataAsset);
+		const UFTInventoryPreloadDataAsset* InventoryPreloadData = Cast<UFTInventoryPreloadDataAsset>(InventoryPreloadObject);
+		if (!InventoryPreloadData)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload load failed. id=%s"), *InventoryPreloadAssetID.ToString());
+			continue;
+		}
+
+		TArray<FSoftObjectPath> PreloadAssetPaths;
+		InventoryPreloadData->GetPreloadAssetPaths(PreloadAssetPaths);
+		UE_LOG(
+			LogTemp,
+			Warning,
+			TEXT("Shop item data collect: using InventoryPreload id=%s includeAllPrimaryItems=%s explicitPaths=%d"),
+			*InventoryPreloadAssetID.ToString(),
+			InventoryPreloadData->bIncludeAllPrimaryItemAssets ? TEXT("true") : TEXT("false"),
+			PreloadAssetPaths.Num());
+
+		if (InventoryPreloadData->bIncludeAllPrimaryItemAssets)
+		{
+			TArray<FString> ItemDataPaths;
+			ItemDataPaths.Add(ItemDataPackagePath.ToString());
+			AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, true);
+
+			TSet<FString> AddedPreloadPathStrings;
+			for (const FSoftObjectPath& PreloadAssetPath : PreloadAssetPaths)
+			{
+				if (PreloadAssetPath.IsValid())
+				{
+					AddedPreloadPathStrings.Add(PreloadAssetPath.ToString());
+				}
+			}
+
+			TArray<FPrimaryAssetId> ItemAssetIDs;
+			AssetManager.GetPrimaryAssetIdList(ItemAssetType, ItemAssetIDs);
+			int32 AppendedPrimaryItemCount = 0;
+			for (const FPrimaryAssetId& ItemAssetID : ItemAssetIDs)
+			{
+				const FSoftObjectPath ItemAssetPath = AssetManager.GetPrimaryAssetPath(ItemAssetID);
+				if (ItemAssetPath.IsValid() && !AddedPreloadPathStrings.Contains(ItemAssetPath.ToString()))
+				{
+					PreloadAssetPaths.Add(ItemAssetPath);
+					AddedPreloadPathStrings.Add(ItemAssetPath.ToString());
+					++AppendedPrimaryItemCount;
+				}
+			}
+			UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload appended primary item paths=%d"), AppendedPrimaryItemCount);
+		}
+
+		TSet<FString> ExcludedPathStrings;
+		InventoryPreloadData->GetExcludedAssetPaths(ExcludedPathStrings);
+		const int32 BeforeExcludePathCount = PreloadAssetPaths.Num();
+		PreloadAssetPaths.RemoveAll([&ExcludedPathStrings](const FSoftObjectPath& PreloadAssetPath)
+		{
+			return ExcludedPathStrings.Contains(PreloadAssetPath.ToString());
+		});
+		if (BeforeExcludePathCount != PreloadAssetPaths.Num())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload excluded paths=%d"), BeforeExcludePathCount - PreloadAssetPaths.Num());
+		}
+
+		int32 AddedFromPreloadCount = 0;
+		int32 SkippedFromPreloadCount = 0;
+		for (const FSoftObjectPath& PreloadAssetPath : PreloadAssetPaths)
+		{
+			if (LoadItemDataFromPath(PreloadAssetPath))
+			{
+				++AddedFromPreloadCount;
+			}
+			else
+			{
+				++SkippedFromPreloadCount;
+			}
+		}
+		UE_LOG(
+			LogTemp,
+			Warning,
+			TEXT("Shop item data collect: InventoryPreload result id=%s added=%d skipped=%d totalCollected=%d"),
+			*InventoryPreloadAssetID.ToString(),
+			AddedFromPreloadCount,
+			SkippedFromPreloadCount,
+			OutItemDataAssets.Num() - BeforePreloadCollectCount);
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetManager collected=%d"), OutItemDataAssets.Num());
+	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload collected=%d"), OutItemDataAssets.Num());
+
+	if (OutItemDataAssets.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload produced no usable items. Falling back to AssetManager item primary assets."));
+
+		TArray<FString> ItemDataPaths;
+		ItemDataPaths.Add(ItemDataPackagePath.ToString());
+		AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, true);
+
+		TArray<FPrimaryAssetId> ItemAssetIDs;
+		AssetManager.GetPrimaryAssetIdList(ItemAssetType, ItemAssetIDs);
+		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetManager fallback primary ids=%d"), ItemAssetIDs.Num());
+
+		for (const FPrimaryAssetId& ItemAssetID : ItemAssetIDs)
+		{
+			UObject* AssetObject = AssetManager.GetPrimaryAssetObject(ItemAssetID);
+			if (!AssetObject)
+			{
+				const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(ItemAssetID);
+				if (AssetPath.IsValid())
+				{
+					AssetObject = AssetPath.TryLoad();
+				}
+			}
+
+			UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
+			TryAddItemDataAsset(ItemDataAsset);
+		}
+		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: AssetManager fallback collected=%d"), OutItemDataAssets.Num());
+	}
 
 	if (OutItemDataAssets.IsEmpty())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: using AssetRegistry fallback path=%s"), *ItemDataPackagePath.ToString());
+
+		TArray<FString> ItemDataPaths;
+		ItemDataPaths.Add(ItemDataPackagePath.ToString());
 
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
@@ -496,9 +639,14 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 
 	if (const UFTGameDataAsset* GameData = UFTAssetManager::Get().GetGameData())
 	{
+		const int32 BeforeGameDataCount = OutItemDataAssets.Num();
 		for (const TSoftObjectPtr<UFTItemDataAsset>& ItemDataAssetRef : GameData->ItemDataAssets)
 		{
 			TryAddItemDataAsset(UFTAssetManager::GetAsset(ItemDataAssetRef));
+		}
+		if (OutItemDataAssets.Num() > BeforeGameDataCount)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: GameData fallback appended=%d total=%d"), OutItemDataAssets.Num() - BeforeGameDataCount, OutItemDataAssets.Num());
 		}
 	}
 }
@@ -525,7 +673,7 @@ void UFTShopSubsystem::BuildRandomItemPoolFromItemAssets()
 		RandomItemPool.Add(ShopItem);
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Temporary shop item pool built from item data assets: %d items"), RandomItemPool.Num());
+	UE_LOG(LogTemp, Warning, TEXT("Fallback shop item pool built from item data assets: %d items"), RandomItemPool.Num());
 }
 
 void UFTShopSubsystem::GenerateMarketPostsFromTemplates()

@@ -1,4 +1,4 @@
-#include "FTHubCraftTestWidget.h"
+#include "FTHubCraftWidget.h"
 
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
@@ -12,7 +12,7 @@
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTCraftingViewModel.h"
 
-void UFTHubCraftTestWidget::InitializeCraftTest(
+void UFTHubCraftWidget::InitializeCraftWidget(
 	UFTInventoryComponent* InPlayerInventory,
 	UFTInventoryComponent* InStorageInventory,
 	UFTCraftingViewModel* InViewModel)
@@ -21,14 +21,14 @@ void UFTHubCraftTestWidget::InitializeCraftTest(
 	{
 		if (ViewModel)
 		{
-			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::RefreshFromViewModel);
+			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubCraftWidget::RefreshFromViewModel);
 		}
 
 		ViewModel = InViewModel ? InViewModel : NewObject<UFTCraftingViewModel>(this);
 		if (ViewModel)
 		{
-			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::RefreshFromViewModel);
-			ViewModel->OnChanged.AddDynamic(this, &UFTHubCraftTestWidget::RefreshFromViewModel);
+			ViewModel->OnChanged.RemoveDynamic(this, &UFTHubCraftWidget::RefreshFromViewModel);
+			ViewModel->OnChanged.AddDynamic(this, &UFTHubCraftWidget::RefreshFromViewModel);
 		}
 	}
 
@@ -43,45 +43,45 @@ void UFTHubCraftTestWidget::InitializeCraftTest(
 	RefreshFromViewModel();
 }
 
-void UFTHubCraftTestWidget::NativeConstruct()
+void UFTHubCraftWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
 	if (LV_CraftRecipes)
 	{
 		LV_CraftRecipes->OnItemClicked().RemoveAll(this);
-		LV_CraftRecipes->OnItemClicked().AddUObject(this, &UFTHubCraftTestWidget::HandleRecipeClicked);
+		LV_CraftRecipes->OnItemClicked().AddUObject(this, &UFTHubCraftWidget::HandleRecipeClicked);
 	}
 
 	if (UCheckBox* CraftableOnlyCheckBox = GetCraftableOnlyCheckBox())
 	{
-		CraftableOnlyCheckBox->OnCheckStateChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCraftableOnlyChanged);
-		CraftableOnlyCheckBox->OnCheckStateChanged.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftableOnlyChanged);
+		CraftableOnlyCheckBox->OnCheckStateChanged.RemoveDynamic(this, &UFTHubCraftWidget::HandleCraftableOnlyChanged);
+		CraftableOnlyCheckBox->OnCheckStateChanged.AddDynamic(this, &UFTHubCraftWidget::HandleCraftableOnlyChanged);
 	}
 
 	if (EDT_SearchRecipe)
 	{
-		EDT_SearchRecipe->OnTextChanged.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleSearchRecipeTextChanged);
-		EDT_SearchRecipe->OnTextChanged.AddDynamic(this, &UFTHubCraftTestWidget::HandleSearchRecipeTextChanged);
+		EDT_SearchRecipe->OnTextChanged.RemoveDynamic(this, &UFTHubCraftWidget::HandleSearchRecipeTextChanged);
+		EDT_SearchRecipe->OnTextChanged.AddDynamic(this, &UFTHubCraftWidget::HandleSearchRecipeTextChanged);
 	}
 
 	if (BTN_Craft)
 	{
-		BTN_Craft->OnClicked.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCraftClicked);
-		BTN_Craft->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCraftClicked);
+		BTN_Craft->OnClicked.RemoveDynamic(this, &UFTHubCraftWidget::HandleCraftClicked);
+		BTN_Craft->OnClicked.AddDynamic(this, &UFTHubCraftWidget::HandleCraftClicked);
 		BTN_Craft->SetIsEnabled(false);
 	}
 
 	if (BTN_Close)
 	{
-		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
-		BTN_Close->OnClicked.AddDynamic(this, &UFTHubCraftTestWidget::HandleCloseClicked);
+		BTN_Close->OnClicked.RemoveDynamic(this, &UFTHubCraftWidget::HandleCloseClicked);
+		BTN_Close->OnClicked.AddDynamic(this, &UFTHubCraftWidget::HandleCloseClicked);
 	}
 
 	RefreshFromViewModel();
 }
 
-void UFTHubCraftTestWidget::RefreshFromViewModel()
+void UFTHubCraftWidget::RefreshFromViewModel()
 {
 	if (!ViewModel)
 	{
@@ -146,17 +146,17 @@ void UFTHubCraftTestWidget::RefreshFromViewModel()
 	}
 }
 
-UListView* UFTHubCraftTestWidget::GetStorageItemsView() const
+UListView* UFTHubCraftWidget::GetStorageItemsView() const
 {
 	return Cast<UListView>(TV_StorageItems);
 }
 
-UCheckBox* UFTHubCraftTestWidget::GetCraftableOnlyCheckBox() const
+UCheckBox* UFTHubCraftWidget::GetCraftableOnlyCheckBox() const
 {
 	return CHK_ShowCraftableOnly ? CHK_ShowCraftableOnly : CHK_CraftableOnly;
 }
 
-void UFTHubCraftTestWidget::PopulateItems(UListView* ItemsView, const TArray<TObjectPtr<UObject>>& Items)
+void UFTHubCraftWidget::PopulateItems(UListView* ItemsView, const TArray<TObjectPtr<UObject>>& Items)
 {
 	if (!ItemsView)
 	{
@@ -170,7 +170,7 @@ void UFTHubCraftTestWidget::PopulateItems(UListView* ItemsView, const TArray<TOb
 	}
 }
 
-void UFTHubCraftTestWidget::HandleRecipeClicked(UObject* Item)
+void UFTHubCraftWidget::HandleRecipeClicked(UObject* Item)
 {
 	if (ViewModel)
 	{
@@ -178,7 +178,7 @@ void UFTHubCraftTestWidget::HandleRecipeClicked(UObject* Item)
 	}
 }
 
-void UFTHubCraftTestWidget::HandleCraftableOnlyChanged(const bool bIsChecked)
+void UFTHubCraftWidget::HandleCraftableOnlyChanged(const bool bIsChecked)
 {
 	if (ViewModel)
 	{
@@ -186,7 +186,7 @@ void UFTHubCraftTestWidget::HandleCraftableOnlyChanged(const bool bIsChecked)
 	}
 }
 
-void UFTHubCraftTestWidget::HandleSearchRecipeTextChanged(const FText& Text)
+void UFTHubCraftWidget::HandleSearchRecipeTextChanged(const FText& Text)
 {
 	if (ViewModel)
 	{
@@ -194,7 +194,7 @@ void UFTHubCraftTestWidget::HandleSearchRecipeTextChanged(const FText& Text)
 	}
 }
 
-void UFTHubCraftTestWidget::HandleCraftClicked()
+void UFTHubCraftWidget::HandleCraftClicked()
 {
 	if (ViewModel)
 	{
@@ -202,7 +202,7 @@ void UFTHubCraftTestWidget::HandleCraftClicked()
 	}
 }
 
-void UFTHubCraftTestWidget::HandleCloseClicked()
+void UFTHubCraftWidget::HandleCloseClicked()
 {
 	if (UFTUIManagerSubsystem* UIManager = GetGameInstance()
 		? GetGameInstance()->GetSubsystem<UFTUIManagerSubsystem>()

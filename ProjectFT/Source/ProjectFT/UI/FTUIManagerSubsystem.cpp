@@ -6,7 +6,7 @@
 #include "FTFailWidget.h"
 #include "FTInventoryWidget.h"
 #include "FTMainMenuWidget.h"
-#include "HubUI/FTHubCraftTestWidget.h"
+#include "HubUI/FTHubCraftWidget.h"
 #include "HubUI/FTHubMainWidget.h"
 #include "HubUI/FTHubMarketPanelWidget.h"
 #include "HubUI/FTHubQuestPanelWidget.h"
@@ -383,7 +383,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 		return;
 	}
 
-	TSubclassOf<UFTHubCraftTestWidget> CraftWidgetClass = UFTAssetManager::Get().GetHubCraftWidgetClass();
+	TSubclassOf<UFTHubCraftWidget> CraftWidgetClass = UFTAssetManager::Get().GetHubCraftWidgetClass();
 
 	if (!CraftWidgetClass)
 	{
@@ -393,7 +393,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 
 	if (!HubCraftWidget || !HubCraftWidget->IsA(CraftWidgetClass))
 	{
-		HubCraftWidget = CreateWidget<UFTHubCraftTestWidget>(PlayerController, CraftWidgetClass);
+		HubCraftWidget = CreateWidget<UFTHubCraftWidget>(PlayerController, CraftWidgetClass);
 		if (!HubCraftWidget)
 		{
 			return;
@@ -405,7 +405,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
 	}
 
-	HubCraftWidget->InitializeCraftTest(PlayerInventory, StorageInventory, CraftingViewModel);
+	HubCraftWidget->InitializeCraftWidget(PlayerInventory, StorageInventory, CraftingViewModel);
 	HubCraftWidget->AddToViewport(20);
 
 	FInputModeGameAndUI InputMode;
@@ -615,7 +615,7 @@ void UFTUIManagerSubsystem::ShowHubMain(
 		UE_LOG(LogFTUI, Warning, TEXT("Hub shop and market panels will be empty because ShopSubsystem is missing."));
 	}
 
-	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory);
+	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory, HubStorage);
 
 	if (UFTHubQuestPanelWidget* QuestPanelWidget = HubMainWidget->GetQuestPanelWidget())
 	{
