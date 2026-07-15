@@ -151,6 +151,7 @@ private:
 	FVector CurrentShoppingLookLocation = FVector::ZeroVector;
 	FVector DesiredShoppingLookLocation = FVector::ZeroVector;
 	bool bBlendShoppingLook = false;
+	bool bUsingReportFocus = false;
 	
 	FGameplayMessageListenerHandle ShelfDamagedListenerHandle;
 	FGameplayMessageListenerHandle CharacterDamagedListenerHandle;
@@ -162,6 +163,7 @@ private:
 	bool IsTargetStealing(const AActor* Actor) const;
 	void SyncReportStateFromComponent();
 	void UpdateShoppingLook(float DeltaTime);
+	void UpdateReportFocus();
 	void DrawSightDebug() const;
 	void LogReportConditionDebug(bool bTargetCurrentlyStealing);
 };

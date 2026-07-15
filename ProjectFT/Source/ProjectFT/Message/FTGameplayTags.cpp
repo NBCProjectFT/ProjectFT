@@ -27,12 +27,14 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetCaptured, "Event.Security.Targ
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetEscaped, "Event.Security.TargetEscaped");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetSeen, "Event.Security.TargetSeen");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityTargetLost, "Event.Security.TargetLost");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityCallGaugeChanged, "Event.Security.CallGauge.Changed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseGaugeChanged, "Event.Security.ChaseGauge.Changed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityChaseEnded, "Event.Security.ChaseEnded");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityDeployed, "Event.Security.Deployed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityReturnedToRoom, "Event.Security.ReturnedToRoom");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_StealCompleted, "Event.Steal.Completed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterDamaged, "Event.Character.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterKnockedOut, "Event.Character.KnockedOut");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_PlayerDead, "Event.PlayerDead");

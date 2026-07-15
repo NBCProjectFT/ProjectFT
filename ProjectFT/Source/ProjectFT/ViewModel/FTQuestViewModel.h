@@ -72,6 +72,9 @@ private:
 	TObjectPtr<UFTInventoryComponent> PlayerInventory;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UFTInventoryComponent> BoundStorageInventory;
+
+	UPROPERTY(Transient)
 	TArray<TObjectPtr<UObject>> QuestObjects;
 
 	UPROPERTY(Transient)

@@ -5,7 +5,9 @@
 #include "Abilities/GameplayAbility.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/WidgetComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ProjectFT/UI/FTSecurityCallGaugeWidget.h"
 #include "TimerManager.h"
 
 AFTSecurityCharacter::AFTSecurityCharacter()
@@ -16,6 +18,12 @@ AFTSecurityCharacter::AFTSecurityCharacter()
 
 	CapturePoint = CreateDefaultSubobject<USceneComponent>(TEXT("CapturePoint"));
 	CapturePoint->SetupAttachment(GetRootComponent());
+
+	SecurityCallGaugeWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("SecurityCallGaugeWidgetComponent"));
+	SecurityCallGaugeWidgetComponent->SetupAttachment(GetRootComponent());
+	SecurityCallGaugeWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	SecurityCallGaugeWidgetComponent->SetDrawSize(FVector2D(140.0f, 24.0f));
+	SecurityCallGaugeWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 140.0f));
 }
 
 void AFTSecurityCharacter::BeginPlay()
@@ -23,6 +31,15 @@ void AFTSecurityCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	DefaultPawnCollisionResponse = GetCapsuleComponent()->GetCollisionResponseToChannel(ECC_Pawn);
+
+	if (SecurityCallGaugeWidgetComponent)
+	{
+		SecurityCallGaugeWidgetComponent->InitWidget();
+		if (UFTSecurityCallGaugeWidget* SecurityCallGaugeWidget = Cast<UFTSecurityCallGaugeWidget>(SecurityCallGaugeWidgetComponent->GetWidget()))
+		{
+			SecurityCallGaugeWidget->SetSecurityOwnerActor(this);
+		}
+	}
 
 	// 경비 전용 어빌리티(잡기 등)를 ASC에 부여한다. 싱글이라 권한 검사 없이 바로 부여.
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())

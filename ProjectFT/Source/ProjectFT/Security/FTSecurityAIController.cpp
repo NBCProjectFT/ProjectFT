@@ -11,6 +11,7 @@
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Components/FTSecurityCallComponent.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -67,6 +68,8 @@ AFTSecurityAIController::AFTSecurityAIController()
 	SecurityPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("SecurityPerceptionComponent"));
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
 	ConfigureSight(SecurityPerceptionComponent, SightConfig, 1500.0f, 80.0f, 3.0f);
+
+	SecurityCallComponent = CreateDefaultSubobject<UFTSecurityCallComponent>(TEXT("SecurityCallComponent"));
 }
 
 void AFTSecurityAIController::PreInitializeComponents()
@@ -98,6 +101,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 	UpdateAbilityState();
 	UpdateTargetState();
 	UpdateTargetFocus();
+	UpdateSecurityCallGauge(DeltaTime);
 	UpdateReturnCollision();
 	DrawSightDebug();
 }
@@ -237,6 +241,11 @@ void AFTSecurityAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimul
 		{
 			bReturning = false;
 			bSecurityCalled = true;
+			bCanRequestSecuritySupport = true;
+			if (SecurityCallComponent)
+			{
+				SecurityCallComponent->StartSecurityCall(Actor);
+			}
 			InvestigateLocation = Actor->GetActorLocation();
 			if (bLogPerceptionDebug)
 			{
@@ -354,6 +363,11 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 	}
 
 	const APawn* ControlledPawn = GetPawn();
+	if (Payload.ReporterActor == ControlledPawn)
+	{
+		return;
+	}
+
 	if (!ControlledPawn || !SightConfig)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Security AI: ControlledPawn or SightConfig is null"));
@@ -364,6 +378,11 @@ void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNP
 	{
 		StopMovement();
 	}
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
+	bCanRequestSecuritySupport = false;
 	bReturning = false;
 	bReturnRequested = false;
 	bInvestigateRequested = false;
@@ -435,6 +454,11 @@ void AFTSecurityAIController::OnShelfDamaged(
 	bReturning = false;
 	bReturnRequested = false;
 	bSecurityCalled = true;
+	bCanRequestSecuritySupport = true;
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StartSecurityCall(SuspectActor);
+	}
 	InvestigateLocation = SuspectActor->GetActorLocation();
 	UpdateTargetState();
 
@@ -488,6 +512,11 @@ void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFT
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	bSecurityCalled = true;
+	bCanRequestSecuritySupport = true;
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StartSecurityCall(SuspectActor);
+	}
 	InvestigateLocation = SuspectActor->GetActorLocation();
 	UpdateTargetState();
 
@@ -558,6 +587,11 @@ void AFTSecurityAIController::UpdateTargetState()
 	{
 		bReturning = false;
 		bSecurityCalled = true;
+		bCanRequestSecuritySupport = true;
+		if (SecurityCallComponent)
+		{
+			SecurityCallComponent->StartSecurityCall(TargetActor);
+		}
 		InvestigateLocation = TargetActor->GetActorLocation();
 		if (bLogPerceptionDebug)
 		{
@@ -620,6 +654,23 @@ void AFTSecurityAIController::OnChaseGaugeChanged(FGameplayTag Channel, const FF
 	bSecurityChaseActive = SecurityChaseGauge > 0.0f;
 }
 
+void AFTSecurityAIController::UpdateSecurityCallGauge(float DeltaTime)
+{
+	const bool bShouldChargeSecurityCall = bCanRequestSecuritySupport
+		&& bSecurityCalled
+		&& bSecurityChaseActive
+		&& bHasSeenTarget
+		&& TargetActor
+		&& !bReturning
+		&& !bTargetCaptured
+		&& !bIsStunned;
+
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->TickSecurityCall(DeltaTime, bShouldChargeSecurityCall, InvestigateLocation, bHasSeenTarget);
+	}
+}
+
 void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload)
 {
 	if (bTargetCaptured)
@@ -628,6 +679,11 @@ void AFTSecurityAIController::OnChaseEnded(FGameplayTag Channel, const FFTSecuri
 	}
 
 	StopMovement();
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
+	bCanRequestSecuritySupport = false;
 	bReturning = true;
 	bReturnRequested = true;
 	bReturnFailureLogged = false;
@@ -673,6 +729,11 @@ void AFTSecurityAIController::OnSecurityDeployed(FGameplayTag Channel, const FFT
 	bReturnCollisionIgnored = false;
 	bSecurityCalled = true;
 	bSecurityChaseActive = true;
+	bCanRequestSecuritySupport = false;
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
 	SecurityChaseGauge = 100.0f;
 	SecurityRoomActor = Payload.SecurityRoomActor;
 	HomeLocation = Payload.ReturnLocation;
@@ -699,6 +760,11 @@ void AFTSecurityAIController::OnSecurityTargetCaptured(
 	}
 
 	StopMovement();
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
+	bCanRequestSecuritySupport = false;
 	TargetActor = Payload.TargetActor;
 	InvestigateLocation = Payload.ReportLocation;
 	bTargetCaptured = true;
@@ -749,6 +815,11 @@ void AFTSecurityAIController::OnSecurityTargetEscaped(
 	bInvestigateRequested = true;
 	bStunRequested = bWasEscapedFromThisSecurity;
 	bSecurityCalled = true;
+	bCanRequestSecuritySupport = false;
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 

@@ -584,6 +584,7 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
+	HubMainWidget->SetKeyboardFocus();
 }
 
 void UFTUIManagerSubsystem::HideHubMain()

@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "FTGA_LauncherAction.h"
 
@@ -22,6 +22,8 @@
 #include "ProjectFT/Struct/FTProjectileActorStruct.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/GameplayAbility.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 
 UFTGA_LauncherAction::UFTGA_LauncherAction()
 {
@@ -133,6 +135,8 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
+	bHasFiredInThisActivation = false;
+
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		UE_LOG(LogFTItem, Warning, TEXT("LauncherAction failed: CommitAbility failed."));
@@ -140,35 +144,51 @@ void UFTGA_LauncherAction::ActivateAbility(
 		return;
 	}
 
-	// 실제 ProjectileActor 스폰/초기화가 성공해야 탄약을 소모한다.
-	const bool bFired = FireProjectile();
-	
-	if (!bFired)
-	{
-		UE_LOG(LogFTItem, Warning, TEXT("LauncherAction failed: FireProjectile failed."));
-		EndLauncherAbility(true);
-		return;
-	}
-
-	// 발사 성공 후 탄환 아이템 1개 차감 메시지를 보낸다.
-	FFTMessagePayloadStruct Payload;
-	Payload.InstigatorActor = Avatar;
-	Payload.ItemId = ProjectileItemId;
-
-	UGameplayMessageSubsystem::Get(Avatar).BroadcastMessage(
-		TAG_FT_Event_ItemConsumed,
-		Payload
-	);
-
 	if (LauncherData->AttackMontage)
 	{
-		if (UAnimInstance* AnimInstance = ActorInfo ? ActorInfo->GetAnimInstance() : nullptr)
+		// AnimNotify 대기 태스크 생성 (태그: Event.ThrowRelease)
+		UAbilityTask_WaitGameplayEvent* WaitReleaseTask =
+			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+				this,
+				TAG_FT_Event_ThrowRelease,
+				nullptr,
+				true,
+				true
+			);
+		
+		if (WaitReleaseTask)
 		{
-			AnimInstance->Montage_Play(LauncherData->AttackMontage, 1.0f);
+			WaitReleaseTask->EventReceived.AddDynamic(this, &UFTGA_LauncherAction::HandleThrowReleaseEvent);
+			WaitReleaseTask->ReadyForActivation();
+		}
+
+		// 몽타주 재생 및 대기 태스크 생성
+		UAbilityTask_PlayMontageAndWait* MontageTask =
+			UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+				this,
+				TEXT("LauncherActionMontage"),
+				LauncherData->AttackMontage,
+				1.0f
+			);
+
+		if (MontageTask)
+		{
+			MontageTask->OnCompleted.AddDynamic(this, &UFTGA_LauncherAction::HandleMontageCompleted);
+			MontageTask->OnInterrupted.AddDynamic(this, &UFTGA_LauncherAction::HandleMontageInterrupted);
+			MontageTask->OnCancelled.AddDynamic(this, &UFTGA_LauncherAction::HandleMontageInterrupted);
+			MontageTask->ReadyForActivation();
+		}
+		else
+		{
+			ExecuteFire();
+			EndLauncherAbility(false);
 		}
 	}
-
-	EndLauncherAbility(false);
+	else
+	{
+		ExecuteFire();
+		EndLauncherAbility(false);
+	}
 }
 
 bool UFTGA_LauncherAction::FireProjectile()
@@ -380,4 +400,70 @@ UMeshComponent* UFTGA_LauncherAction::ResolveLauncherMesh(AActor* Avatar, FName 
 	}
 
 	return nullptr;
+}
+
+bool UFTGA_LauncherAction::ExecuteFire()
+{
+	if (bHasFiredInThisActivation)
+	{
+		return false;
+	}
+	bHasFiredInThisActivation = true;
+
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	if (!Avatar)
+	{
+		return false;
+	}
+
+	const FName ProjectileItemId = ProjectileActorData->ItemData.ItemId;
+	UFTInventoryComponent* InventoryComponent = Avatar->FindComponentByClass<UFTInventoryComponent>();
+	if (!InventoryComponent || ProjectileItemId.IsNone())
+	{
+		return false;
+	}
+
+	if (InventoryComponent->GetItemQuantity(ProjectileItemId) <= 0)
+	{
+		UE_LOG(LogFTItem, Warning, TEXT("LauncherAction failed: no projectile item for firing. ItemId=%s"),
+			*ProjectileItemId.ToString());
+		return false;
+	}
+
+	const bool bFired = FireProjectile();
+	if (!bFired)
+	{
+		return false;
+	}
+
+	FFTMessagePayloadStruct Payload;
+	Payload.InstigatorActor = Avatar;
+	Payload.ItemId = ProjectileItemId;
+
+	UGameplayMessageSubsystem::Get(Avatar).BroadcastMessage(
+		TAG_FT_Event_ItemConsumed,
+		Payload
+	);
+
+	return true;
+}
+
+void UFTGA_LauncherAction::HandleThrowReleaseEvent(FGameplayEventData Payload)
+{
+	ExecuteFire();
+	EndLauncherAbility(false);
+}
+
+void UFTGA_LauncherAction::HandleMontageCompleted()
+{
+	if (!bHasFiredInThisActivation)
+	{
+		ExecuteFire();
+	}
+	EndLauncherAbility(false);
+}
+
+void UFTGA_LauncherAction::HandleMontageInterrupted()
+{
+	EndLauncherAbility(true);
 }

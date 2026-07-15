@@ -15,6 +15,7 @@ class USpringArmComponent;
 class UFTInteractionComponent;
 class UFTTraversalComponent;
 class UFTCaptureEscapeComponent;
+class UFTTailComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
@@ -96,6 +97,10 @@ protected:
 	// 붐 끝에 매달린 추적 카메라. 회전은 붐(bUsePawnControlRotation)이 담당한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Camera", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FollowCamera;
+
+	// Tail Socket에 붙는 별도 꼬리 컴포넌트. 메시와 절차적 흔들림은 컴포넌트가 소유한다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Tail", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTTailComponent> TailComponent;
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;
@@ -195,6 +200,9 @@ private:
 
 	// CurrentHeldInventoryItem에 맞춰 손의 아이템 액터를 스폰/어태치하거나(없으면) 제거한다.
 	void RefreshHeldItemActor();
+
+	UFUNCTION()
+	void OnInventoryChangedCallback();
 
 	// 아이템 타입별 데이터 에셋의 AttachSocketName을 우선 사용하고, 없으면 폴백 소켓을 돌려준다.
 	FName ResolveHeldItemAttachSocket(const UFTItemDataAsset* ItemData) const;

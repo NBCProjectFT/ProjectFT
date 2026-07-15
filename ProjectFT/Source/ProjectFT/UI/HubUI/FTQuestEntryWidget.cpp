@@ -82,6 +82,8 @@ void UFTQuestEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 	}
 
 	const FTQuestStruct& Quest = QuestObject->GetQuest();
+	bQuestAccepted = QuestObject->IsAccepted();
+	bQuestCanComplete = QuestObject->CanComplete();
 
 	TXT_QuestName->SetText(Quest.QuestName);
 
@@ -116,25 +118,30 @@ void UFTQuestEntryWidget::NativeOnItemSelectionChanged(const bool bIsSelected)
 
 void UFTQuestEntryWidget::ApplySelectionVisual(const bool bIsSelected)
 {
-	const float TextOpacity = bIsSelected ? 1.0f : 0.62f;
+	ApplyTextVisual(TXT_QuestName, bIsSelected);
+	ApplyTextVisual(TXT_QuestSender, bIsSelected);
+	ApplyTextVisual(TXT_QuestSummary, bIsSelected);
+	ApplyTextVisual(TXT_QuestReward, bIsSelected);
+}
 
-	if (TXT_QuestName)
+void UFTQuestEntryWidget::ApplyTextVisual(UTextBlock* TextBlock, const bool bIsSelected) const
+{
+	if (!TextBlock)
 	{
-		TXT_QuestName->SetRenderOpacity(TextOpacity);
+		return;
 	}
 
-	if (TXT_QuestSender)
+	if (bQuestAccepted && bQuestCanComplete)
 	{
-		TXT_QuestSender->SetRenderOpacity(TextOpacity);
+		static const FLinearColor CompleteColor = FLinearColor::FromSRGBColor(FColor::FromHex(TEXT("F3B300FF")));
+		TextBlock->SetColorAndOpacity(FSlateColor(CompleteColor));
+		TextBlock->SetRenderOpacity(bIsSelected ? 0.72f : 1.0f);
+		return;
 	}
 
-	if (TXT_QuestSummary)
-	{
-		TXT_QuestSummary->SetRenderOpacity(TextOpacity);
-	}
-
-	if (TXT_QuestReward)
-	{
-		TXT_QuestReward->SetRenderOpacity(TextOpacity);
-	}
+	// 읽음 여부와 무관하게 수락한 퀘스트만 어둡게 표시한다.
+	const float BaseOpacity = bQuestAccepted ? 0.55f : 1.0f;
+	const float TextOpacity = BaseOpacity * (bIsSelected ? 0.72f : 1.0f);
+	TextBlock->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+	TextBlock->SetRenderOpacity(TextOpacity);
 }

@@ -20,12 +20,14 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Components/FTCaptureEscapeComponent.h"
+#include "ProjectFT/Components/FTTailComponent.h"
 #include "ProjectFT/Components/FTTraversalComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
 #include "ProjectFT/Data/FTLauncherDataAsset.h"
+#include "ProjectFT/Data/FTThrowDataAsset.h"
 #include "ProjectFT/Item/FTItemActor.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTInventoryViewModel.h"
@@ -67,6 +69,9 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	TailComponent = CreateDefaultSubobject<UFTTailComponent>(TEXT("TailComponent"));
+	TailComponent->SetupAttachment(GetMesh(), TEXT("Tail"));
+
 	// 상호작용 컴포넌트.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
 
@@ -89,6 +94,11 @@ void AFTPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (UFTInventoryComponent* Inventory = GetInventoryComponent())
+	{
+		Inventory->OnInventoryChanged.AddDynamic(this, &AFTPlayerCharacter::OnInventoryChangedCallback);
+	}
+
 	if (AbilitySystemComponent)
 	{
 		// InitAbilityActorInfo와 MoveSpeed→MaxWalkSpeed 기본 파생은 베이스(AFTCharacterBase)가 Super에서 처리한다.
@@ -108,6 +118,7 @@ void AFTPlayerCharacter::BeginPlay()
 	{
 		DefaultBoomRelativeLocation = CameraBoom->GetRelativeLocation();
 	}
+
 }
 
 void AFTPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -601,9 +612,30 @@ FName AFTPlayerCharacter::ResolveHeldItemAttachSocket(const UFTItemDataAsset* It
 			return LauncherData->LauncherActionData.AttachSocketName;
 		}
 	}
+	else if (const UFTThrowDataAsset* ThrowData = Cast<UFTThrowDataAsset>(ItemData))
+	{
+		if (!ThrowData->ThrowActorData.AttachSocketName.IsNone())
+		{
+			return ThrowData->ThrowActorData.AttachSocketName;
+		}
+	}
 
 	// 타입 미지정이거나 소켓이 비어 있으면 폴백 소켓을 쓴다.
 	return HeldItemFallbackSocketName;
+}
+
+void AFTPlayerCharacter::OnInventoryChangedCallback()
+{
+	UFTInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory || CurrentHeldInventoryItem.ItemId.IsNone())
+	{
+		return;
+	}
+
+	if (Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
+	{
+		SetCurrentHeldInventoryItem(FFTInventoryItem());
+	}
 }
 
 void AFTPlayerCharacter::ApplyMovementSpeed()

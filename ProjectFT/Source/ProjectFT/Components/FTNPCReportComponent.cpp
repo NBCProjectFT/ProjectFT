@@ -59,7 +59,16 @@ bool UFTNPCReportComponent::TickReporting(float DeltaTime)
 		return false;
 	}
 
-	if (!Controller->bIsTargetActivelyStealing && !bObservedShelfDamaged && !bObservedAssault)
+	const bool bShouldIncreaseReport = Controller->bHasSeenTarget
+		&& (Controller->bIsTargetActivelyStealing || bObservedShelfDamaged || bObservedAssault);
+
+	// 신고 대상이 아직 시야 안에 있으면 의심을 유지하고, 시야 밖일 때만 게이지를 감소시킨다.
+	if (!bShouldIncreaseReport && Controller->bHasSeenTarget)
+	{
+		return false;
+	}
+
+	if (!bShouldIncreaseReport)
 	{
 		if (CurrentReportProgress > 0.0f)
 		{
@@ -200,7 +209,7 @@ bool UFTNPCReportComponent::ShouldCancelReport(const AFTNPCAIController* Control
 		return false;
 	}
 
-	return !Controller->bHasSeenTarget || Controller->TargetDistance > ReportCancelDistance;
+	return Controller->TargetDistance > ReportCancelDistance;
 }
 
 void UFTNPCReportComponent::CompleteReport()
