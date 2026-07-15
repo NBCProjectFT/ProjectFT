@@ -6,6 +6,8 @@
 #include "ProjectFT/Struct/FTItemUseStruct.h"
 #include "FTItemDataStruct.generated.h"
 
+class UFTItemDataAsset;
+
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FTItemDataStruct
 {
@@ -39,6 +41,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	TObjectPtr<UStaticMesh> ItemMesh;
+
+	// Projectile 대신 인벤토리에 추가될 대체 일반/회복 아이템
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item", meta = (EditCondition = "CategoryType == EFTItemCategoryType::Projectile", AllowedClasses = "/Script/ProjectFT.FTItemDataAsset"))
+	TSoftObjectPtr<UFTItemDataAsset> InventorySubstituteItem;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Appearance")
 	FVector DropMeshScale = FVector(1.0f, 1.0f, 1.0f);
