@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataTable.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
+#include "ProjectFT/Struct/FTQuestConditionStruct.h"
 #include "FTQuestStruct.generated.h"
 
 USTRUCT(BlueprintType)
@@ -27,6 +28,10 @@ struct PROJECTFT_API FTQuestStruct : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FTCraftIngredientStruct> RequiredItems;
+
+	/** 마트 안에서 발생하는 GameplayMessage 기반 조건 목록. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FFTQuestConditionStruct> EventConditions;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FTCraftIngredientStruct> RewardItems;

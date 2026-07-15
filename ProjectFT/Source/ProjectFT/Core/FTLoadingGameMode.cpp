@@ -23,7 +23,13 @@ void AFTLoadingGameMode::StartPlay()
 	{
 		if (UFTGameFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UFTGameFlowSubsystem>())
 		{
-			FlowSubsystem->PreloadCurrentStateAssetsAsync(
+			const TSoftObjectPtr<UFTLevelPreloadDataAsset> LevelPreloadDataAsset = FlowSubsystem->GetCurrentStateLevelPreloadDataAsset();
+			UE_LOG(LogFTFlow, Log, TEXT("LoadingGameMode selected preload data. State=%d DataAsset=%s"),
+				static_cast<uint8>(FlowSubsystem->GetCurrentFlowState()),
+				*LevelPreloadDataAsset.ToSoftObjectPath().ToString());
+
+			UFTAssetManager::Get().PreloadLevelAssetsAsync(
+				LevelPreloadDataAsset,
 				FSimpleDelegate::CreateUObject(this, &AFTLoadingGameMode::HandlePreloadCompleted),
 				FFTAssetLoadProgressDelegate::CreateUObject(this, &AFTLoadingGameMode::HandleLoadProgress)
 			);

@@ -123,9 +123,25 @@ void AFTItemActor::SetTooltipVisibility(bool bVisible)
 	
 	if (bVisible)
 	{
-		// 물리 시뮬레이션(Physics) 켜질 때 상대 좌표(Relative Location)가 먹통이 되는 엔진 버그를 방어하기 위해
-		// 부모 상속 관계를 무시하고 직접 액터의 월드 위치 기준 상공 Z축 절대 좌표를 계산해서 강제 주입합니다.
-		FVector TargetWorldLocation = GetActorLocation() + FVector(0.0f, 0.0f, TooltipRelativeLocation.Z);
+		// 플레이어와의 거리에 비례해서 Z 높이를 보정 (가까워질수록 툴팁이 낮아져 화면 위로 잘림 방지)
+		float Distance = 200.0f;
+		if (UWorld* World = GetWorld())
+		{
+			if (APlayerController* PC = World->GetFirstPlayerController())
+			{
+				if (APawn* Pawn = PC->GetPawn())
+				{
+					Distance = FVector::Dist(Pawn->GetActorLocation(), GetActorLocation());
+				}
+			}
+		}
+
+		// 거리가 가까울수록 Z 높이를 점진적으로 낮춤 (최소 45cm ~ 최대 에디터 지정값)
+		const float MaxDist = 450.0f;
+		const float Alpha = FMath::Clamp(Distance / MaxDist, 0.0f, 1.0f);
+		const float DynamicZ = FMath::Lerp(45.0f, TooltipRelativeLocation.Z, Alpha);
+
+		FVector TargetWorldLocation = GetActorLocation() + FVector(0.0f, 0.0f, DynamicZ);
 		TooltipWidgetComponent->SetWorldLocation(TargetWorldLocation);
 
 		// 렌더 타겟 재생성으로 인한 깜빡임(보였다 안보였다 함)을 방지하기 위해 
