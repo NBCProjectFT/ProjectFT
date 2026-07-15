@@ -1,6 +1,9 @@
 #include "FTRaidSelectViewModel.h"
 
+#include "Engine/Texture2D.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/UI/HubUI/FTRaidLevelListObject.h"
 
 void UFTRaidSelectViewModel::Initialize(AFTHubRaidEntrance* InRaidEntrance, UFTInventoryComponent* InPlayerInventory)
 {
@@ -9,6 +12,18 @@ void UFTRaidSelectViewModel::Initialize(AFTHubRaidEntrance* InRaidEntrance, UFTI
 	RaidEntrance = InRaidEntrance;
 	PlayerInventory = InPlayerInventory;
 	Options = RaidEntrance ? RaidEntrance->GetRaidOptions() : TArray<FFTRaidEntranceOption>();
+	LevelObjects.Reset();
+	for (int32 Index = 0; Index < Options.Num(); ++Index)
+	{
+		const FFTRaidEntranceOption& Option = Options[Index];
+		UTexture2D* LevelPreview = Option.PreviewImage.IsNull()
+			? nullptr
+			: Option.PreviewImage.LoadSynchronous();
+
+		UFTRaidLevelListObject* LevelObject = NewObject<UFTRaidLevelListObject>(this);
+		LevelObject->Initialize(Option, Index, LevelPreview);
+		LevelObjects.Add(LevelObject);
+	}
 	SelectedOptionIndex = INDEX_NONE;
 	bEntryRequestInProgress = false;
 
@@ -51,6 +66,17 @@ void UFTRaidSelectViewModel::SelectOption(const int32 Index)
 	OnChanged.Broadcast();
 }
 
+void UFTRaidSelectViewModel::SelectLevelObject(UObject* LevelObject)
+{
+	const UFTRaidLevelListObject* RaidLevelObject = Cast<UFTRaidLevelListObject>(LevelObject);
+	if (!RaidLevelObject)
+	{
+		return;
+	}
+
+	SelectOption(RaidLevelObject->GetOptionIndex());
+}
+
 bool UFTRaidSelectViewModel::ConfirmSelectedOption()
 {
 	const FFTRaidEntranceOption* Option = GetSelectedOption();
@@ -77,6 +103,34 @@ FText UFTRaidSelectViewModel::GetSelectedDisplayName() const
 	return Option ? Option->DisplayName : FText::GetEmpty();
 }
 
+FText UFTRaidSelectViewModel::GetSelectedDescription() const
+{
+	const FFTRaidEntranceOption* Option = GetSelectedOption();
+	return Option ? Option->Description : FText::GetEmpty();
+}
+
+UTexture2D* UFTRaidSelectViewModel::GetSelectedPreviewImage() const
+{
+	const FFTRaidEntranceOption* Option = GetSelectedOption();
+	return Option && !Option->PreviewImage.IsNull()
+		? Option->PreviewImage.LoadSynchronous()
+		: nullptr;
+}
+
+UTexture2D* UFTRaidSelectViewModel::GetSelectedRequiredItemIcon() const
+{
+	const FFTRaidEntranceOption* Option = GetSelectedOption();
+	if (!Option || Option->RequiredItemId.IsNone() || !PlayerInventory)
+	{
+		return nullptr;
+	}
+
+	const UFTItemDataAsset* ItemData = PlayerInventory->FindItemData(Option->RequiredItemId);
+	return ItemData && !ItemData->ItemData.ItemIcon.IsNull()
+		? ItemData->ItemData.ItemIcon.LoadSynchronous()
+		: nullptr;
+}
+
 FText UFTRaidSelectViewModel::GetSelectedEntryCostText() const
 {
 	const FFTRaidEntranceOption* Option = GetSelectedOption();
@@ -89,10 +143,22 @@ FText UFTRaidSelectViewModel::GetSelectedEntryCostText() const
 		return FText::FromString(TEXT("무료 입장"));
 	}
 
+	FText RequiredItemName = FText::FromString(TEXT("필요 아이템"));
+	if (PlayerInventory)
+	{
+		if (const UFTItemDataAsset* ItemData = PlayerInventory->FindItemData(Option->RequiredItemId))
+		{
+			if (!ItemData->ItemData.ItemName.IsEmpty())
+			{
+				RequiredItemName = ItemData->ItemData.ItemName;
+			}
+		}
+	}
+
 	const int32 OwnedCount = PlayerInventory ? PlayerInventory->GetItemQuantity(Option->RequiredItemId) : 0;
 	return FText::FromString(FString::Printf(
 		TEXT("%s  %d / 1"),
-		*Option->RequiredItemId.ToString(),
+		*RequiredItemName.ToString(),
 		OwnedCount));
 }
 

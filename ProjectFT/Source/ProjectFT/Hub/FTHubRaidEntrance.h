@@ -7,6 +7,7 @@
 
 class UFTRaidSelectWidget;
 class UFTInventoryComponent;
+class UTexture2D;
 
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FFTRaidEntranceOption
@@ -15,6 +16,12 @@ struct PROJECTFT_API FFTRaidEntranceOption
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hub|Raid")
 	FText DisplayName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hub|Raid", meta = (MultiLine = true))
+	FText Description;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hub|Raid")
+	TSoftObjectPtr<UTexture2D> PreviewImage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hub|Raid")
 	FName LevelName = NAME_None;

@@ -6,6 +6,8 @@
 #include "FTRaidSelectViewModel.generated.h"
 
 class UFTInventoryComponent;
+class UFTRaidLevelListObject;
+class UTexture2D;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTRaidSelectViewModelChanged);
 
@@ -20,6 +22,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	int32 GetOptionCount() const { return Options.Num(); }
 
+	const TArray<TObjectPtr<UObject>>& GetLevelObjects() const { return LevelObjects; }
+
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	bool GetOption(int32 Index, FFTRaidEntranceOption& OutOption) const;
 
@@ -29,6 +33,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Raid")
 	void SelectOption(int32 Index);
 
+	void SelectLevelObject(UObject* LevelObject);
+
 	UFUNCTION(BlueprintCallable, Category = "FT|Raid")
 	bool ConfirmSelectedOption();
 
@@ -37,6 +43,15 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	FText GetSelectedDisplayName() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid")
+	FText GetSelectedDescription() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid")
+	UTexture2D* GetSelectedPreviewImage() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid")
+	UTexture2D* GetSelectedRequiredItemIcon() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	FText GetSelectedEntryCostText() const;
@@ -63,6 +78,9 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<FFTRaidEntranceOption> Options;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UObject>> LevelObjects;
 
 	int32 SelectedOptionIndex = INDEX_NONE;
 	bool bEntryRequestInProgress = false;

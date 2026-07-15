@@ -543,6 +543,7 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
+	RaidSelectWidget->SetKeyboardFocus();
 }
 
 void UFTUIManagerSubsystem::HideRaidSelect()

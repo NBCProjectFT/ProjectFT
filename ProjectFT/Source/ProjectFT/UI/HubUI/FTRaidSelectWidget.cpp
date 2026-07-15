@@ -1,9 +1,11 @@
 #include "FTRaidSelectWidget.h"
 
 #include "Components/Button.h"
+#include "Components/Image.h"
+#include "Components/ListView.h"
 #include "Components/TextBlock.h"
-#include "Components/Widget.h"
-#include "ProjectFT/Hub/FTHubRaidEntrance.h"
+#include "Engine/Texture2D.h"
+#include "InputCoreTypes.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTRaidSelectViewModel.h"
 
@@ -21,32 +23,24 @@ void UFTRaidSelectWidget::InitializeRaidSelect(UFTRaidSelectViewModel* InViewMod
 		ViewModel->OnChanged.AddDynamic(this, &UFTRaidSelectWidget::RefreshFromViewModel);
 	}
 
+	PopulateLevelList();
 	RefreshFromViewModel();
 }
 
 void UFTRaidSelectWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	SetIsFocusable(true);
 
-	BTN_Market1->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleMarket1Clicked);
-	BTN_Market1->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleMarket1Clicked);
-	BTN_Market2->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleMarket2Clicked);
-	BTN_Market2->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleMarket2Clicked);
+	LV_RaidLevels->OnItemClicked().RemoveAll(this);
+	LV_RaidLevels->OnItemClicked().AddUObject(this, &UFTRaidSelectWidget::HandleLevelClicked);
 
-	if (BTN_Market3)
-	{
-		BTN_Market3->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleMarket3Clicked);
-		BTN_Market3->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleMarket3Clicked);
-	}
-
-	BTN_ConfirmEnter->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleConfirmEnterClicked);
-	BTN_ConfirmEnter->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleConfirmEnterClicked);
-	BTN_CancelConfirm->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleCancelConfirmClicked);
-	BTN_CancelConfirm->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleCancelConfirmClicked);
+	BTN_Enter->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleEnterClicked);
+	BTN_Enter->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleEnterClicked);
 	BTN_Close->OnClicked.RemoveDynamic(this, &UFTRaidSelectWidget::HandleCloseClicked);
 	BTN_Close->OnClicked.AddDynamic(this, &UFTRaidSelectWidget::HandleCloseClicked);
 
-	PNL_Confirm->SetVisibility(ESlateVisibility::Collapsed);
+	PopulateLevelList();
 	RefreshFromViewModel();
 }
 
@@ -56,8 +50,23 @@ void UFTRaidSelectWidget::NativeDestruct()
 	{
 		ViewModel->OnChanged.RemoveDynamic(this, &UFTRaidSelectWidget::RefreshFromViewModel);
 	}
+	if (LV_RaidLevels)
+	{
+		LV_RaidLevels->OnItemClicked().RemoveAll(this);
+	}
 
 	Super::NativeDestruct();
+}
+
+FReply UFTRaidSelectWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::E)
+	{
+		CloseRaidSelect();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UFTRaidSelectWidget::CloseRaidSelect()
@@ -77,37 +86,45 @@ void UFTRaidSelectWidget::RefreshFromViewModel()
 		return;
 	}
 
-	SetMarketButtonState(BTN_Market1, TXT_Market1, 0);
-	SetMarketButtonState(BTN_Market2, TXT_Market2, 1);
-	SetMarketButtonState(BTN_Market3, TXT_Market3, 2);
-
-	TXT_SelectedMarket->SetText(ViewModel->GetSelectedDisplayName());
+	TXT_SelectedLevelName->SetText(ViewModel->GetSelectedDisplayName());
 	TXT_EntryCost->SetText(ViewModel->GetSelectedEntryCostText());
+
+	if (TXT_LevelDescription)
+	{
+		TXT_LevelDescription->SetText(ViewModel->GetSelectedDescription());
+	}
 	if (TXT_Status)
 	{
 		TXT_Status->SetText(ViewModel->GetSelectedStatusText());
 	}
+	if (IMG_LevelPreview)
+	{
+		if (UTexture2D* PreviewImage = ViewModel->GetSelectedPreviewImage())
+		{
+			IMG_LevelPreview->SetBrushFromTexture(PreviewImage);
+			IMG_LevelPreview->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			IMG_LevelPreview->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+	if (UTexture2D* RequiredItemIcon = ViewModel->GetSelectedRequiredItemIcon())
+	{
+		IMG_RequiredItemIcon->SetBrushFromTexture(RequiredItemIcon, true);
+		IMG_RequiredItemIcon->SetVisibility(ESlateVisibility::Visible);
+	}
+	else
+	{
+		IMG_RequiredItemIcon->SetVisibility(ESlateVisibility::Collapsed);
+	}
 
 	const int32 SelectedIndex = ViewModel->GetSelectedOptionIndex();
-	BTN_ConfirmEnter->SetIsEnabled(SelectedIndex != INDEX_NONE && ViewModel->CanEnterOption(SelectedIndex));
+	BTN_Enter->SetIsEnabled(SelectedIndex != INDEX_NONE && ViewModel->CanEnterOption(SelectedIndex));
 }
 
-void UFTRaidSelectWidget::HandleMarket1Clicked()
-{
-	HandleMarketClicked(0);
-}
-
-void UFTRaidSelectWidget::HandleMarket2Clicked()
-{
-	HandleMarketClicked(1);
-}
-
-void UFTRaidSelectWidget::HandleMarket3Clicked()
-{
-	HandleMarketClicked(2);
-}
-
-void UFTRaidSelectWidget::HandleConfirmEnterClicked()
+void UFTRaidSelectWidget::HandleEnterClicked()
 {
 	if (ViewModel)
 	{
@@ -115,47 +132,42 @@ void UFTRaidSelectWidget::HandleConfirmEnterClicked()
 	}
 }
 
-void UFTRaidSelectWidget::HandleCancelConfirmClicked()
-{
-	PNL_Confirm->SetVisibility(ESlateVisibility::Collapsed);
-}
-
 void UFTRaidSelectWidget::HandleCloseClicked()
 {
 	CloseRaidSelect();
 }
 
-void UFTRaidSelectWidget::HandleMarketClicked(const int32 OptionIndex)
+void UFTRaidSelectWidget::HandleLevelClicked(UObject* LevelObject)
 {
-	if (!ViewModel)
+	if (ViewModel)
 	{
-		return;
+		ViewModel->SelectLevelObject(LevelObject);
 	}
-
-	FFTRaidEntranceOption Option;
-	if (!ViewModel->GetOption(OptionIndex, Option))
-	{
-		return;
-	}
-
-	ViewModel->SelectOption(OptionIndex);
-	PNL_Confirm->SetVisibility(ESlateVisibility::Visible);
 }
 
-void UFTRaidSelectWidget::SetMarketButtonState(UButton* Button, UTextBlock* Label, const int32 OptionIndex)
+void UFTRaidSelectWidget::PopulateLevelList()
 {
-	if (!Button || !ViewModel)
+	if (!LV_RaidLevels || !ViewModel)
 	{
 		return;
 	}
 
-	FFTRaidEntranceOption Option;
-	const bool bHasOption = ViewModel->GetOption(OptionIndex, Option);
-	Button->SetVisibility(bHasOption ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
-	Button->SetIsEnabled(bHasOption);
-
-	if (Label && bHasOption)
+	const TArray<TObjectPtr<UObject>>& LevelObjects = ViewModel->GetLevelObjects();
+	LV_RaidLevels->ClearListItems();
+	for (UObject* LevelObject : LevelObjects)
 	{
-		Label->SetText(Option.DisplayName);
+		LV_RaidLevels->AddItem(LevelObject);
+	}
+
+	int32 SelectedIndex = ViewModel->GetSelectedOptionIndex();
+	if (SelectedIndex == INDEX_NONE && !LevelObjects.IsEmpty())
+	{
+		ViewModel->SelectLevelObject(LevelObjects[0]);
+		SelectedIndex = ViewModel->GetSelectedOptionIndex();
+	}
+
+	if (LevelObjects.IsValidIndex(SelectedIndex))
+	{
+		LV_RaidLevels->SetSelectedItem(LevelObjects[SelectedIndex]);
 	}
 }

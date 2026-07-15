@@ -6,8 +6,9 @@
 
 class UButton;
 class UFTRaidSelectViewModel;
+class UImage;
+class UListView;
 class UTextBlock;
-class UWidget;
 
 UCLASS(Blueprintable)
 class PROJECTFT_API UFTRaidSelectWidget : public UUserWidget
@@ -26,39 +27,28 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> BTN_Market1;
+	TObjectPtr<UListView> LV_RaidLevels;
 
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> BTN_Market2;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UButton> BTN_Market3;
-
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> BTN_ConfirmEnter;
-
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> BTN_CancelConfirm;
+	TObjectPtr<UButton> BTN_Enter;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> BTN_Close;
 
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UWidget> PNL_Confirm;
-
 	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UTextBlock> TXT_Market1;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UTextBlock> TXT_Market2;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UTextBlock> TXT_Market3;
+	TObjectPtr<UImage> IMG_LevelPreview;
 
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UTextBlock> TXT_SelectedMarket;
+	TObjectPtr<UImage> IMG_RequiredItemIcon;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> TXT_SelectedLevelName;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> TXT_LevelDescription;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> TXT_EntryCost;
@@ -71,23 +61,11 @@ private:
 	void RefreshFromViewModel();
 
 	UFUNCTION()
-	void HandleMarket1Clicked();
-
-	UFUNCTION()
-	void HandleMarket2Clicked();
-
-	UFUNCTION()
-	void HandleMarket3Clicked();
-
-	UFUNCTION()
-	void HandleConfirmEnterClicked();
-
-	UFUNCTION()
-	void HandleCancelConfirmClicked();
+	void HandleEnterClicked();
 
 	UFUNCTION()
 	void HandleCloseClicked();
 
-	void HandleMarketClicked(int32 OptionIndex);
-	void SetMarketButtonState(UButton* Button, UTextBlock* Label, int32 OptionIndex);
+	void HandleLevelClicked(UObject* LevelObject);
+	void PopulateLevelList();
 };
