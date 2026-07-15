@@ -8,10 +8,13 @@
 #include "Engine/World.h"
 #include "Components/WidgetComponent.h"
 #include "InputCoreTypes.h"
+#include "ProjectFT/Player/FTPlayerCharacter.h"
+#include "ProjectFT/Interactables/FTLootShelf.h"
 
 void UFTItemPoolSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+	bWasScanKeyDown = false;
 	UE_LOG(LogFTItem, Log, TEXT("UFTItemPoolSubsystem 초기화 완료"));
 }
 
@@ -247,8 +250,62 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 		ActorUnderAim = AimHit.GetActor();
 	}
 
-	// 2. 미리보기 키(Q)가 꾹 눌려 있는지 감지
+	// 2. 스캔 키(마우스 좌클릭)가 꾹 눌려 있는지 감지
+	const bool bIsScanKeyDown = PC->IsInputKeyDown(EKeys::LeftMouseButton);
+	// 바닥 아이템 미리보기 조회 키(Q) 감지
 	const bool bIsQKeyDown = PC->IsInputKeyDown(EKeys::Q);
+
+	// 💡 포스건 장착 상태 및 매대 스캔 조건 검사
+	AFTLootShelf* AimedShelf = Cast<AFTLootShelf>(ActorUnderAim);
+	AFTPlayerCharacter* FTPlayer = Cast<AFTPlayerCharacter>(PlayerPawn);
+	const bool bIsHoldingForceGun = FTPlayer && (FTPlayer->GetCurrentHeldInventoryItem().ItemId == FName("ID_Weapon_ForceGun"));
+
+	// 💡 스캔 키(마우스 좌클릭)의 상태 전이(Edge Trigger)를 감지하여 포스건 장착 상태일 때 정식 아이템 사용 어빌리티 격발
+	if (bIsHoldingForceGun)
+	{
+		if (bIsScanKeyDown && !bWasScanKeyDown)
+		{
+			FTPlayer->HandleUseItemPressed();
+		}
+		else if (!bIsScanKeyDown && bWasScanKeyDown)
+		{
+			FTPlayer->HandleUseItemReleased();
+		}
+	}
+	bWasScanKeyDown = bIsScanKeyDown;
+
+	const bool bIsScanning = AimedShelf && bIsHoldingForceGun && bIsScanKeyDown;
+
+	if (bIsScanning)
+	{
+		if (LastScannedShelfActor != AimedShelf)
+		{
+			LastScannedShelfActor = AimedShelf;
+
+			UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+			FFTMessagePayloadStruct Payload;
+			Payload.InstigatorActor = PlayerPawn;
+			Payload.TargetActor = AimedShelf;
+			Payload.Value = 1.0f; // 1.0f: 스캔 시작 및 UI 활성화 통지
+
+			MessageSubsystem.BroadcastMessage(TAG_FT_Event_ForceGunScan, Payload);
+		}
+	}
+	else
+	{
+		if (LastScannedShelfActor != nullptr)
+		{
+			UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+			FFTMessagePayloadStruct Payload;
+			Payload.InstigatorActor = PlayerPawn;
+			Payload.TargetActor = LastScannedShelfActor;
+			Payload.Value = 0.0f; // 0.0f: 스캔 중지 및 UI 비활성화 통지
+
+			MessageSubsystem.BroadcastMessage(TAG_FT_Event_ForceGunScan, Payload);
+
+			LastScannedShelfActor = nullptr;
+		}
+	}
 
 	TArray<TObjectPtr<AFTItemActor>> ToRemove;
 

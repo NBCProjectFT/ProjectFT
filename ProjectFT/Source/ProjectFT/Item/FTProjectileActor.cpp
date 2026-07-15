@@ -404,6 +404,8 @@ void AFTProjectileActor::Explode(AActor* DirectHitActor)
 
 	bHasExploded = true;
 
+	ReceiveExplode(GetActorLocation());
+
 	UWorld* World = GetWorld();
 	if (!World)
 	{
