@@ -1,7 +1,7 @@
 #include "FTItemTileListObject.h"
 
-#include "Engine/AssetManager.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
 
 void UFTItemTileListObject::InitializeItem(FName InItemID, int32 InCount, int32 InPrice, bool bInLocked)
 {
@@ -72,6 +72,16 @@ void UFTItemTileListObject::SetChecked(const bool bInChecked)
 	bChecked = bInChecked;
 }
 
+bool UFTItemTileListObject::ShouldShowSelectionCheckBox() const
+{
+	return bShowSelectionCheckBox;
+}
+
+void UFTItemTileListObject::SetShowSelectionCheckBox(const bool bInShowSelectionCheckBox)
+{
+	bShowSelectionCheckBox = bInShowSelectionCheckBox;
+}
+
 const FText& UFTItemTileListObject::GetDisplayName() const
 {
 	return DisplayName;
@@ -109,20 +119,7 @@ void UFTItemTileListObject::LoadItemData()
 		return;
 	}
 
-	UAssetManager& AssetManager = UAssetManager::Get();
-	const FPrimaryAssetId AssetID(FName("FTItemItem"), ItemID);
-
-	UObject* AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
-	if (!AssetObject)
-	{
-		const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
-		if (AssetPath.IsValid())
-		{
-			AssetObject = AssetPath.TryLoad();
-		}
-	}
-
-	const UFTItemDataAsset* ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
+	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
 	if (!ItemDataAsset)
 	{
 		return;

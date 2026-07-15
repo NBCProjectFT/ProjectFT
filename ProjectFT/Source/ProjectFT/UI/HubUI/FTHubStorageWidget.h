@@ -59,6 +59,18 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	USpinBox* SPB_MoveCount;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_MoveQuantity;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* TXT_TradeQuantity;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityMinus;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityPlus;
+
 	/** @brief 선택된 플레이어 아이템을 창고로 넣는 버튼. */
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Store;
@@ -138,6 +150,12 @@ private:
 
 	UFUNCTION()
 	void HandleTakeAllClicked();
+
+	UFUNCTION()
+	void HandleQuantityMinusClicked();
+
+	UFUNCTION()
+	void HandleQuantityPlusClicked();
 
 	UFUNCTION()
 	void HandlePlayerFilterAllClicked();

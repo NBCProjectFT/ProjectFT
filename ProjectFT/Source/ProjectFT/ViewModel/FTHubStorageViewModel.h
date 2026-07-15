@@ -61,6 +61,7 @@ public:
 
 	/** @brief 플레이어 현재 무게와 최대 무게를 UI 텍스트로 반환한다. */
 	FText GetPlayerWeightText() const;
+	FText GetMoveQuantityText() const;
 
 	/** @brief 현재 선택된 아이템 엔트리 개수. */
 	int32 GetSelectedEntryCount() const;
@@ -76,6 +77,8 @@ public:
 
 	/** @brief 선택 꺼내기 버튼을 누를 수 있는지 반환한다. */
 	bool CanTakeSelected() const;
+	bool CanDecreaseMoveQuantity() const;
+	bool CanIncreaseMoveQuantity() const;
 
 	/** @brief 모두 보관 버튼을 누를 수 있는지 반환한다. */
 	bool CanStoreAll() const;
@@ -96,6 +99,8 @@ public:
 
 	/** @brief 현재 선택 상태를 비운다. */
 	void ClearSelection();
+	void IncreaseMoveQuantity();
+	void DecreaseMoveQuantity();
 
 	/** @brief 플레이어 목록의 카테고리 필터를 변경한다. */
 	void SetPlayerFilter(EFTItemCategoryType FilterCategory);
@@ -158,6 +163,11 @@ private:
 	/** @brief TileView/ListView 아이템 UObject를 창고 이동용 구조체로 변환한다. */
 	bool TryReadItemObject(UObject* ItemObject, FTStorageItemStruct& OutItem) const;
 
+	/** @brief ViewModel 선택 상태를 양쪽 타일 체크 상태에 반영한다. */
+	void SyncSelectionChecks();
+	int32 GetMaxMoveQuantity() const;
+	void ClampMoveQuantity();
+
 	/** @brief 선택된 아이템들을 SourceType 방향에 맞춰 이동한다. */
 	bool TransferSelectedItems(EFTHubStorageTransferSource SourceType);
 
@@ -182,6 +192,7 @@ private:
 
 	/** @brief 현재 선택된 아이템 ID/수량 목록. */
 	TArray<FTStorageItemStruct> SelectedItems;
+	int32 MoveQuantity = 1;
 
 	/** @brief 현재 선택이 어느 목록에서 발생했는지. */
 	EFTHubStorageTransferSource SelectedSource = EFTHubStorageTransferSource::None;
