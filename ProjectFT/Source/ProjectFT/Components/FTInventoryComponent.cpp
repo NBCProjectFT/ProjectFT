@@ -69,26 +69,57 @@ bool UFTInventoryComponent::CanAddItem(FName ItemId, int32 Quantity) const
 	{
 		return false;
 	}
-
+	
 	return true;
+}
+
+FName UFTInventoryComponent::ResolveSubstituteItemId(FName ItemId) const
+{
+	UFTItemDataAsset* OriginalItemData = FindItemData(ItemId);
+	if (OriginalItemData && OriginalItemData->ItemData.InventorySubstituteItem.IsValid())
+	{
+		if (UPrimaryDataAsset* SubAsset = OriginalItemData->ItemData.InventorySubstituteItem.LoadSynchronous())
+		{
+			if (UFTItemDataAsset* SubItemData = Cast<UFTItemDataAsset>(SubAsset))
+			{
+				return SubItemData->ItemData.ItemId;
+			}
+		}
+	}
+	return ItemId;
 }
 
 bool UFTInventoryComponent::AddItem(FName ItemId, int32 Quantity)
 {
-	if (!CanAddItem(ItemId, Quantity))
+	const FName ResolvedItemId = ResolveSubstituteItemId(ItemId);
+
+	if (ResolvedItemId != ItemId)
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("아이템 추가 검증 실패: '%s' (수량: %d) 추가 불가 (무게 초과 또는 아이템 없음)"), *ItemId.ToString(), Quantity);
+		UE_LOG(LogFTItem, Log, TEXT("아이템 추가 ID 교체: '%s' -> '%s' (대체 아이템 지정됨)"), *ItemId.ToString(), *ResolvedItemId.ToString());
+	}
+
+	if (!CanAddItem(ResolvedItemId, Quantity))
+	{
+		UE_LOG(LogFTItem, Warning, TEXT("아이템 추가 검증 실패: '%s' (수량: %d) 추가 불가 (무게 초과 또는 아이템 없음)"), *ResolvedItemId.ToString(), Quantity);
 		return false;
 	}
 
-	UFTItemDataAsset* ItemDataAsset = FindItemData(ItemId);
+	UFTItemDataAsset* ItemDataAsset = FindItemData(ResolvedItemId);
 	if (!ItemDataAsset) return false;
+	
+	// 아이템이 Projectile 타입일 경우 예외 처리(기본적으로 대체된 아이템은 Projectile이 아니므로 통과하겠지만 안전장치로 유지)
+	EFTItemCategoryType Category = ItemDataAsset->ItemData.CategoryType;
+	if (Category == EFTItemCategoryType::Projectile)
+	{
+		UE_LOG(LogFTItem, Warning, TEXT("아이템 추가 실패: %s의 경우 인벤토리에 추가 불가능한 카테고리에 속합니다.(카테고리: Projectile)"), *ResolvedItemId.ToString());
+		return false;
+	}
 
 	// 기존 슬롯이 있으면 누적
 	bool bFound = false;
 	for (FFTInventoryItem& Slot : Items)
 	{
-		if (Slot.ItemId == ItemId)
+		if (Slot.ItemId == ResolvedItemId)
 		{
 			Slot.Quantity += Quantity;
 			bFound = true;
@@ -100,7 +131,7 @@ bool UFTInventoryComponent::AddItem(FName ItemId, int32 Quantity)
 	if (!bFound)
 	{
 		FFTInventoryItem NewSlot;
-		NewSlot.ItemId = ItemId;
+		NewSlot.ItemId = ResolvedItemId;
 		NewSlot.Quantity = Quantity;
 		NewSlot.ItemDataAsset = ItemDataAsset;
 		Items.Add(NewSlot);
@@ -110,7 +141,7 @@ bool UFTInventoryComponent::AddItem(FName ItemId, int32 Quantity)
 	UpdateWeight();
 	OnInventoryChanged.Broadcast();
 
-	UE_LOG(LogFTItem, Log, TEXT("아이템 획득 성공: '%s' %d개를 인벤토리에 추가했습니다."), *ItemId.ToString(), Quantity);
+	UE_LOG(LogFTItem, Log, TEXT("아이템 획득 성공: '%s' %d개를 인벤토리에 추가했습니다."), *ResolvedItemId.ToString(), Quantity);
 	return true;
 }
 
@@ -118,9 +149,11 @@ bool UFTInventoryComponent::RemoveItem(FName ItemId, int32 Quantity)
 {
 	if (ItemId.IsNone() || Quantity <= 0) return false;
 
+	const FName ResolvedItemId = ResolveSubstituteItemId(ItemId);
+
 	for (int32 i = 0; i < Items.Num(); ++i)
 	{
-		if (Items[i].ItemId == ItemId)
+		if (Items[i].ItemId == ResolvedItemId)
 		{
 			if (Items[i].Quantity < Quantity)
 			{
@@ -184,9 +217,10 @@ void UFTInventoryComponent::SetMaxWeight(float NewMaxWeight)
 
 const int32 UFTInventoryComponent::GetItemQuantity(FName ItemId) const 
 {
+	const FName ResolvedItemId = ResolveSubstituteItemId(ItemId);
 	for (const FFTInventoryItem& slot : Items)
 	{
-		if (slot.ItemId == ItemId)
+		if (slot.ItemId == ResolvedItemId)
 		{
 			return slot.Quantity;
 		}
@@ -197,9 +231,10 @@ const int32 UFTInventoryComponent::GetItemQuantity(FName ItemId) const
 
 const UFTItemDataAsset* UFTInventoryComponent::GetItemPtr(FName ItemId) const
 {
+	const FName ResolvedItemId = ResolveSubstituteItemId(ItemId);
 	for (const FFTInventoryItem& slot : Items)
 	{
-		if (slot.ItemId == ItemId)
+		if (slot.ItemId == ResolvedItemId)
 		{
 			return slot.ItemDataAsset.Get();
 		}

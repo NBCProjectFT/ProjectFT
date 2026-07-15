@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "FTItemActor.h"
@@ -81,6 +81,9 @@ protected:
 	void HandleProjectileImpact(AActor* HitActor);
 
 	void Explode(AActor* DirectHitActor);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Projectile")
+	void ReceiveExplode(const FVector& ExplosionLocation);
 
 	void SendTargetHitEvent(AActor* TargetActor);
 

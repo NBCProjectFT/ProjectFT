@@ -83,4 +83,11 @@ private:
 	/** @brief 비활성화되어 재사용 대기 중인 아이템 액터 풀 (아이템 ID별로 나누어 관리) */
 	UPROPERTY()
 	TMap<FName, FFTItemActorArray> InactivePoolsMap;
+
+	/** @brief 현재 포스건 스캔을 가하고 있는 매대 액터 캐싱 */
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> LastScannedShelfActor = nullptr;
+
+	/** @brief 직전 프레임 스캔 키(마우스 좌클릭) 입력 상태 */
+	bool bWasScanKeyDown = false;
 };

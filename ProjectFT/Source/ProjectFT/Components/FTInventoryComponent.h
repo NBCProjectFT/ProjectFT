@@ -51,6 +51,14 @@ public:
 	bool CanAddItem(FName ItemId, int32 Quantity) const;
 
 	/**
+	 * @brief 아이템 ID를 받아 대체 아이템이 지정되어 있다면 변환하여 반환합니다. (없을 시 원본 ID 반환)
+	 * @param ItemId : 변환할 원본 아이템 ID
+	 * @return 대체된 아이템 ID
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory")
+	FName ResolveSubstituteItemId(FName ItemId) const;
+
+	/**
 	 * @brief 인벤토리에 특정 아이템을 수량만큼 추가합니다.
 	 * @param ItemId : 추가할 아이템의 ID
 	 * @param Quantity : 추가할 아이템의 수량
