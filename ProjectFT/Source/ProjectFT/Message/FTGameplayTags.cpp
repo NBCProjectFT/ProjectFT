@@ -38,3 +38,4 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterDamaged, "Event.Character.Damaged")
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterKnockedOut, "Event.Character.KnockedOut");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_PlayerDead, "Event.PlayerDead");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_DropItem, "Gameplay.Request.DropItem");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ForceGunScan, "Event.ForceGunScan");
