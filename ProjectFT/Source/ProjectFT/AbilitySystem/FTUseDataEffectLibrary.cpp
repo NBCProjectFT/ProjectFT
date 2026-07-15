@@ -6,6 +6,7 @@
 
 #include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
+#include "ProjectFT/AbilitySystem/Effects/FTGE_Hostile.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 
 FGameplayTag UFTUseDataEffectLibrary::ResolveCooldownTag(const FTItemUseStruct& UseData)
@@ -34,6 +35,10 @@ int32 UFTUseDataEffectLibrary::ApplyUseEffectsFromAbility(
 			continue;
 		}
 
+		// 공격 표식(UFTGE_Hostile)은 '실제 효과'가 아니다 — 적용은 하되(대상 감지용) AppliedCount엔 세지 않는다.
+		// 표식/추가 no-op GE 때문에 AppliedCount<=0 실패 판정 호출부(FTUseDataEffectComponent 등)가 오판하지 않도록.
+		const bool bIsHostileMarker = EffectClass->IsChildOf(UFTGE_Hostile::StaticClass());
+
 		const FGameplayEffectSpecHandle EffectSpec = Ability->MakeOutgoingGameplayEffectSpec(
 			Handle,
 			ActorInfo,
@@ -55,7 +60,10 @@ int32 UFTUseDataEffectLibrary::ApplyUseEffectsFromAbility(
 				ActivationInfo,
 				EffectSpec,
 				*TargetData);
-			AppliedCount += Handles.Num();
+			if (!bIsHostileMarker)
+			{
+				AppliedCount += Handles.Num();
+			}
 		}
 		else
 		{
@@ -64,7 +72,7 @@ int32 UFTUseDataEffectLibrary::ApplyUseEffectsFromAbility(
 				ActorInfo,
 				ActivationInfo,
 				EffectSpec);
-			if (AppliedHandle.IsValid())
+			if (AppliedHandle.IsValid() && !bIsHostileMarker)
 			{
 				++AppliedCount;
 			}
@@ -105,6 +113,8 @@ int32 UFTUseDataEffectLibrary::ApplyUseEffectsFromASC(
 			continue;
 		}
 
+		const bool bIsHostileMarker = EffectClass->IsChildOf(UFTGE_Hostile::StaticClass());
+
 		const FGameplayEffectSpecHandle EffectSpec = SpecSourceASC->MakeOutgoingSpec(EffectClass, Level, EffectContext);
 		if (!EffectSpec.IsValid())
 		{
@@ -114,7 +124,7 @@ int32 UFTUseDataEffectLibrary::ApplyUseEffectsFromASC(
 		ApplySetByCallerMagnitudes(EffectSpec, UseData);
 
 		const FActiveGameplayEffectHandle AppliedHandle = TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-		if (AppliedHandle.IsValid())
+		if (AppliedHandle.IsValid() && !bIsHostileMarker)
 		{
 			++AppliedCount;
 		}
