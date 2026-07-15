@@ -504,6 +504,8 @@ void AFTSecurityAIController::OnCharacterAttacked(FGameplayTag Channel, const FF
 		}
 	}
 
+	const bool bShouldStartSecuritySupportCall = !bSecurityCalled && !bSecurityChaseActive;
+
 	StopMovement();
 	bReturning = false;
 	bReturnRequested = false;
@@ -512,10 +514,13 @@ void AFTSecurityAIController::OnCharacterAttacked(FGameplayTag Channel, const FF
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	bSecurityCalled = true;
-	bCanRequestSecuritySupport = true;
-	if (SecurityCallComponent)
+	if (bShouldStartSecuritySupportCall)
 	{
-		SecurityCallComponent->StartSecurityCall(SuspectActor);
+		bCanRequestSecuritySupport = true;
+		if (SecurityCallComponent)
+		{
+			SecurityCallComponent->StartSecurityCall(SuspectActor);
+		}
 	}
 	InvestigateLocation = SuspectActor->GetActorLocation();
 	UpdateTargetState();
