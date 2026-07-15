@@ -10,18 +10,26 @@
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
 #include "InputCoreTypes.h"
+#include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
+#include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
 
 void UFTHubMainWidget::InitializeHubMain(
 	AFTHubTerminal* InHubTerminal,
 	UFTShopSubsystem* InShopSubsystem,
-	UFTInventoryComponent* InPlayerInventory
+	UFTInventoryComponent* InPlayerInventory,
+	AFTHubStorage* InHubStorage
 )
 {
+	UnbindCurrencyInventoryDelegates();
+
 	HubTerminal = InHubTerminal;
 	ShopSubsystem = InShopSubsystem;
 	PlayerInventory = InPlayerInventory;
+	StorageInventory = InHubStorage ? InHubStorage->GetStorageInventory() : nullptr;
+
+	BindCurrencyInventoryDelegates();
 
 	if (HasDesktopAppWindows())
 	{
@@ -167,11 +175,11 @@ void UFTHubMainWidget::NativeConstruct()
 	RefreshCollectionCoinText();
 }
 
-void UFTHubMainWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+void UFTHubMainWidget::NativeDestruct()
 {
-	Super::NativeTick(MyGeometry, InDeltaTime);
+	UnbindCurrencyInventoryDelegates();
 
-	RefreshCollectionCoinText();
+	Super::NativeDestruct();
 }
 
 FReply UFTHubMainWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -183,6 +191,34 @@ FReply UFTHubMainWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKey
 	}
 
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+void UFTHubMainWidget::BindCurrencyInventoryDelegates()
+{
+	if (PlayerInventory)
+	{
+		PlayerInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubMainWidget::HandleCurrencyInventoryChanged);
+		PlayerInventory->OnInventoryChanged.AddDynamic(this, &UFTHubMainWidget::HandleCurrencyInventoryChanged);
+	}
+
+	if (StorageInventory && StorageInventory != PlayerInventory)
+	{
+		StorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubMainWidget::HandleCurrencyInventoryChanged);
+		StorageInventory->OnInventoryChanged.AddDynamic(this, &UFTHubMainWidget::HandleCurrencyInventoryChanged);
+	}
+}
+
+void UFTHubMainWidget::UnbindCurrencyInventoryDelegates()
+{
+	if (PlayerInventory)
+	{
+		PlayerInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubMainWidget::HandleCurrencyInventoryChanged);
+	}
+
+	if (StorageInventory && StorageInventory != PlayerInventory)
+	{
+		StorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTHubMainWidget::HandleCurrencyInventoryChanged);
+	}
 }
 
 void UFTHubMainWidget::RefreshCollectionCoinText()
@@ -539,4 +575,9 @@ void UFTHubMainWidget::HandleMarketAppOpenAnimationFinished()
 void UFTHubMainWidget::HandleShopAppOpenAnimationFinished()
 {
 	HandleAppOpenAnimationFinished(EFTHubTerminalAppType::Shop);
+}
+
+void UFTHubMainWidget::HandleCurrencyInventoryChanged()
+{
+	RefreshCollectionCoinText();
 }

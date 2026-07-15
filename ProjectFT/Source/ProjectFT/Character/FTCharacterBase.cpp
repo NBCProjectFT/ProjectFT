@@ -11,6 +11,7 @@
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_BubbleStackTrap.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_EscapableDebuff.h"
+#include "ProjectFT/Struct/FTCharacterAttackedPayloadStruct.h"
 
 AFTCharacterBase::AFTCharacterBase()
 {
@@ -57,6 +58,11 @@ void AFTCharacterBase::BeginPlay()
 		// 우산 태그 하나만 감시하므로, 새 행동불능 효과가 추가돼도 이 코드는 바뀌지 않는다. 추가 반응은 OnImmobilizedStateChanged override.
 		AbilitySystemComponent->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Immobilized, EGameplayTagEventType::NewOrRemoved)
 			.AddUObject(this, &AFTCharacterBase::OnImmobilizeTagChanged);
+
+		// GE가 자신에게 적용될 때마다 통지받는다(instant/duration 모두). 적대적 GE(Effect.Hostile)면 데미지든 상태이상이든
+		// 하나의 "공격당함" 신호로 수렴시킨다 — 모디파이어 없는 스턴 등도 여기서 잡힌다(PostGameplayEffectExecute 미호출).
+		AbilitySystemComponent->OnGameplayEffectAppliedDelegateToSelf
+			.AddUObject(this, &AFTCharacterBase::OnHostileEffectApplied);
 
 		// 공통 어빌리티 부여. 트리거형이라 부여만으로 충분(상황에 맞게 자동 발동). 싱글이라 권한 검사 생략.
 		// 비눗방울 갇힘/탈출 어빌리티는 어떤 캐릭터든 대상이 될 수 있으므로, BP의 CommonAbilities 설정과 무관하게 여기서 '항상' 보장한다.
@@ -192,6 +198,48 @@ void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, in
 void AFTCharacterBase::OnImmobilizedStateChanged(bool bImmobilized)
 {
 	// 기본 구현 없음. 자식이 AI 로직 정지/애니 등 추가 반응을 처리한다(이동 정지/복원은 베이스가 이미 처리).
+}
+
+void AFTCharacterBase::OnHostileEffectApplied(UAbilitySystemComponent* Source, const FGameplayEffectSpec& Spec, FActiveGameplayEffectHandle Handle)
+{
+	// 적대적 행동인지는 GE의 '에셋 태그'(Effect.Hostile)로 판정한다 — 데미지/스턴/슬로우/독/비눗방울 등 종류 불문 단일 기준.
+	// (부여 태그 State.Debuff.*가 아니라 에셋 태그를 보는 이유: 순수 데미지 GE는 상태 태그를 부여하지 않아도 적대적이기 때문.)
+	FGameplayTagContainer AssetTags;
+	Spec.GetAllAssetTags(AssetTags);
+	if (!AssetTags.HasTag(TAG_FT_Effect_Hostile))
+	{
+		return;
+	}
+
+	// 공격자는 이미 Spec의 EffectContext에 실려있다(더미 속성 불필요). 데미지 경로(PostGameplayEffectExecute)와 동일한 폴백 순서.
+	const FGameplayEffectContextHandle& Context = Spec.GetContext();
+	AActor* InstigatorActor = Context.GetOriginalInstigator();
+	if (!InstigatorActor)
+	{
+		InstigatorActor = Context.GetEffectCauser();
+	}
+	if (!InstigatorActor)
+	{
+		InstigatorActor = Context.GetInstigator();
+	}
+	if (!InstigatorActor && Context.GetInstigatorAbilitySystemComponent())
+	{
+		InstigatorActor = Context.GetInstigatorAbilitySystemComponent()->GetAvatarActor();
+	}
+
+	FFTCharacterAttackedPayloadStruct Payload;
+	Payload.InstigatorActor = InstigatorActor;
+	Payload.TargetActor = this;
+	// 리스너가 공격 종류를 분기할 수 있도록 에셋 태그 + 부여 태그를 병합해 담는다(예: State.Debuff.Stun 유무로 스턴 공격 판별).
+	Payload.EffectTags = AssetTags;
+	FGameplayTagContainer GrantedTags;
+	Spec.GetAllGrantedTags(GrantedTags);
+	Payload.EffectTags.AppendTags(GrantedTags);
+
+	if (UWorld* World = GetWorld())
+	{
+		UGameplayMessageSubsystem::Get(World).BroadcastMessage(TAG_FT_Event_CharacterAttacked, Payload);
+	}
 }
 
 void AFTCharacterBase::PlayStruggleJitter()

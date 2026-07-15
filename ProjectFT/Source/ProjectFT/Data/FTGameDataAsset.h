@@ -11,7 +11,7 @@ class UWorld;
 
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
-class UFTHubCraftTestWidget;
+class UFTHubCraftWidget;
 class UFTHubMainWidget;
 class UFTHubStorageWidget;
 class UFTCountdownEscapeWidget;
@@ -75,7 +75,7 @@ public:
 	TSoftClassPtr<UFTHubStorageWidget> HubStorageWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Hub")
-	TSoftClassPtr<UFTHubCraftTestWidget> HubCraftWidgetClass;
+	TSoftClassPtr<UFTHubCraftWidget> HubCraftWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Escape")
 	TSoftClassPtr<UFTCountdownEscapeWidget> CountdownEscapeWidgetClass;

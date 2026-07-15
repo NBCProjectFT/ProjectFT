@@ -15,7 +15,7 @@
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
-#include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
+#include "ProjectFT/Struct/FTCharacterAttackedPayloadStruct.h"
 #include "ProjectFT/Struct/FTSecurityChaseGaugePayloadStruct.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
@@ -181,10 +181,10 @@ void AFTSecurityAIController::BeginPlay()
 		this,
 		&ThisClass::OnShelfDamaged
 	);
-	CharacterDamagedListenerHandle = MessageSubsystem.RegisterListener(
-		TAG_FT_Event_CharacterDamaged,
+	CharacterAttackedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_CharacterAttacked,
 		this,
-		&ThisClass::OnCharacterDamaged
+		&ThisClass::OnCharacterAttacked
 	);
 
 	if (APawn* ControlledPawn = GetPawn())
@@ -473,7 +473,7 @@ void AFTSecurityAIController::OnShelfDamaged(
 	}
 }
 
-void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
+void AFTSecurityAIController::OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload)
 {
 	if (bTargetCaptured || bIsStunned)
 	{
@@ -486,9 +486,9 @@ void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFT
 		return;
 	}
 
-	const bool bDamagedSelf = Payload.TargetActor == GetPawn();
-	const bool bWitnessedAssault = !bDamagedSelf && Cast<AFTAICharacterBase>(Payload.TargetActor);
-	if (!bDamagedSelf && !bWitnessedAssault)
+	const bool bAttackedSelf = Payload.TargetActor == GetPawn();
+	const bool bWitnessedAssault = !bAttackedSelf && Cast<AFTAICharacterBase>(Payload.TargetActor);
+	if (!bAttackedSelf && !bWitnessedAssault)
 	{
 		return;
 	}
@@ -504,6 +504,8 @@ void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFT
 		}
 	}
 
+	const bool bShouldStartSecuritySupportCall = !bSecurityCalled && !bSecurityChaseActive;
+
 	StopMovement();
 	bReturning = false;
 	bReturnRequested = false;
@@ -512,22 +514,25 @@ void AFTSecurityAIController::OnCharacterDamaged(FGameplayTag Channel, const FFT
 	bReturnFailureLogged = false;
 	bReturnCollisionIgnored = false;
 	bSecurityCalled = true;
-	bCanRequestSecuritySupport = true;
-	if (SecurityCallComponent)
+	if (bShouldStartSecuritySupportCall)
 	{
-		SecurityCallComponent->StartSecurityCall(SuspectActor);
+		bCanRequestSecuritySupport = true;
+		if (SecurityCallComponent)
+		{
+			SecurityCallComponent->StartSecurityCall(SuspectActor);
+		}
 	}
 	InvestigateLocation = SuspectActor->GetActorLocation();
 	UpdateTargetState();
 
 	if (bLogSecurityEventDebug)
 	{
-		if (bDamagedSelf)
+		if (bAttackedSelf)
 		{
 			UE_LOG(
 				LogFTSecurity,
 				Log,
-				TEXT("Security AI '%s' damaged by player, chasing %s"),
+				TEXT("Security AI '%s' attacked by player, chasing %s"),
 				*GetName(),
 				*GetNameSafe(SuspectActor)
 			);
@@ -1045,9 +1050,9 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfDamagedListenerHandle);
 	}
-	if (CharacterDamagedListenerHandle.IsValid())
+	if (CharacterAttackedListenerHandle.IsValid())
 	{
-		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterDamagedListenerHandle);
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterAttackedListenerHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);

@@ -3,8 +3,8 @@
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
-#include "Engine/AssetManager.h"
 #include "Engine/Texture2D.h"
+#include "FTHubItemDataResolver.h"
 #include "FTTradePostListObject.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 
@@ -23,32 +23,7 @@ void UFTTradePostEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 	const UFTItemDataAsset* ItemDataAsset = nullptr;
 	if (!ItemID.IsNone())
 	{
-		UObject* AssetObject = nullptr;
-		if (Post.ItemDataAsset.IsValid())
-		{
-			AssetObject = Post.ItemDataAsset.Get();
-		}
-		else if (!Post.ItemDataAsset.IsNull())
-		{
-			AssetObject = Post.ItemDataAsset.LoadSynchronous();
-		}
-
-		if (!AssetObject)
-		{
-			UAssetManager& AssetManager = UAssetManager::Get();
-			const FPrimaryAssetId AssetID(FName("FTItemItem"), ItemID);
-			AssetObject = AssetManager.GetPrimaryAssetObject(AssetID);
-			if (!AssetObject)
-			{
-				const FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(AssetID);
-				if (AssetPath.IsValid())
-				{
-					AssetObject = AssetPath.TryLoad();
-				}
-			}
-		}
-
-		ItemDataAsset = Cast<UFTItemDataAsset>(AssetObject);
+		ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
 	}
 
 	const FText ItemName = ItemDataAsset && !ItemDataAsset->ItemData.ItemName.IsEmpty()

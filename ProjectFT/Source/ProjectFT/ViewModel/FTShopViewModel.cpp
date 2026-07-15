@@ -259,17 +259,9 @@ bool UFTShopViewModel::BuySelectedItem()
 		return false;
 	}
 
-	for (int32 Index = 0; Index < TradeQuantity; ++Index)
-	{
-		if (!ShopSubsystem->BuyItem(SelectedShopItem->GetItemID(), PlayerInventory))
-		{
-			RefreshAll();
-			return false;
-		}
-	}
-
+	const bool bPurchased = ShopSubsystem->BuyItemCount(SelectedShopItem->GetItemID(), TradeQuantity, PlayerInventory);
 	RefreshAll();
-	return true;
+	return bPurchased;
 }
 
 bool UFTShopViewModel::SellSelectedItem()
