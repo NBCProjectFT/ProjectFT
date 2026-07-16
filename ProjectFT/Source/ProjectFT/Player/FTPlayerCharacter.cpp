@@ -381,7 +381,7 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	}
 
 	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
-	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
+	// 슬롯을 바꾸든 같은 슬롯을 다시 눌러 집어넣든, 조준 중이던 투척은 던지지 않고 취소된다.
 	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
 
 	UFTInventoryComponent* Inventory = GetInventoryComponent();
@@ -407,6 +407,17 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	FFTInventoryItem QuickSlotItem;
 	if (Inventory->GetQuickSlotItem(SlotIndex, QuickSlotItem) && QuickSlotItem.Quantity > 0 && QuickSlotItem.ItemDataAsset)
 	{
+		// 이미 들고 있는 아이템의 슬롯을 다시 누르면 집어넣고 맨손으로 돌아간다(토글).
+		// SetQuickSlot이 같은 ItemId의 타 슬롯 등록을 해제해 ItemId↔슬롯이 1:1이므로, ItemId 비교가 곧 "같은 슬롯" 판정이다.
+		// (GetQuickSlotItem이 빈 슬롯을 걸러내 QuickSlotItem.ItemId는 항상 유효 — 맨손(None) 상태와 같아질 일은 없다.)
+		if (CurrentHeldInventoryItem.ItemId == QuickSlotItem.ItemId)
+		{
+			SetCurrentHeldInventoryItem(FFTInventoryItem());
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d unequipped '%s' on '%s'."),
+				SlotIndex, *QuickSlotItem.ItemId.ToString(), *GetName());
+			return;
+		}
+
 		SetCurrentHeldInventoryItem(QuickSlotItem);
 		EnsureUseAbilityGranted(CurrentHeldInventoryItem.ItemDataAsset->ItemData.UseData.UseAbility);
 		UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d equipped '%s' on '%s'."),
@@ -770,6 +781,50 @@ void AFTPlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHei
 {
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
 	ApplyCrouchCameraCompensation(-HalfHeightAdjust);
+}
+
+bool AFTPlayerCharacter::CanJumpInternal_Implementation() const
+{
+	if (!Super::CanJumpInternal_Implementation())
+	{
+		return false;
+	}
+
+	// 이미 점프 중(JumpMaxHoldTime 동안 가변 높이를 유지하는 구간)이면 비용은 이륙 때 이미 냈다.
+	// 여기서 다시 검사하면 방금 깎인 스태미나 때문에 상승이 중간에 끊기므로 통과시킨다.
+	if (bWasJumping)
+	{
+		return true;
+	}
+
+	return HasEnoughStaminaForJump();
+}
+
+void AFTPlayerCharacter::OnJumped_Implementation()
+{
+	Super::OnJumped_Implementation();
+
+	// 점프가 성립한 뒤에만 여기 도달하므로(CanJump 통과 + DoJump 성공), 헛도는 입력엔 스태미나가 나가지 않는다.
+	if (JumpStaminaCost > 0.0f && AbilitySystemComponent)
+	{
+		AbilitySystemComponent->ApplyModToAttribute(UFTPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -JumpStaminaCost);
+		TimeSinceStaminaUse = 0.0f;
+	}
+}
+
+bool AFTPlayerCharacter::HasEnoughStaminaForJump() const
+{
+	if (JumpStaminaCost <= 0.0f)
+	{
+		return true;
+	}
+
+	if (!PlayerAttributeSet)
+	{
+		return true;
+	}
+
+	return PlayerAttributeSet->GetStamina() >= JumpStaminaCost;
 }
 
 void AFTPlayerCharacter::ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ)
