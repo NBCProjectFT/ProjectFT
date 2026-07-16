@@ -16,13 +16,13 @@ AFTHubRaidEntrance::AFTHubRaidEntrance()
 	FFTRaidEntranceOption FreeMarket;
 	FreeMarket.DisplayName = FText::FromString(TEXT("마트"));
 	FreeMarket.Description = FText::FromString(TEXT("입장 제한이 없는 기본 레이드 레벨입니다."));
-	FreeMarket.LevelName = TEXT("Market");
+	FreeMarket.LevelName = TEXT("Lvl_MarketA");
 	RaidOptions.Add(FreeMarket);
 
 	FFTRaidEntranceOption TicketMarket;
 	TicketMarket.DisplayName = FText::FromString(TEXT("테스트 마트"));
 	TicketMarket.Description = FText::FromString(TEXT("입장권 1개가 필요한 레이드 레벨입니다."));
-	TicketMarket.LevelName = TEXT("Market_Test");
+	TicketMarket.LevelName = TEXT("Lvl_MarketB");
 	TicketMarket.RequiredItemId = TEXT("ID_Common_Floor2_MemberCard");
 	RaidOptions.Add(TicketMarket);
 }
