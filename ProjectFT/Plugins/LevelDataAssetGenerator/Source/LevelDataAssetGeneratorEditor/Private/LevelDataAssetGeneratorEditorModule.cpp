@@ -36,7 +36,8 @@ namespace LevelDataAssetGeneratorEditor
 	enum class ELevelPreloadEntrySourceType : uint8
 	{
 		Environment,
-		InventoryItem
+		InventoryItem,
+		RuntimeFeature
 	};
 
 	struct FLevelPreloadEntry
@@ -52,6 +53,7 @@ namespace LevelDataAssetGeneratorEditor
 	{
 		FString LevelPackageName;
 		FSoftObjectPath LevelObjectPath;
+		FName PresetName = NAME_None;
 		TArray<TSharedPtr<FLevelPreloadEntry>> Entries;
 	};
 
@@ -204,6 +206,76 @@ namespace LevelDataAssetGeneratorEditor
 		}
 	}
 
+	FString GetSourceTypeLabel(ELevelPreloadEntrySourceType SourceType)
+	{
+		switch (SourceType)
+		{
+		case ELevelPreloadEntrySourceType::Environment:
+			return TEXT("Environment");
+		case ELevelPreloadEntrySourceType::InventoryItem:
+			return TEXT("InventoryItem");
+		case ELevelPreloadEntrySourceType::RuntimeFeature:
+			return TEXT("RuntimeFeature");
+		default:
+			return TEXT("Unknown");
+		}
+	}
+
+	const FLevelDataAssetGeneratorPresetDefinition* FindPresetByName(const ULevelDataAssetGeneratorSettings* Settings, FName PresetName)
+	{
+		if (!Settings)
+		{
+			return nullptr;
+		}
+
+		for (const FLevelDataAssetGeneratorPresetDefinition& Preset : Settings->Presets)
+		{
+			if (Preset.PresetName == PresetName)
+			{
+				return &Preset;
+			}
+		}
+
+		return nullptr;
+	}
+
+	const FLevelDataAssetGeneratorPresetDefinition* ResolvePresetForLevel(const FString& LevelPackageName, const ULevelDataAssetGeneratorSettings* Settings)
+	{
+		if (!Settings)
+		{
+			return nullptr;
+		}
+
+		const FName LevelId(*FPackageName::GetShortName(LevelPackageName));
+		for (const FLevelDataAssetGeneratorPresetDefinition& Preset : Settings->Presets)
+		{
+			if (Preset.LevelIds.Contains(LevelId))
+			{
+				return &Preset;
+			}
+		}
+
+		return FindPresetByName(Settings, Settings->DefaultPresetName);
+	}
+
+	const FLevelDataAssetGeneratorFeatureDefinition* FindFeatureByName(const ULevelDataAssetGeneratorSettings* Settings, FName FeatureName)
+	{
+		if (!Settings)
+		{
+			return nullptr;
+		}
+
+		for (const FLevelDataAssetGeneratorFeatureDefinition& Feature : Settings->Features)
+		{
+			if (Feature.FeatureName == FeatureName)
+			{
+				return &Feature;
+			}
+		}
+
+		return nullptr;
+	}
+
 	void AddOrMergeEntry(FScanResult& Result, const TSharedPtr<FLevelPreloadEntry>& NewEntry)
 	{
 		if (!NewEntry.IsValid() || !NewEntry->AssetPath.IsValid())
@@ -227,6 +299,155 @@ namespace LevelDataAssetGeneratorEditor
 		}
 
 		Result.Entries.Add(NewEntry);
+	}
+
+	bool IsRuntimeAssetAllowed(const FAssetData& AssetData)
+	{
+		static const TSet<FName> BlockedClassNames =
+		{
+			TEXT("World"),
+			TEXT("TextureRenderTarget2D"),
+			TEXT("EditorUtilityWidgetBlueprint"),
+			TEXT("EditorUtilityBlueprint")
+		};
+
+		if (BlockedClassNames.Contains(AssetData.AssetClassPath.GetAssetName()))
+		{
+			return false;
+		}
+
+		const FString PackageName = AssetData.PackageName.ToString();
+		return !PackageName.Contains(TEXT("/MakeIcons/Tool/")) &&
+			!PackageName.Contains(TEXT("/Developers/")) &&
+			!PackageName.Contains(TEXT("/Collections/")) &&
+			!PackageName.Contains(TEXT("/Editor/"));
+	}
+
+	void AddRuntimeFeatureEntry(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings, const FAssetData& AssetData, const FString& SourceDescription)
+	{
+		if (!Settings || !AssetData.IsValid() || !IsRuntimeAssetAllowed(AssetData))
+		{
+			return;
+		}
+
+		const FString PackageName = AssetData.PackageName.ToString();
+		if (IsPathIgnored(PackageName, Settings))
+		{
+			return;
+		}
+
+		TSharedPtr<FLevelPreloadEntry> Entry = MakeShared<FLevelPreloadEntry>();
+		Entry->AssetPath = AssetData.ToSoftObjectPath();
+		Entry->AssetClassPath = AssetData.AssetClassPath;
+		Entry->SourceDescription = SourceDescription;
+		Entry->SourceType = ELevelPreloadEntrySourceType::RuntimeFeature;
+		AddOrMergeEntry(Result, Entry);
+	}
+
+	void CollectRuntimeAssetWithDependencies(
+		FScanResult& Result,
+		const ULevelDataAssetGeneratorSettings* Settings,
+		IAssetRegistry& AssetRegistry,
+		const FAssetData& RootAsset,
+		const FString& FeatureName,
+		TSet<FName>& VisitedPackageNames)
+	{
+		if (!Settings || !RootAsset.IsValid() || VisitedPackageNames.Contains(RootAsset.PackageName))
+		{
+			return;
+		}
+
+		VisitedPackageNames.Add(RootAsset.PackageName);
+		AddRuntimeFeatureEntry(Result, Settings, RootAsset, FeatureName);
+
+		if (!Settings->bExpandRuntimeDependencies)
+		{
+			return;
+		}
+
+		TArray<FName> DependencyPackageNames;
+		AssetRegistry.GetDependencies(
+			RootAsset.PackageName,
+			DependencyPackageNames,
+			UE::AssetRegistry::EDependencyCategory::Package,
+			UE::AssetRegistry::EDependencyQuery::Hard | UE::AssetRegistry::EDependencyQuery::Soft);
+
+		for (const FName DependencyPackageName : DependencyPackageNames)
+		{
+			const FString DependencyPackageNameString = DependencyPackageName.ToString();
+			if (IsPathIgnored(DependencyPackageNameString, Settings))
+			{
+				continue;
+			}
+
+			TArray<FAssetData> DependencyAssets;
+			AssetRegistry.GetAssetsByPackageName(DependencyPackageName, DependencyAssets);
+			for (const FAssetData& DependencyAsset : DependencyAssets)
+			{
+				CollectRuntimeAssetWithDependencies(Result, Settings, AssetRegistry, DependencyAsset, FeatureName, VisitedPackageNames);
+			}
+		}
+	}
+
+	void CollectRuntimeAssetsFromDirectory(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings, const FDirectoryPath& Directory, const FString& FeatureName)
+	{
+		if (!Settings)
+		{
+			return;
+		}
+
+		const FString DirectoryPath = NormalizeContentDirectoryPath(Directory.Path);
+		if (DirectoryPath.IsEmpty())
+		{
+			return;
+		}
+
+		IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		FARFilter Filter;
+		Filter.PackagePaths.Add(FName(*DirectoryPath));
+		Filter.bRecursivePaths = true;
+
+		TArray<FAssetData> FoundAssets;
+		AssetRegistry.GetAssets(Filter, FoundAssets);
+
+		TSet<FName> VisitedPackageNames;
+		for (const FAssetData& AssetData : FoundAssets)
+		{
+			CollectRuntimeAssetWithDependencies(Result, Settings, AssetRegistry, AssetData, FeatureName, VisitedPackageNames);
+		}
+	}
+
+	void CollectRuntimeAssetsFromDirectories(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings, const TArray<FDirectoryPath>& Directories, const FString& FeatureName)
+	{
+		for (const FDirectoryPath& Directory : Directories)
+		{
+			CollectRuntimeAssetsFromDirectory(Result, Settings, Directory, FeatureName);
+		}
+	}
+
+	void CollectRuntimeAssetsFromSoftObjects(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings, const TArray<TSoftObjectPtr<UObject>>& Assets, const FString& FeatureName)
+	{
+		if (!Settings)
+		{
+			return;
+		}
+
+		IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		TSet<FName> VisitedPackageNames;
+		for (const TSoftObjectPtr<UObject>& Asset : Assets)
+		{
+			const FSoftObjectPath AssetPath = Asset.ToSoftObjectPath();
+			if (!AssetPath.IsValid())
+			{
+				continue;
+			}
+
+			FAssetData AssetData = AssetRegistry.GetAssetByObjectPath(AssetPath);
+			if (AssetData.IsValid())
+			{
+				CollectRuntimeAssetWithDependencies(Result, Settings, AssetRegistry, AssetData, FeatureName, VisitedPackageNames);
+			}
+		}
 	}
 
 	void AddStaticMeshEntry(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings, UStaticMeshComponent* Component, AActor* Owner)
@@ -322,6 +543,41 @@ namespace LevelDataAssetGeneratorEditor
 		}
 	}
 
+	void CollectRuntimeFeatureAssets(FScanResult& Result, const ULevelDataAssetGeneratorSettings* Settings)
+	{
+		if (!Settings)
+		{
+			return;
+		}
+
+		const FLevelDataAssetGeneratorPresetDefinition* Preset = FindPresetByName(Settings, Result.PresetName);
+		if (!Preset)
+		{
+			return;
+		}
+
+		for (const FName FeatureName : Preset->FeatureNames)
+		{
+			const FLevelDataAssetGeneratorFeatureDefinition* Feature = FindFeatureByName(Settings, FeatureName);
+			if (!Feature)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("LevelDataAssetGenerator: Feature '%s' was referenced by preset '%s' but was not found."),
+					*FeatureName.ToString(),
+					*Preset->PresetName.ToString());
+				continue;
+			}
+
+			const FString FeatureNameString = Feature->FeatureName.ToString();
+			CollectRuntimeAssetsFromDirectories(Result, Settings, Feature->RootDirectories, FeatureNameString);
+			CollectRuntimeAssetsFromSoftObjects(Result, Settings, Feature->DirectAssets, FeatureNameString);
+		}
+	}
+
+	FText GetPresetText(FName PresetName)
+	{
+		return FText::FromName(PresetName);
+	}
+
 	FScanResult ScanCurrentLevel()
 	{
 		FScanResult Result;
@@ -330,26 +586,33 @@ namespace LevelDataAssetGeneratorEditor
 
 		Result.LevelPackageName = GetCurrentLevelPackageName(World);
 		Result.LevelObjectPath = GetCurrentLevelObjectPath(World);
+		const FLevelDataAssetGeneratorPresetDefinition* Preset = ResolvePresetForLevel(Result.LevelPackageName, Settings);
+		Result.PresetName = Preset ? Preset->PresetName : NAME_None;
 
 		if (!World || !Settings)
 		{
 			return Result;
 		}
 
-		for (TActorIterator<AActor> ActorIterator(World); ActorIterator; ++ActorIterator)
+		if (Settings->bIncludePlacedEnvironmentAssets)
 		{
-			AActor* Actor = *ActorIterator;
-			if (!IsValid(Actor))
+			for (TActorIterator<AActor> ActorIterator(World); ActorIterator; ++ActorIterator)
 			{
-				continue;
-			}
+				AActor* Actor = *ActorIterator;
+				if (!IsValid(Actor))
+				{
+					continue;
+				}
 
-			TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents(Actor);
-			for (UStaticMeshComponent* Component : StaticMeshComponents)
-			{
-				AddStaticMeshEntry(Result, Settings, Component, Actor);
+				TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents(Actor);
+				for (UStaticMeshComponent* Component : StaticMeshComponents)
+				{
+					AddStaticMeshEntry(Result, Settings, Component, Actor);
+				}
 			}
 		}
+
+		CollectRuntimeFeatureAssets(Result, Settings);
 
 		Result.Entries.Sort([](const TSharedPtr<FLevelPreloadEntry>& Left, const TSharedPtr<FLevelPreloadEntry>& Right)
 		{
@@ -457,7 +720,8 @@ namespace LevelDataAssetGeneratorEditor
 	bool SetLevelDataAssetProperties(
 		UObject* DataAsset,
 		const FScanResult& Result,
-		const TArray<FSoftObjectPath>& IncludedEnvironmentAssets)
+		const TArray<FSoftObjectPath>& IncludedEnvironmentAssets,
+		const TArray<FSoftObjectPath>& IncludedRuntimeAssets)
 	{
 		const ULevelDataAssetGeneratorSettings* Settings = GetDefault<ULevelDataAssetGeneratorSettings>();
 		if (!DataAsset || !Settings)
@@ -480,7 +744,17 @@ namespace LevelDataAssetGeneratorEditor
 			return false;
 		}
 
-		if (!SetBoolProperty(DataAsset, Settings->bUseInventoryPreloadDataAssetPropertyName, Settings->bAssignInventoryPreloadToLevelDataAssets))
+		if (!SetSoftObjectArrayProperty(DataAsset, Settings->GeneratedRuntimeAssetsPropertyName, IncludedRuntimeAssets))
+		{
+			return false;
+		}
+
+		const FLevelDataAssetGeneratorPresetDefinition* Preset = FindPresetByName(Settings, Result.PresetName);
+		const bool bAssignInventoryPreloadDataAsset = Settings->bAssignInventoryPreloadToLevelDataAssets &&
+			Preset &&
+			Preset->bAssignInventoryPreloadDataAsset;
+
+		if (!SetBoolProperty(DataAsset, Settings->bUseInventoryPreloadDataAssetPropertyName, bAssignInventoryPreloadDataAsset))
 		{
 			return false;
 		}
@@ -488,7 +762,7 @@ namespace LevelDataAssetGeneratorEditor
 		return SetSoftObjectProperty(
 			DataAsset,
 			Settings->InventoryPreloadDataAssetPropertyName,
-			Settings->bAssignInventoryPreloadToLevelDataAssets
+			bAssignInventoryPreloadDataAsset
 				? FSoftObjectPath(GetInventoryPreloadAssetObjectPath(Settings))
 				: FSoftObjectPath());
 	}
@@ -586,7 +860,9 @@ namespace LevelDataAssetGeneratorEditor
 		}
 
 		TArray<FSoftObjectPath> IncludedEnvironmentAssets;
+		TArray<FSoftObjectPath> IncludedRuntimeAssets;
 		TSet<FString> AddedEnvironmentPaths;
+		TSet<FString> AddedRuntimePaths;
 		for (const TSharedPtr<FLevelPreloadEntry>& Entry : Result.Entries)
 		{
 			if (!Entry.IsValid() || !Entry->bIncluded)
@@ -600,10 +876,15 @@ namespace LevelDataAssetGeneratorEditor
 				IncludedEnvironmentAssets.Add(Entry->AssetPath);
 				AddedEnvironmentPaths.Add(AssetPathString);
 			}
+			else if (Entry->SourceType == ELevelPreloadEntrySourceType::RuntimeFeature && !AddedRuntimePaths.Contains(AssetPathString))
+			{
+				IncludedRuntimeAssets.Add(Entry->AssetPath);
+				AddedRuntimePaths.Add(AssetPathString);
+			}
 		}
 
 		DataAsset->Modify();
-		if (!SetLevelDataAssetProperties(DataAsset, Result, IncludedEnvironmentAssets))
+		if (!SetLevelDataAssetProperties(DataAsset, Result, IncludedEnvironmentAssets, IncludedRuntimeAssets))
 		{
 			return false;
 		}
@@ -705,7 +986,10 @@ public:
 
 		if (ColumnName == TEXT("Source"))
 		{
-			return SNew(STextBlock).Text(FText::FromString(Entry->SourceDescription));
+			return SNew(STextBlock).Text(FText::FromString(FString::Printf(
+				TEXT("%s: %s"),
+				*LevelDataAssetGeneratorEditor::GetSourceTypeLabel(Entry->SourceType),
+				*Entry->SourceDescription)));
 		}
 
 		if (ColumnName == TEXT("Sync"))
@@ -796,7 +1080,7 @@ private:
 		Section.AddMenuEntry(
 			TEXT("LevelDataAssetGeneratorGenerateFromCurrentLevel"),
 			LOCTEXT("GenerateFromCurrentLevel", "Generate Level Preload Data Asset"),
-			LOCTEXT("GenerateFromCurrentLevelTooltip", "Scan current level environment meshes and update the level preload DataAsset."),
+			LOCTEXT("GenerateFromCurrentLevelTooltip", "Collect runtime feature assets for the current level and update the level preload DataAsset."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateRaw(this, &FLevelDataAssetGeneratorEditorModule::OpenGenerateWindow)));
 
@@ -895,9 +1179,17 @@ private:
 					.Text_Lambda([Result]()
 					{
 						return FText::Format(
-							LOCTEXT("ScanSummary", "Level: {0} / Environment Assets: {1}"),
+							LOCTEXT("ScanSummary", "Level: {0} / Preset: {1} / Runtime Assets: {2} / Environment Assets: {3}"),
 							FText::FromString(Result->LevelPackageName),
-							FText::AsNumber(Result->Entries.Num()));
+							LevelDataAssetGeneratorEditor::GetPresetText(Result->PresetName),
+							FText::AsNumber(Result->Entries.FilterByPredicate([](const TSharedPtr<LevelDataAssetGeneratorEditor::FLevelPreloadEntry>& Entry)
+							{
+								return Entry.IsValid() && Entry->SourceType == LevelDataAssetGeneratorEditor::ELevelPreloadEntrySourceType::RuntimeFeature;
+							}).Num()),
+							FText::AsNumber(Result->Entries.FilterByPredicate([](const TSharedPtr<LevelDataAssetGeneratorEditor::FLevelPreloadEntry>& Entry)
+							{
+								return Entry.IsValid() && Entry->SourceType == LevelDataAssetGeneratorEditor::ELevelPreloadEntrySourceType::Environment;
+							}).Num()));
 					})
 				]
 				+ SVerticalBox::Slot()

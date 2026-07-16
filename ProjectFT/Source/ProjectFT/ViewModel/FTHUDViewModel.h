@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "ProjectFT/Struct/FTCrosshairStateStruct.h"
 #include "FTHUDViewModel.generated.h"
 
 class APawn;
@@ -69,6 +70,9 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = "FT|HUD|ItemSlot", meta=(AllowPrivateAccess = "true"))
 	TArray<TObjectPtr<UFTItemSlotDataObject>> ItemSlotObjects;
 
+	UPROPERTY(BlueprintReadOnly, Category = "FT|HUD|Crosshair", meta=(AllowPrivateAccess = "true"))
+	FTCrosshairStateStruct CrosshairState;
+
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UAbilitySystemComponent> BoundAbilitySystemComponent;
 
@@ -116,6 +120,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "FT|HUD")
 	float GetTargetStaminaPercent() const;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|HUD|Crosshair")
+	void SetCrosshairState(const FTCrosshairStateStruct& NewCrosshairState);
+
+	UFUNCTION(BlueprintPure, Category = "FT|HUD|Crosshair")
+	const FTCrosshairStateStruct& GetCrosshairState() const;
 
 public:
 	void TestCode();

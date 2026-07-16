@@ -16,6 +16,7 @@ class UFTInteractionComponent;
 class UFTTraversalComponent;
 class UFTCaptureEscapeComponent;
 class UFTTailComponent;
+class UFTCrosshairComponent;
 class UFTPlayerAttributeSet;
 class UFTItemDataAsset;
 class UFTGameplayAbility;
@@ -108,6 +109,9 @@ protected:
 	// Tail Socket에 붙는 별도 꼬리 컴포넌트. 메시와 절차적 흔들림은 컴포넌트가 소유한다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Tail", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTTailComponent> TailComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Crosshair", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UFTCrosshairComponent> CrosshairComponent;
     
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Interaction", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UFTInteractionComponent> InteractionComponent;

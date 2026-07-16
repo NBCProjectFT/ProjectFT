@@ -18,8 +18,7 @@ AFTItemActor::AFTItemActor()
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	SetRootComponent(MeshComponent);
 	
-	MeshComponent->SetSimulatePhysics(true);
-	MeshComponent->SetCollisionProfileName(TEXT("PhysicsBody"));
+	SetupPhysicsAndCollision();
 
 	TooltipWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("TooltipWidget"));
 	TooltipWidgetComponent->SetupAttachment(RootComponent);
@@ -183,5 +182,28 @@ void AFTItemActor::SetTooltipVisibility(bool bVisible)
 		{
 			TooltipWidgetComponent->SetVisibility(false);
 		}
+	}
+}
+
+void AFTItemActor::SetupPhysicsAndCollision()
+{
+	if (MeshComponent)
+	{
+		MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		MeshComponent->SetCollisionProfileName(TEXT("PhysicsBody"));
+		
+		// 플레이어 및 NPC와의 물리 충돌 무시
+		MeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+		// 카메라 줌인 방해 방지
+		MeshComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+		// 상호작용 트레이스를 위한 Visibility Block 유지
+		MeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
+		// 서서히 미끄러지고 굴러가다가 멈추도록 댐핑 옵션 적용
+		MeshComponent->SetLinearDamping(1.0f);
+		MeshComponent->SetAngularDamping(2.0f);
+
+		MeshComponent->SetSimulatePhysics(true);
+		MeshComponent->WakeRigidBody();
 	}
 }
