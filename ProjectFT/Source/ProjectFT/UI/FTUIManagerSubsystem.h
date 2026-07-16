@@ -132,6 +132,8 @@ public:
 
 private:
 	APlayerController* GetPrimaryPlayerController() const;
+	bool IsHubModalOpen() const;
+	void RefreshMainHUDVisibility() const;
 	void HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 
@@ -168,6 +170,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTRaidSelectViewModel> RaidSelectViewModel = nullptr;
+
+	bool bRaidSelectHidesMainHUD = false;
+	bool bHubMainHidesMainHUD = false;
 
 	TArray<FGameplayMessageListenerHandle> UIMessageListenerHandles;
 };

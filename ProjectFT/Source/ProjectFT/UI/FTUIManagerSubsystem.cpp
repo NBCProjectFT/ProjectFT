@@ -1,10 +1,12 @@
 #include "FTUIManagerSubsystem.h"
 
 #include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "FTCountdownEscapeWidget.h"
 #include "FTEscapedRaidWidget.h"
 #include "FTFailWidget.h"
 #include "FTInventoryWidget.h"
+#include "FTMainHUDWidget.h"
 #include "FTMainMenuWidget.h"
 #include "HubUI/FTHubCraftWidget.h"
 #include "HubUI/FTHubMainWidget.h"
@@ -264,7 +266,7 @@ void UFTUIManagerSubsystem::HideEscapedRaid()
 
 void UFTUIManagerSubsystem::ShowInventory()
 {
-	if (IsInventoryOpen())
+	if (IsInventoryOpen() || IsHubModalOpen())
 	{
 		return;
 	}
@@ -375,6 +377,10 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 		HideCrafting();
 		return;
 	}
+	if (IsHubModalOpen())
+	{
+		return;
+	}
 
 	APlayerController* PlayerController = GetPrimaryPlayerController();
 	if (!PlayerController)
@@ -403,6 +409,10 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 	if (!CraftingViewModel)
 	{
 		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
+	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
 	}
 
 	HubCraftWidget->InitializeCraftWidget(PlayerInventory, StorageInventory, CraftingViewModel);
@@ -449,6 +459,10 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 		HideStorage();
 		return;
 	}
+	if (IsHubModalOpen())
+	{
+		return;
+	}
 
 	APlayerController* PlayerController = GetPrimaryPlayerController();
 	if (!PlayerController)
@@ -477,6 +491,10 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 	if (!HubStorageViewModel)
 	{
 		HubStorageViewModel = NewObject<UFTHubStorageViewModel>(this);
+	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
 	}
 
 	HubStorageWidget->InitializeStorageWidget(HubStorage, PlayerInventory, HubStorageViewModel);
@@ -520,6 +538,10 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 		HideRaidSelect();
 		return;
 	}
+	if (IsHubModalOpen())
+	{
+		return;
+	}
 
 	APlayerController* PlayerController = GetPrimaryPlayerController();
 	TSubclassOf<UFTRaidSelectWidget> WidgetClass = RaidEntrance->GetRaidSelectWidgetClass();
@@ -544,6 +566,10 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	{
 		RaidSelectViewModel = NewObject<UFTRaidSelectViewModel>(this);
 	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
 	RaidSelectViewModel->Initialize(RaidEntrance, PlayerInventory);
 	RaidSelectWidget->InitializeRaidSelect(RaidSelectViewModel);
 	RaidSelectWidget->AddToViewport(20);
@@ -554,6 +580,8 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
 	RaidSelectWidget->SetKeyboardFocus();
+	bRaidSelectHidesMainHUD = true;
+	RefreshMainHUDVisibility();
 }
 
 void UFTUIManagerSubsystem::HideRaidSelect()
@@ -572,6 +600,13 @@ void UFTUIManagerSubsystem::HideRaidSelect()
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
 	}
+
+	const bool bWasHidingMainHUD = bRaidSelectHidesMainHUD;
+	bRaidSelectHidesMainHUD = false;
+	if (bWasHidingMainHUD)
+	{
+		RefreshMainHUDVisibility();
+	}
 }
 
 void UFTUIManagerSubsystem::ShowHubMain(
@@ -583,6 +618,10 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	if (HubMainWidget && HubMainWidget->IsInViewport())
 	{
 		HideHubMain();
+		return;
+	}
+	if (IsHubModalOpen())
+	{
 		return;
 	}
 
@@ -655,6 +694,10 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	{
 		UE_LOG(LogFTUI, Warning, TEXT("Hub shop panel is missing from HubMainWidget."));
 	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
 
 	HubMainWidget->AddToViewport(20);
 
@@ -664,6 +707,8 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
 	HubMainWidget->SetKeyboardFocus();
+	bHubMainHidesMainHUD = true;
+	RefreshMainHUDVisibility();
 }
 
 void UFTUIManagerSubsystem::HideHubMain()
@@ -682,6 +727,13 @@ void UFTUIManagerSubsystem::HideHubMain()
 
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
+	}
+
+	const bool bWasHidingMainHUD = bHubMainHidesMainHUD;
+	bHubMainHidesMainHUD = false;
+	if (bWasHidingMainHUD)
+	{
+		RefreshMainHUDVisibility();
 	}
 }
 
@@ -762,6 +814,32 @@ APlayerController* UFTUIManagerSubsystem::GetPrimaryPlayerController() const
 {
 	const UGameInstance* OwningGameInstance = GetGameInstance();
 	return OwningGameInstance ? OwningGameInstance->GetFirstLocalPlayerController() : nullptr;
+}
+
+bool UFTUIManagerSubsystem::IsHubModalOpen() const
+{
+	return (HubCraftWidget && HubCraftWidget->IsInViewport())
+		|| (HubStorageWidget && HubStorageWidget->IsInViewport())
+		|| (RaidSelectWidget && RaidSelectWidget->IsInViewport())
+		|| (HubMainWidget && HubMainWidget->IsInViewport());
+}
+
+void UFTUIManagerSubsystem::RefreshMainHUDVisibility() const
+{
+	TArray<UUserWidget*> MainHUDWidgets;
+	UWidgetBlueprintLibrary::GetAllWidgetsOfClass(
+		this,
+		MainHUDWidgets,
+		UFTMainHUDWidget::StaticClass(),
+		true);
+
+	const ESlateVisibility Visibility = !bRaidSelectHidesMainHUD && !bHubMainHidesMainHUD
+		? ESlateVisibility::Visible
+		: ESlateVisibility::Collapsed;
+	for (UUserWidget* MainHUDWidget : MainHUDWidgets)
+	{
+		MainHUDWidget->SetVisibility(Visibility);
+	}
 }
 
 void UFTUIManagerSubsystem::HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
