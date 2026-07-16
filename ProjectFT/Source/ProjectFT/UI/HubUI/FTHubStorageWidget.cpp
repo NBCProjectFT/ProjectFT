@@ -5,6 +5,7 @@
 #include "Components/SpinBox.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
+#include "InputCoreTypes.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 #include "ProjectFT/ViewModel/FTHubStorageViewModel.h"
@@ -41,6 +42,7 @@ void UFTHubStorageWidget::InitializeStorageWidget(AFTHubStorage* InHubStorage, U
 void UFTHubStorageWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	SetIsFocusable(true);
 
 	// TileView는 UListView를 상속하므로 선택 이벤트는 ListView API로 처리한다.
 	if (UListView* PlayerItemsView = GetPlayerItemsView())
@@ -162,6 +164,17 @@ void UFTHubStorageWidget::NativeConstruct()
 	}
 
 	RefreshFromViewModel();
+}
+
+FReply UFTHubStorageWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::E)
+	{
+		HandleCloseClicked();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UFTHubStorageWidget::RefreshFromViewModel()

@@ -89,6 +89,25 @@ bool UFTSaveSubsystem::SaveBeforeLevelTransition(FName NextLevelName, EFTFlowSta
 	return SaveToDisk();
 }
 
+int32 UFTSaveSubsystem::GetStorageSnapshotItemCount(const FName ItemID) const
+{
+	if (!CurrentSave || ItemID.IsNone())
+	{
+		return 0;
+	}
+
+	int32 ItemCount = 0;
+	for (const FFTSavedInventoryItemStruct& Item : CurrentSave->StorageInventory.Items)
+	{
+		if (Item.ItemId == ItemID)
+		{
+			ItemCount += FMath::Max(0, Item.Quantity);
+		}
+	}
+
+	return ItemCount;
+}
+
 void UFTSaveSubsystem::RestoreCurrentWorldState()
 {
 	LoadOrCreateSave();

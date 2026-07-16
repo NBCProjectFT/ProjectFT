@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerController.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
+#include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
@@ -869,13 +870,27 @@ bool UFTObjectiveSubsystem::CanGrantQuestRewards(
 
 int32 UFTObjectiveSubsystem::GetCombinedItemCount(UFTInventoryComponent* PlayerInventory, FName ItemID) const
 {
+	const int32 PlayerItemCount = PlayerInventory
+		? PlayerInventory->GetItemQuantity(ItemID)
+		: 0;
+
+	// HubStorage is a level actor and becomes invalid after leaving the Hub. While outside
+	// the Hub, use the read-only storage snapshot captured immediately before level travel.
+	if (!IsValid(HubStorage))
+	{
+		const UFTSaveSubsystem* SaveSubsystem = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UFTSaveSubsystem>()
+			: nullptr;
+		return PlayerItemCount + (SaveSubsystem ? SaveSubsystem->GetStorageSnapshotItemCount(ItemID) : 0);
+	}
+
 	const UFTStorageSubsystem* StorageSubsystem = GetGameInstance()
 		? GetGameInstance()->GetSubsystem<UFTStorageSubsystem>()
 		: nullptr;
 
 	return StorageSubsystem
-		? StorageSubsystem->GetCombinedItemCount(PlayerInventory, HubStorage ? HubStorage->GetStorageInventory() : nullptr, ItemID)
-		: (PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0);
+		? StorageSubsystem->GetCombinedItemCount(PlayerInventory, HubStorage->GetStorageInventory(), ItemID)
+		: PlayerItemCount;
 }
 
 bool UFTObjectiveSubsystem::ConsumeCombinedItem(UFTInventoryComponent* PlayerInventory, FName ItemID, int32 Count)
