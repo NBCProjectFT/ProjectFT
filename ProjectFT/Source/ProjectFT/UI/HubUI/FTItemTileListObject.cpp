@@ -1,7 +1,7 @@
 #include "FTItemTileListObject.h"
 
 #include "ProjectFT/Data/FTItemDataAsset.h"
-#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 
 void UFTItemTileListObject::InitializeItem(FName InItemID, int32 InCount, int32 InPrice, bool bInLocked)
 {
@@ -119,7 +119,7 @@ void UFTItemTileListObject::LoadItemData()
 		return;
 	}
 
-	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
+	const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(this, ItemID);
 	if (!ItemDataAsset)
 	{
 		return;
