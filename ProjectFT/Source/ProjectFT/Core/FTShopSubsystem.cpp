@@ -4,10 +4,12 @@
 #include "Engine/AssetManager.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTGameFlowSubsystem.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Data/FTInventoryPreloadDataAsset.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
 #include "ProjectFT/Data/FTShopDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
@@ -18,7 +20,6 @@ namespace
 {
 	const FPrimaryAssetType ItemAssetType(TEXT("FTItemItem"));
 	const FName ItemDataPackagePath(TEXT("/Game/Blueprints/Items/Data"));
-	const FName InventoryPreloadPackagePath(TEXT("/Game/Blueprints/LevelPreload"));
 }
 
 void UFTShopSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -534,45 +535,34 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 		return TryAddItemDataAsset(Cast<UFTItemDataAsset>(AssetObject));
 	};
 
-	TArray<FString> InventoryPreloadPaths;
-	InventoryPreloadPaths.Add(InventoryPreloadPackagePath.ToString());
-	AssetManager.ScanPathsForPrimaryAssets(UFTInventoryPreloadDataAsset::AssetType, InventoryPreloadPaths, UFTInventoryPreloadDataAsset::StaticClass(), false, true);
-
-	TArray<FPrimaryAssetId> InventoryPreloadAssetIDs;
-	AssetManager.GetPrimaryAssetIdList(UFTInventoryPreloadDataAsset::AssetType, InventoryPreloadAssetIDs);
-	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload primary ids=%d"), InventoryPreloadAssetIDs.Num());
-	if (InventoryPreloadAssetIDs.IsEmpty())
+	const UFTLevelPreloadDataAsset* LevelPreloadData = nullptr;
+	if (const UGameInstance* GameInstance = GetGameInstance())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload not found. path=%s"), *InventoryPreloadPackagePath.ToString());
+		if (const UFTGameFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UFTGameFlowSubsystem>())
+		{
+			const TSoftObjectPtr<UFTLevelPreloadDataAsset> LevelPreloadRef =
+				FlowSubsystem->GetLevelPreloadDataAssetForState(EFTFlowStateType::Base);
+			LevelPreloadData = UFTAssetManager::GetAsset(LevelPreloadRef);
+		}
 	}
 
-	for (const FPrimaryAssetId& InventoryPreloadAssetID : InventoryPreloadAssetIDs)
+	const UFTInventoryPreloadDataAsset* InventoryPreloadData = nullptr;
+	if (LevelPreloadData && LevelPreloadData->bUseInventoryPreloadDataAsset)
+	{
+		InventoryPreloadData = UFTAssetManager::GetAsset(LevelPreloadData->InventoryPreloadDataAsset);
+	}
+
+	if (InventoryPreloadData)
 	{
 		const int32 BeforePreloadCollectCount = OutItemDataAssets.Num();
-		UObject* InventoryPreloadObject = AssetManager.GetPrimaryAssetObject(InventoryPreloadAssetID);
-		if (!InventoryPreloadObject)
-		{
-			const FSoftObjectPath InventoryPreloadPath = AssetManager.GetPrimaryAssetPath(InventoryPreloadAssetID);
-			if (InventoryPreloadPath.IsValid())
-			{
-				InventoryPreloadObject = InventoryPreloadPath.TryLoad();
-			}
-		}
-
-		const UFTInventoryPreloadDataAsset* InventoryPreloadData = Cast<UFTInventoryPreloadDataAsset>(InventoryPreloadObject);
-		if (!InventoryPreloadData)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload load failed. id=%s"), *InventoryPreloadAssetID.ToString());
-			continue;
-		}
-
 		TArray<FSoftObjectPath> PreloadAssetPaths;
 		InventoryPreloadData->GetPreloadAssetPaths(PreloadAssetPaths);
 		UE_LOG(
 			LogTemp,
 			Warning,
-			TEXT("Shop item data collect: using InventoryPreload id=%s includeAllPrimaryItems=%s explicitPaths=%d"),
-			*InventoryPreloadAssetID.ToString(),
+			TEXT("Shop item data collect: using LevelPreload=%s InventoryPreload=%s includeAllPrimaryItems=%s explicitPaths=%d"),
+			*GetNameSafe(LevelPreloadData),
+			*GetNameSafe(InventoryPreloadData),
 			InventoryPreloadData->bIncludeAllPrimaryItemAssets ? TEXT("true") : TEXT("false"),
 			PreloadAssetPaths.Num());
 
@@ -580,7 +570,7 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 		{
 			TArray<FString> ItemDataPaths;
 			ItemDataPaths.Add(ItemDataPackagePath.ToString());
-			AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, true);
+			AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, false, true);
 
 			TSet<FString> AddedPreloadPathStrings;
 			for (const FSoftObjectPath& PreloadAssetPath : PreloadAssetPaths)
@@ -635,11 +625,18 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 		UE_LOG(
 			LogTemp,
 			Warning,
-			TEXT("Shop item data collect: InventoryPreload result id=%s added=%d skipped=%d totalCollected=%d"),
-			*InventoryPreloadAssetID.ToString(),
+			TEXT("Shop item data collect: InventoryPreload result added=%d skipped=%d totalCollected=%d"),
 			AddedFromPreloadCount,
 			SkippedFromPreloadCount,
 			OutItemDataAssets.Num() - BeforePreloadCollectCount);
+	}
+	else
+	{
+		UE_LOG(
+			LogTemp,
+			Warning,
+			TEXT("Shop item data collect: Base LevelPreload has no usable InventoryPreload reference. LevelPreload=%s"),
+			*GetNameSafe(LevelPreloadData));
 	}
 	UE_LOG(LogTemp, Warning, TEXT("Shop item data collect: InventoryPreload collected=%d"), OutItemDataAssets.Num());
 
@@ -649,7 +646,7 @@ void UFTShopSubsystem::CollectItemDataAssets(TArray<UFTItemDataAsset*>& OutItemD
 
 		TArray<FString> ItemDataPaths;
 		ItemDataPaths.Add(ItemDataPackagePath.ToString());
-		AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, true);
+		AssetManager.ScanPathsForPrimaryAssets(ItemAssetType, ItemDataPaths, UFTItemDataAsset::StaticClass(), false, false, true);
 
 		TArray<FPrimaryAssetId> ItemAssetIDs;
 		AssetManager.GetPrimaryAssetIdList(ItemAssetType, ItemAssetIDs);
