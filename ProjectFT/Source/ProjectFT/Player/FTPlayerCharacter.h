@@ -238,4 +238,7 @@ private:
 	// 현재 손에 어태치된 아이템 비주얼 액터. 들고 있지 않으면 nullptr.
 	UPROPERTY(Transient)
 	TObjectPtr<AFTItemActor> HeldItemActor = nullptr;
+
+	// 아이템을 사용하는 공용 헬퍼 함수 (마우스 클릭 및 퀵슬롯 즉발 사용 공유)
+	void UseInventoryItem(const FFTInventoryItem& InventoryItem);
     };

@@ -292,55 +292,7 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 		return;
 	}
 
-	if (!AbilitySystemComponent)
-	{
-		return;
-	}
-
-	UFTItemDataAsset* Item = CurrentHeldInventoryItem.ItemDataAsset.Get();
-	if (!Item || !Item->ItemData.UseData.UseAbility)
-	{
-		return;
-	}
-
-	UFTInventoryComponent* Inventory = GetInventoryComponent();
-	if (!Inventory || CurrentHeldInventoryItem.ItemId.IsNone()
-		|| Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
-	{
-		SetCurrentHeldInventoryItem(FFTInventoryItem());
-		return;
-	}
-
-	if (!EnsureUseAbilityGranted(Item->ItemData.UseData.UseAbility))
-	{
-		return;
-	}
-
-	// 발동할 어빌리티가 선언한 트리거 태그를 그 CDO에서 읽어, 그 태그로만 이벤트를 보낸다.
-	// (아이템마다 다른 use-GA를 '정확히 그것만' 발동시키기 위함 — 공용 단일 태그면 같은 태그의 여러 어빌리티가 함께 발동됨.)
-	const UFTGameplayAbility* AbilityCDO = Item->ItemData.UseData.UseAbility.GetDefaultObject();
-	const FGameplayTag EventTag = AbilityCDO ? AbilityCDO->GetTriggerEventTag() : FGameplayTag();
-	if (!EventTag.IsValid())
-	{
-		return;
-	}
-	
-	// 아이템별 쿨다운 차단: 쿨다운을 가진 아이템이면, 그 쿨다운 태그가 아직 붙어 있는 동안 발동하지 않는다.
-	// (표준 CheckCooldown은 GameplayEvent 발동 시 어떤 아이템인지 알 수 없어, 호출측인 여기서 태그로 판정한다.)
-	const FTItemUseStruct& UseData = Item->ItemData.UseData;
-	if (UseData.CooldownSeconds > 0.0f
-		&& AbilitySystemComponent->HasMatchingGameplayTag(UFTGA_ItemAbility::ResolveCooldownTag(UseData)))
-	{
-		return;
-	}
-
-	// 효과/시전/쿨다운/수치는 아이템 데이터(UseData)에 있고, 어빌리티가 페이로드에서 읽어 처리한다.
-	FGameplayEventData Payload;
-	Payload.EventTag = EventTag;
-	Payload.Instigator = this;
-	Payload.Target = this;
-	Payload.OptionalObject = Item;
-	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
+	UseInventoryItem(CurrentHeldInventoryItem);
 }
 
 void AFTPlayerCharacter::HandleUseItemReleased()
@@ -410,6 +362,14 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	FFTInventoryItem QuickSlotItem;
 	if (Inventory->GetQuickSlotItem(SlotIndex, QuickSlotItem) && QuickSlotItem.Quantity > 0 && QuickSlotItem.ItemDataAsset)
 	{
+		// 소모성 아이템(회복약 등)인 경우 장착하지 않고 즉시 사용
+		UFTItemDataAsset* Item = QuickSlotItem.ItemDataAsset.Get();
+		if (Item && Item->ItemData.CategoryType == EFTItemCategoryType::Healing)
+		{
+			UseInventoryItem(QuickSlotItem);
+			return;
+		}
+
 		SetCurrentHeldInventoryItem(QuickSlotItem);
 		EnsureUseAbilityGranted(CurrentHeldInventoryItem.ItemDataAsset->ItemData.UseData.UseAbility);
 		UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d equipped '%s' on '%s'."),
@@ -811,4 +771,59 @@ bool AFTPlayerCharacter::TryStartTraversal()
 	}
 
 	return TraversalComponent->TryTraversal();
+}
+
+void AFTPlayerCharacter::UseInventoryItem(const FFTInventoryItem& InventoryItem)
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	UFTItemDataAsset* Item = InventoryItem.ItemDataAsset.Get();
+	if (!Item || !Item->ItemData.UseData.UseAbility)
+	{
+		return;
+	}
+
+	UFTInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory || InventoryItem.ItemId.IsNone()
+		|| Inventory->GetItemQuantity(InventoryItem.ItemId) <= 0)
+	{
+		// 사용하려던 아이템이 손에 쥐고 있던 템인데 다 소진되었다면 장착 해제
+		if (InventoryItem.ItemId == CurrentHeldInventoryItem.ItemId)
+		{
+			SetCurrentHeldInventoryItem(FFTInventoryItem());
+		}
+		return;
+	}
+
+	if (!EnsureUseAbilityGranted(Item->ItemData.UseData.UseAbility))
+	{
+		return;
+	}
+
+	// 발동할 어빌리티가 선언한 트리거 태그를 그 CDO에서 읽어, 그 태그로만 이벤트를 보낸다.
+	const UFTGameplayAbility* AbilityCDO = Item->ItemData.UseData.UseAbility.GetDefaultObject();
+	const FGameplayTag EventTag = AbilityCDO ? AbilityCDO->GetTriggerEventTag() : FGameplayTag();
+	if (!EventTag.IsValid())
+	{
+		return;
+	}
+	
+	// 아이템별 쿨다운 차단
+	const FTItemUseStruct& UseData = Item->ItemData.UseData;
+	if (UseData.CooldownSeconds > 0.0f
+		&& AbilitySystemComponent->HasMatchingGameplayTag(UFTGA_ItemAbility::ResolveCooldownTag(UseData)))
+	{
+		return;
+	}
+
+	// 효과/시전/쿨다운/수치는 아이템 데이터(UseData)에 있고, 어빌리티가 페이로드에서 읽어 처리한다.
+	FGameplayEventData Payload;
+	Payload.EventTag = EventTag;
+	Payload.Instigator = this;
+	Payload.Target = this;
+	Payload.OptionalObject = Item;
+	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
 }
