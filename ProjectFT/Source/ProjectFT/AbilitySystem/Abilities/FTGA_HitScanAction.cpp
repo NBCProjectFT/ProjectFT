@@ -9,6 +9,7 @@
 #include "Components/MeshComponent.h"
 #include "KismetTraceUtils.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
+#include "ProjectFT/Components/FTCrosshairComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTHitScanDataAsset.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -59,6 +60,14 @@ void UFTGA_HitScanAction::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 	}
 
 	// 히트스캔은 즉발 판정이므로 발동 즉시 Trace와 Effect 적용을 끝낸다.
+	if (AActor* Avatar = GetAvatarActorFromActorInfo())
+	{
+		if (UFTCrosshairComponent* CrosshairComponent = Avatar->FindComponentByClass<UFTCrosshairComponent>())
+		{
+			CrosshairComponent->NotifyFired();
+		}
+	}
+
 	PerformHitScan();
 
 	if (HitScanData->AttackMontage)

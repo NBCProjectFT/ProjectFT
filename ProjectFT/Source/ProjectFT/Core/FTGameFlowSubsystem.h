@@ -72,7 +72,7 @@ public:
 private:
 	void HandleStartGameMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleFlowRequestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
-	void TravelToState(EFTFlowStateType TargetFlowState);
+	void TravelToState(EFTFlowStateType TargetFlowState, FName RequestedLevelName = NAME_None);
 	void TravelToStateWithLoading(EFTFlowStateType TargetFlowState);
 	const FFTFlowLevelRouteStruct* FindFlowLevelRouteByState(EFTFlowStateType State) const;
 	const FFTFlowLevelRouteStruct* FindFlowLevelRouteByLevelName(FName LevelName) const;
@@ -80,7 +80,7 @@ private:
 	FName ResolveCurrentWorldLevelName() const;
 	FName ResolveLevelNameForState(EFTFlowStateType State) const;
 	EFTFlowStateType ResolveFlowStateForCurrentWorld() const;
-	bool ShouldUseLoadingForState(EFTFlowStateType State) const;
+	bool ShouldUseLoadingForState(EFTFlowStateType State, FName RequestedLevelName = NAME_None) const;
 	void OpenLevelByName(FName LevelName) const;
 	void RestoreMenuInputBeforeTravel(FName LevelName) const;
 	void SetFlowState(EFTFlowStateType NewFlowState);

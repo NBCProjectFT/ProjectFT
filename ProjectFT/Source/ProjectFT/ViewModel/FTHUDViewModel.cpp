@@ -150,6 +150,17 @@ float UFTHUDViewModel::GetTargetStaminaPercent() const
 	return TargetStaminaPercent;
 }
 
+void UFTHUDViewModel::SetCrosshairState(const FTCrosshairStateStruct& NewCrosshairState)
+{
+	CrosshairState = NewCrosshairState;
+	NotifyChanged();
+}
+
+const FTCrosshairStateStruct& UFTHUDViewModel::GetCrosshairState() const
+{
+	return CrosshairState;
+}
+
 void UFTHUDViewModel::TestCode()
 {
 	

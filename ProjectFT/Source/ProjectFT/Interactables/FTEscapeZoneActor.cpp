@@ -3,10 +3,12 @@
 #include "FTEscapeZoneActor.h"
 
 #include "Components/BoxComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "UObject/ConstructorHelpers.h"
 
 namespace
 {
@@ -28,16 +30,85 @@ AFTEscapeZoneActor::AFTEscapeZoneActor()
 	EscapeCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
 	EscapeCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	EscapeCollision->SetGenerateOverlapEvents(true);
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (CubeMeshFinder.Succeeded())
+	{
+		EscapeZoneVisualMesh = CubeMeshFinder.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> VisualMaterialFinder(TEXT("/Game/Materials/M_EscapeZoneVisual.M_EscapeZoneVisual"));
+	if (VisualMaterialFinder.Succeeded())
+	{
+		EscapeZoneVisualMaterial = VisualMaterialFinder.Object;
+	}
+}
+
+void AFTEscapeZoneActor::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
 }
 
 void AFTEscapeZoneActor::BeginPlay()
 {
 	Super::BeginPlay();
 
+	EnsureEscapeZoneVisual();
+	RefreshEscapeZoneVisual();
+
 	if (EscapeCollision)
 	{
 		EscapeCollision->OnComponentBeginOverlap.AddDynamic(this, &AFTEscapeZoneActor::HandleEscapeZoneBeginOverlap);
 		EscapeCollision->OnComponentEndOverlap.AddDynamic(this, &AFTEscapeZoneActor::HandleEscapeZoneEndOverlap);
+	}
+}
+
+void AFTEscapeZoneActor::EnsureEscapeZoneVisual()
+{
+	if (HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) || EscapeZoneVisual)
+	{
+		return;
+	}
+
+	EscapeZoneVisual = NewObject<UStaticMeshComponent>(this, TEXT("EscapeZoneVisual"));
+	if (!EscapeZoneVisual)
+	{
+		return;
+	}
+
+	EscapeZoneVisual->SetupAttachment(SceneRoot);
+	EscapeZoneVisual->SetStaticMesh(EscapeZoneVisualMesh);
+	EscapeZoneVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	EscapeZoneVisual->SetCollisionResponseToAllChannels(ECR_Ignore);
+	EscapeZoneVisual->SetGenerateOverlapEvents(false);
+	EscapeZoneVisual->SetCanEverAffectNavigation(false);
+	EscapeZoneVisual->SetCastShadow(false);
+	EscapeZoneVisual->bHiddenInGame = false;
+	EscapeZoneVisual->RegisterComponent();
+}
+
+void AFTEscapeZoneActor::RefreshEscapeZoneVisual()
+{
+	if (HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+	{
+		return;
+	}
+
+	if (!EscapeZoneVisual)
+	{
+		return;
+	}
+
+	if (EscapeCollision)
+	{
+		const FVector BoxExtent = EscapeCollision->GetUnscaledBoxExtent();
+		EscapeZoneVisual->SetRelativeTransform(EscapeCollision->GetRelativeTransform());
+		EscapeZoneVisual->SetRelativeScale3D(BoxExtent / 50.0f);
+	}
+
+	if (EscapeZoneVisualMaterial)
+	{
+		EscapeZoneVisual->SetMaterial(0, EscapeZoneVisualMaterial);
 	}
 }
 

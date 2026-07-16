@@ -115,7 +115,7 @@ bool UFTGameFlowSubsystem::RequestStartRaidAtLevel(const FName TargetLevelName)
 	}
 
 	PendingRaidLevelName = TargetLevelName;
-	TravelToState(EFTFlowStateType::RaidEntering);
+	TravelToState(EFTFlowStateType::RaidEntering, TargetLevelName);
 	return true;
 }
 
@@ -319,16 +319,20 @@ TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::ResolveLevelPrelo
 	return TSoftObjectPtr<UFTLevelPreloadDataAsset>(FSoftObjectPath(ObjectPath));
 }
 
-void UFTGameFlowSubsystem::TravelToState(EFTFlowStateType TargetFlowState)
+void UFTGameFlowSubsystem::TravelToState(EFTFlowStateType TargetFlowState, FName RequestedLevelName)
 {
-	if (ShouldUseLoadingForState(TargetFlowState))
+	const FName TargetLevelName = RequestedLevelName.IsNone()
+		? ResolveLevelNameForState(TargetFlowState)
+		: RequestedLevelName;
+
+	if (ShouldUseLoadingForState(TargetFlowState, TargetLevelName))
 	{
 		TravelToStateWithLoading(TargetFlowState);
 		return;
 	}
 
 	SetFlowState(TargetFlowState);
-	OpenLevelByName(ResolveLevelNameForState(TargetFlowState));
+	OpenLevelByName(TargetLevelName);
 }
 
 void UFTGameFlowSubsystem::TravelToStateWithLoading(EFTFlowStateType TargetFlowState)
@@ -491,8 +495,26 @@ EFTFlowStateType UFTGameFlowSubsystem::ResolveFlowStateForCurrentWorld() const
 	return CurrentFlowState;
 }
 
-bool UFTGameFlowSubsystem::ShouldUseLoadingForState(EFTFlowStateType State) const
+bool UFTGameFlowSubsystem::ShouldUseLoadingForState(EFTFlowStateType State, FName RequestedLevelName) const
 {
+	if (!RequestedLevelName.IsNone())
+	{
+		if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByLevelName(RequestedLevelName))
+		{
+			return Route->bUseLoadingLevel;
+		}
+
+		if (State == EFTFlowStateType::RaidEntering
+			|| State == EFTFlowStateType::RaidInProgress
+			|| State == EFTFlowStateType::Escaping)
+		{
+			UE_LOG(LogFTFlow, Warning, TEXT("No flow route found for requested raid level. Falling back to loading level. State=%d RequestedLevel=%s"),
+				static_cast<uint8>(State),
+				*RequestedLevelName.ToString());
+			return true;
+		}
+	}
+
 	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(State))
 	{
 		return Route->bUseLoadingLevel;
