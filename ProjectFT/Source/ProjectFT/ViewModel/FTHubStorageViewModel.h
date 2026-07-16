@@ -79,6 +79,8 @@ public:
 	bool CanTakeSelected() const;
 	bool CanDecreaseMoveQuantity() const;
 	bool CanIncreaseMoveQuantity() const;
+	bool CanSetMoveQuantityToHalf() const;
+	bool CanSetMoveQuantityToMax() const;
 
 	/** @brief 모두 보관 버튼을 누를 수 있는지 반환한다. */
 	bool CanStoreAll() const;
@@ -101,6 +103,8 @@ public:
 	void ClearSelection();
 	void IncreaseMoveQuantity();
 	void DecreaseMoveQuantity();
+	void SetMoveQuantityToHalf();
+	void SetMoveQuantityToMax();
 
 	/** @brief 플레이어 목록의 카테고리 필터를 변경한다. */
 	void SetPlayerFilter(EFTItemCategoryType FilterCategory);

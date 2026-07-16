@@ -71,6 +71,12 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_QuantityPlus;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityHalf;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityMax;
+
 	/** @brief 선택된 플레이어 아이템을 창고로 넣는 버튼. */
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_Store;
@@ -133,8 +139,6 @@ private:
 
 	void HandlePlayerItemClicked(UObject* Item);
 	void HandleStorageItemClicked(UObject* Item);
-	void HandlePlayerItemSelectionChanged(UObject* Item);
-	void HandleStorageItemSelectionChanged(UObject* Item);
 
 	UFUNCTION()
 	void HandleCloseClicked();
@@ -156,6 +160,12 @@ private:
 
 	UFUNCTION()
 	void HandleQuantityPlusClicked();
+
+	UFUNCTION()
+	void HandleQuantityHalfClicked();
+
+	UFUNCTION()
+	void HandleQuantityMaxClicked();
 
 	UFUNCTION()
 	void HandlePlayerFilterAllClicked();
@@ -191,4 +201,8 @@ private:
 
 	/** @brief 목록을 다시 채우는 중 발생하는 선택 이벤트를 무시하기 위한 가드. */
 	bool bRefreshingFromViewModel = false;
+
+	/** ListView 이벤트가 덮어쓰기 전 ViewModel에서 확정된 선택 상태. */
+	TSet<TWeakObjectPtr<UObject>> PlayerSelectedItems;
+	TSet<TWeakObjectPtr<UObject>> StorageSelectedItems;
 };
