@@ -10,6 +10,7 @@
 
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
+#include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 void AFTPlayerController::BeginPlay()
 {
@@ -124,6 +125,11 @@ void AFTPlayerController::SetupInputComponent()
 	if (ToggleInventoryAction)
 	{
 		EnhancedInput->BindAction(ToggleInventoryAction, ETriggerEvent::Started, this, &AFTPlayerController::ToggleInventoryStarted);
+	}
+
+	if (PauseMenuAction)
+	{
+		EnhancedInput->BindAction(PauseMenuAction, ETriggerEvent::Started, this, &AFTPlayerController::PauseMenuStarted);
 	}
 
 #if !UE_BUILD_SHIPPING
@@ -325,5 +331,21 @@ void AFTPlayerController::ToggleInventoryStarted(const FInputActionValue& Value)
 	if (CachedLocomotionInput)
 	{
 		CachedLocomotionInput->HandleToggleInventoryPressed();
+	}
+}
+
+void AFTPlayerController::PauseMenuStarted(const FInputActionValue& Value)
+{
+	TogglePauseMenu();
+}
+
+void AFTPlayerController::TogglePauseMenu()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->TogglePauseMenu();
+		}
 	}
 }

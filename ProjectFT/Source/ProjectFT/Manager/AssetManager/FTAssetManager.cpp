@@ -12,6 +12,7 @@
 #include "../../UI/FTLoadingWidget.h"
 #include "../../UI/FTMainHUDWidget.h"
 #include "../../UI/FTMainMenuWidget.h"
+#include "../../UI/FTPauseMenuWidget.h"
 #include "../../UI/FTQuestListWidget.h"
 #include "../../UI/HubUI/FTHubCraftWidget.h"
 #include "../../UI/HubUI/FTHubStorageWidget.h"
@@ -342,6 +343,12 @@ TSubclassOf<UFTInventoryWidget> UFTAssetManager::GetInventoryWidgetClass()
 {
 	const UFTGameDataAsset* LoadedGameData = LoadGameData();
 	return LoadedGameData ? GetSubclass(LoadedGameData->InventoryWidgetClass) : nullptr;
+}
+
+TSubclassOf<UFTPauseMenuWidget> UFTAssetManager::GetPauseMenuWidgetClass()
+{
+	const UFTGameDataAsset* LoadedGameData = LoadGameData();
+	return LoadedGameData ? GetSubclass(LoadedGameData->PauseMenuWidgetClass) : nullptr;
 }
 
 TSubclassOf<UFTQuestListWidget> UFTAssetManager::GetQuestListWidgetClass()
