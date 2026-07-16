@@ -8,7 +8,10 @@
 #include "FTEscapeZoneActor.generated.h"
 
 class UBoxComponent;
+class UMaterialInterface;
 class USceneComponent;
+class UStaticMeshComponent;
+class UStaticMesh;
 
 /**
  * 월드에 배치하는 탈출 구역 액터.
@@ -33,6 +36,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void OnConstruction(const FTransform& Transform) override;
+
 	UFUNCTION()
 	void HandleEscapeZoneBeginOverlap(
 		UPrimitiveComponent* OverlappedComponent,
@@ -53,6 +58,8 @@ protected:
 	void CancelEscapeCountdown(AActor* EscapingActor);
 	void CompleteEscapeCountdown();
 	void TickEscapeCountdown();
+	void EnsureEscapeZoneVisual();
+	void RefreshEscapeZoneVisual();
 	void BroadcastEscapeFlowRequest(const FGameplayTag& RequestTag, AActor* InstigatorActor) const;
 
 	// 탈출 구역에 들어왔을 때 호출될 연결 지점. 이후 Flow StartEscape 요청을 여기서 보낸다.
@@ -69,6 +76,15 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Escape", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBoxComponent> EscapeCollision;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "FT|Escape|Visual", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> EscapeZoneVisual;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Escape|Visual")
+	TObjectPtr<UStaticMesh> EscapeZoneVisualMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Escape|Visual")
+	TObjectPtr<UMaterialInterface> EscapeZoneVisualMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Escape", meta = (ClampMin = "0.1"))
 	float EscapeDuration = 3.0f;

@@ -60,6 +60,21 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
 	TObjectPtr<UHorizontalBox> HB_QuickSlot = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<UImage> IMG_CrosshairCenter = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<UImage> IMG_CrosshairLeft = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<UImage> IMG_CrosshairRight = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<UImage> IMG_CrosshairTop = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<UImage> IMG_CrosshairBottom = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|HUD|ItemSlot", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
 	int32 DefaultSlotCount = 5;
@@ -93,6 +108,7 @@ private:
 	
 	void UpdateHPBars(float DeltaTime);
 	void UpdateStaminaBar(float DeltaTime);
+	void UpdateCrosshair();
 	void ResolveHUDBarWidgets();
 	void ResolveHUDViewModel();
 };

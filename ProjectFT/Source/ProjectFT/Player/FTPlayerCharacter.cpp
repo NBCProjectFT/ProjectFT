@@ -20,6 +20,7 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Components/FTCaptureEscapeComponent.h"
+#include "ProjectFT/Components/FTCrosshairComponent.h"
 #include "ProjectFT/Components/FTTailComponent.h"
 #include "ProjectFT/Components/FTTraversalComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
@@ -71,6 +72,8 @@ AFTPlayerCharacter::AFTPlayerCharacter()
 
 	TailComponent = CreateDefaultSubobject<UFTTailComponent>(TEXT("TailComponent"));
 	TailComponent->SetupAttachment(GetMesh(), TEXT("Tail"));
+
+	CrosshairComponent = CreateDefaultSubobject<UFTCrosshairComponent>(TEXT("CrosshairComponent"));
 
 	// 상호작용 컴포넌트.
 	InteractionComponent = CreateDefaultSubobject<UFTInteractionComponent>(TEXT("InteractionComponent"));
@@ -502,6 +505,11 @@ void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& New
 	// 수량/데이터 포인터는 갱신될 수 있으므로 값 자체는 덮어쓴다.
 	const bool bHeldItemChanged = (CurrentHeldInventoryItem.ItemId != NewHeldItem.ItemId);
 	CurrentHeldInventoryItem = NewHeldItem;
+
+	if (CrosshairComponent)
+	{
+		CrosshairComponent->SetActiveItemData(CurrentHeldInventoryItem.ItemDataAsset.Get());
+	}
 
 	if (bHeldItemChanged)
 	{

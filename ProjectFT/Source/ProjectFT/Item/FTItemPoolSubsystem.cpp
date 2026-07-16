@@ -113,13 +113,7 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 		TargetActor->SetActorTickEnabled(true);
 
 		// 물리 및 콜리전 재설정
-		if (UStaticMeshComponent* MeshComp = TargetActor->FindComponentByClass<UStaticMeshComponent>())
-		{
-			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			MeshComp->SetCollisionProfileName(TEXT("PhysicsBody"));
-			MeshComp->SetSimulatePhysics(true);
-			MeshComp->WakeRigidBody();
-		}
+		TargetActor->SetupPhysicsAndCollision();
 
 		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 재사용 성공 (동일 메시 재사용): '%s' 획득 완료"), *ItemId.ToString());
 	}

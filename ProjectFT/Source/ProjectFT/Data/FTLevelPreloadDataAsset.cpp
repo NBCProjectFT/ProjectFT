@@ -30,6 +30,11 @@ void UFTLevelPreloadDataAsset::GetPreloadAssetPaths(TArray<FSoftObjectPath>& Out
 		AddAssetPath(Asset.ToSoftObjectPath());
 	}
 
+	for (const TSoftObjectPtr<UObject>& Asset : GeneratedRuntimeAssets)
+	{
+		AddAssetPath(Asset.ToSoftObjectPath());
+	}
+
 	for (const TSoftObjectPtr<UObject>& Asset : AdditionalPreloadAssets)
 	{
 		AddAssetPath(Asset.ToSoftObjectPath());
