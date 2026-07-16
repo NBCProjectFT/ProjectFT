@@ -23,6 +23,9 @@ public:
 	/* @brief : 아이템 위에 띄워진 툴팁 UI의 가시성과 정보를 설정합니다. */
 	void SetTooltipVisibility(bool bVisible);
 
+	/* @brief : 물리 및 콜리전 설정을 초기화하는 메서드입니다. (생성 및 풀 재사용 시 사용) */
+	void SetupPhysicsAndCollision();
+
 protected:
 	virtual void BeginPlay() override;
 	/*

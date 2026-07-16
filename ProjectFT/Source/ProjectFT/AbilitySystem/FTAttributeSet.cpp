@@ -10,8 +10,8 @@
 UFTAttributeSet::UFTAttributeSet()
 {
 	// 스탯 기본값 초기화(이전 핸드롤 스탯의 기본값과 동일).
-	InitHealth(100.0f);
-	InitMaxHealth(100.0f);
+	InitHealth(3.0f);
+	InitMaxHealth(5.0f);
 	InitMoveSpeed(600.0f);
 }
 

@@ -113,13 +113,7 @@ AFTItemActor* UFTItemPoolSubsystem::AcquireItemActor(FName ItemId, const FVector
 		TargetActor->SetActorTickEnabled(true);
 
 		// 물리 및 콜리전 재설정
-		if (UStaticMeshComponent* MeshComp = TargetActor->FindComponentByClass<UStaticMeshComponent>())
-		{
-			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			MeshComp->SetCollisionProfileName(TEXT("PhysicsBody"));
-			MeshComp->SetSimulatePhysics(true);
-			MeshComp->WakeRigidBody();
-		}
+		TargetActor->SetupPhysicsAndCollision();
 
 		UE_LOG(LogFTItem, Log, TEXT("아이템 풀 재사용 성공 (동일 메시 재사용): '%s' 획득 완료"), *ItemId.ToString());
 	}
@@ -252,8 +246,7 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 
 	// 2. 스캔 키(마우스 좌클릭)가 꾹 눌려 있는지 감지
 	const bool bIsScanKeyDown = PC->IsInputKeyDown(EKeys::LeftMouseButton);
-	// 바닥 아이템 미리보기 조회 키(Q) 감지
-	const bool bIsQKeyDown = PC->IsInputKeyDown(EKeys::Q);
+
 
 	// 💡 포스건 장착 상태 및 매대 스캔 조건 검사
 	AFTLootShelf* AimedShelf = Cast<AFTLootShelf>(ActorUnderAim);
@@ -334,8 +327,8 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 			continue;
 		}
 
-		// 3. 조준 및 Q 키 홀드 조건 만족 시에만 미리보기 노출
-		if (Item == ActorUnderAim && bIsQKeyDown)
+		// 3. 크로스헤어 호버 조건 만족 시 미리보기 노출
+		if (Item == ActorUnderAim)
 		{
 			Item->SetTooltipVisibility(true);
 		}
