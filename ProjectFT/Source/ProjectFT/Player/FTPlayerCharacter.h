@@ -86,6 +86,13 @@ protected:
 	// 앉기/일어서기로 캡슐 높이가 바뀔 때 카메라가 순간이동하지 않도록 보간한다.
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+
+	// 스태미나가 JumpStaminaCost에 못 미치면 점프를 불허한다. 입력 시점이 아니라 여기서 막는 이유는
+	// 엔진이 점프 성립 여부를 이 함수로 판정하기 때문 — 키를 누른 채 착지하는 연속 점프까지 한 곳에서 걸러진다.
+	virtual bool CanJumpInternal_Implementation() const override;
+
+	// 점프가 실제로 성립한 순간에만 1회 호출된다(가변 높이 유지 프레임엔 재호출 안 됨). 스태미나 소모 지점.
+	virtual void OnJumped_Implementation() override;
 	//~ End ACharacter
     
 	// 점프 대신 traversal(vault/hurdle/mantle)을 먼저 시도한다. 소비했으면 true. (확장 지점, 현재 false)
@@ -138,6 +145,10 @@ protected:
 	// 초당 스태미나 소진하는 양.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
 	float SprintStaminaCostPerSecond = 20.0f;
+
+	// 점프 1회당 소모하는 스태미나. 이만큼 없으면 점프 자체가 막힌다. 0이면 점프는 스태미나를 쓰지 않는다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
+	float JumpStaminaCost = 15.0f;
         
 	// 탈진 후 스프린트 재개에 필요한 최소 스태미나 비율(0~1). 프레임마다 빨라졌다 느려졌다 방지.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
@@ -173,6 +184,9 @@ private:
 
 	// 스프린트 키/스태미나/크라우치 조건을 확인해 효과적 스프린트 상태를 갱신하고 스태미나 속성을 소모한다.
 	void UpdateSprintState(float DeltaSeconds);
+
+	// 점프 1회 비용을 낼 스태미나가 있는지. 비용이 0이거나 ASC/속성셋이 아직 없으면 점프를 막지 않는다.
+	bool HasEnoughStaminaForJump() const;
 
 	// 스태미나/체력 회복(StatComponent에서 이전). 속성에 직접 적용한다.
 	void UpdateStaminaRegen(float DeltaSeconds);

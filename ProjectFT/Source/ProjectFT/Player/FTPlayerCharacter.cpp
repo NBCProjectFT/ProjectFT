@@ -336,7 +336,7 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	}
 
 	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
-	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
+	// 슬롯을 바꾸든 같은 슬롯을 다시 눌러 집어넣든, 조준 중이던 투척은 던지지 않고 취소된다.
 	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
 
 	UFTInventoryComponent* Inventory = GetInventoryComponent();
@@ -367,6 +367,15 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 		if (Item && Item->ItemData.CategoryType == EFTItemCategoryType::Healing)
 		{
 			UseInventoryItem(QuickSlotItem);
+			return;
+		}
+
+		// 현재 선택 중인 퀵슬롯을 다시 입력하면 선택 해제(아이템 집어넣기)
+		if (CurrentHeldInventoryItem.ItemId == QuickSlotItem.ItemId)
+		{
+			SetCurrentHeldInventoryItem(FFTInventoryItem());
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d unequipped '%s' on '%s'."),
+				SlotIndex, *QuickSlotItem.ItemId.ToString(), *GetName());
 			return;
 		}
 
@@ -738,6 +747,50 @@ void AFTPlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHei
 {
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
 	ApplyCrouchCameraCompensation(-HalfHeightAdjust);
+}
+
+bool AFTPlayerCharacter::CanJumpInternal_Implementation() const
+{
+	if (!Super::CanJumpInternal_Implementation())
+	{
+		return false;
+	}
+
+	// 이미 점프 중(JumpMaxHoldTime 동안 가변 높이를 유지하는 구간)이면 비용은 이륙 때 이미 냈다.
+	// 여기서 다시 검사하면 방금 깎인 스태미나 때문에 상승이 중간에 끊기므로 통과시킨다.
+	if (bWasJumping)
+	{
+		return true;
+	}
+
+	return HasEnoughStaminaForJump();
+}
+
+void AFTPlayerCharacter::OnJumped_Implementation()
+{
+	Super::OnJumped_Implementation();
+
+	// 점프가 성립한 뒤에만 여기 도달하므로(CanJump 통과 + DoJump 성공), 헛도는 입력엔 스태미나가 나가지 않는다.
+	if (JumpStaminaCost > 0.0f && AbilitySystemComponent)
+	{
+		AbilitySystemComponent->ApplyModToAttribute(UFTPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -JumpStaminaCost);
+		TimeSinceStaminaUse = 0.0f;
+	}
+}
+
+bool AFTPlayerCharacter::HasEnoughStaminaForJump() const
+{
+	if (JumpStaminaCost <= 0.0f)
+	{
+		return true;
+	}
+
+	if (!PlayerAttributeSet)
+	{
+		return true;
+	}
+
+	return PlayerAttributeSet->GetStamina() >= JumpStaminaCost;
 }
 
 void AFTPlayerCharacter::ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ)
