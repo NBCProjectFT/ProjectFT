@@ -233,6 +233,7 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 
 	HideCountdownEscape();
 	EscapedRaidWidget->AddToViewport(40);
+	UGameplayStatics::SetGamePaused(this, true);
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(EscapedRaidWidget->TakeWidget());
@@ -247,9 +248,16 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 
 void UFTUIManagerSubsystem::HideEscapedRaid()
 {
+	const bool bWasEscapedRaidOpen = EscapedRaidWidget && EscapedRaidWidget->IsInViewport();
+
 	if (EscapedRaidWidget)
 	{
 		EscapedRaidWidget->RemoveFromParent();
+	}
+
+	if (bWasEscapedRaidOpen)
+	{
+		UGameplayStatics::SetGamePaused(this, false);
 	}
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())

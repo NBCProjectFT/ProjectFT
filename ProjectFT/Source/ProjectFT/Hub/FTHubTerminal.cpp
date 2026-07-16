@@ -8,6 +8,7 @@
 #include "GameFramework/PlayerController.h"
 #include "TimerManager.h"
 #include "ProjectFT/Core/FTObjectiveSubsystem.h"
+#include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
@@ -191,6 +192,11 @@ void AFTHubTerminal::ConfigureObjectiveSubsystem()
 	if (ObjectiveSubsystem)
 	{
 		ObjectiveSubsystem->ConfigureHubQuests(QuestDataTable, HubStorage, InitialQuestIDs);
+	}
+
+	if (UFTSaveSubsystem* SaveSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTSaveSubsystem>() : nullptr)
+	{
+		SaveSubsystem->RestoreQuestState();
 	}
 
 	UFTShopSubsystem* ShopSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTShopSubsystem>() : nullptr;

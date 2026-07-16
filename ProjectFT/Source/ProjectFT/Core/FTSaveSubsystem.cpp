@@ -5,6 +5,7 @@
 #include "FTSaveGame.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTObjectiveSubsystem.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 
 void UFTSaveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -81,6 +82,11 @@ void UFTSaveSubsystem::CaptureCurrentWorldState(FName NextLevelName, EFTFlowStat
 	{
 		StorageInventory->ExportSaveState(SaveGame->StorageInventory);
 	}
+
+	if (UFTObjectiveSubsystem* ObjectiveSubsystem = FindObjectiveSubsystem())
+	{
+		ObjectiveSubsystem->BuildQuestSaveData(SaveGame->QuestData);
+	}
 }
 
 bool UFTSaveSubsystem::SaveBeforeLevelTransition(FName NextLevelName, EFTFlowStateType FlowState)
@@ -101,6 +107,47 @@ void UFTSaveSubsystem::RestoreCurrentWorldState()
 
 	RestorePlayerInventory();
 	RestoreStorageInventory();
+	RestoreQuestState();
+}
+
+void UFTSaveSubsystem::RestoreQuestState()
+{
+	LoadOrCreateSave();
+
+	if (!bHasSaveData || !CurrentSave)
+	{
+		return;
+	}
+
+	if (UFTObjectiveSubsystem* ObjectiveSubsystem = FindObjectiveSubsystem())
+	{
+		if (ObjectiveSubsystem->IsQuestDataConfigured())
+		{
+			ObjectiveSubsystem->RestoreQuestSaveData(CurrentSave->QuestData);
+		}
+	}
+}
+
+void UFTSaveSubsystem::ClearPlayerInventoryForRaidFailure()
+{
+	UFTSaveGame* SaveGame = LoadOrCreateSave();
+	if (!SaveGame)
+	{
+		return;
+	}
+
+	if (UFTInventoryComponent* PlayerInventory = FindPlayerInventory())
+	{
+		PlayerInventory->ClearInventory();
+		PlayerInventory->ExportSaveState(SaveGame->PlayerInventory);
+	}
+	else
+	{
+		SaveGame->PlayerInventory.Items.Reset();
+		SaveGame->PlayerInventory.QuickSlots.Init(NAME_None, 6);
+	}
+
+	UE_LOG(LogFTSave, Log, TEXT("Player inventory cleared because raid failed."));
 }
 
 UFTInventoryComponent* UFTSaveSubsystem::FindPlayerInventory() const
@@ -132,6 +179,12 @@ UFTInventoryComponent* UFTSaveSubsystem::FindStorageInventory() const
 	}
 
 	return nullptr;
+}
+
+UFTObjectiveSubsystem* UFTSaveSubsystem::FindObjectiveSubsystem() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	return GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr;
 }
 
 void UFTSaveSubsystem::RestorePlayerInventory()

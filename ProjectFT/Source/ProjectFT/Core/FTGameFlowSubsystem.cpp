@@ -627,6 +627,11 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 	case EFTFlowStateType::Failed:
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
+			if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
+			{
+				SaveSubsystem->ClearPlayerInventoryForRaidFailure();
+			}
+
 			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 			{
 				UIManager->ShowFailScreen();

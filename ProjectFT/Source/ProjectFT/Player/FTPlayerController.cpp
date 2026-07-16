@@ -9,8 +9,14 @@
 #include "InputMappingContext.h"
 
 #include "ProjectFT/Core/FTLogChannels.h"
+#include "ProjectFT/Core/FTCheatManager.h"
 #include "ProjectFT/Interface/FTInputInterface.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
+
+AFTPlayerController::AFTPlayerController()
+{
+	CheatClass = UFTCheatManager::StaticClass();
+}
 
 void AFTPlayerController::BeginPlay()
 {

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "ProjectFT/Enum/FTFlowStateType.h"
+#include "ProjectFT/Struct/FTQuestSaveData.h"
 #include "ProjectFT/Struct/FTSavedInventoryStateStruct.h"
 #include "FTSaveGame.generated.h"
 
@@ -32,6 +33,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "FT|Save")
 	FFTSavedInventoryStateStruct StorageInventory;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "FT|Save")
+	FFTQuestSaveData QuestData;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "FT|Save")
 	TArray<FName> UnlockedRecipes;

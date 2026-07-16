@@ -16,6 +16,9 @@ class PROJECTFT_API AFTPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
+public:
+	AFTPlayerController();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
