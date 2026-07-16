@@ -54,6 +54,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void ReturnToBase();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void ReturnToMainMenu();
+
 	// Called by LoadingGameMode after its preload is done and the player confirms.
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void CompleteLoadingAndOpenCurrentStateLevel();

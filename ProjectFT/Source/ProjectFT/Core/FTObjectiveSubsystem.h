@@ -51,6 +51,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Objective")
 	FText GetQuestObjectiveProgressText(FName QuestID) const;
 
+	UFUNCTION(BlueprintPure, Category = "FT|Quest")
+	bool IsQuestDataConfigured() const { return QuestDataTable != nullptr; }
+
 	void ConfigureHubQuests(
 		UDataTable* InQuestDataTable,
 		AFTHubStorage* InHubStorage,
