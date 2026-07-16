@@ -30,6 +30,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
 	TArray<TSoftObjectPtr<UObject>> GeneratedEnvironmentAssets;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Level Preload")
+	TArray<TSoftObjectPtr<UObject>> GeneratedRuntimeAssets;
+
 	UPROPERTY(meta = (DeprecatedProperty, DeprecationMessage = "Inventory preload assets are now managed by UFTInventoryPreloadDataAsset."))
 	TArray<TSoftObjectPtr<UFTItemDataAsset>> GeneratedInventoryItemAssets;
 

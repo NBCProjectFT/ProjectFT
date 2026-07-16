@@ -10,6 +10,7 @@
 #include "GameFramework/PlayerController.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_ItemAbility.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
+#include "ProjectFT/Components/FTCrosshairComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Data/FTMeleeDataAsset.h"
@@ -105,6 +106,11 @@ void UFTEquipmentComponent::EquipItem(UFTItemDataAsset* ItemData)
 	{
 		UnequipCurrentItem();
 		return;
+	}
+
+	if (UFTCrosshairComponent* CrosshairComponent = GetOwner() ? GetOwner()->FindComponentByClass<UFTCrosshairComponent>() : nullptr)
+	{
+		CrosshairComponent->SetActiveItemData(ItemData);
 	}
 
 	AActor* Owner = GetOwner();
@@ -252,6 +258,11 @@ void UFTEquipmentComponent::UnequipCurrentItem()
 	{
 		EquippedItemActor->Destroy();
 		EquippedItemActor = nullptr;
+	}
+
+	if (UFTCrosshairComponent* CrosshairComponent = GetOwner() ? GetOwner()->FindComponentByClass<UFTCrosshairComponent>() : nullptr)
+	{
+		CrosshairComponent->ClearCrosshair();
 	}
 }
 
