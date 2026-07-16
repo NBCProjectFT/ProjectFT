@@ -288,11 +288,6 @@ bool UFTShopViewModel::ExecuteTradeAction()
 
 void UFTShopViewModel::RefreshShop()
 {
-	if (ShopSubsystem)
-	{
-		ShopSubsystem->RefreshShopItems();
-	}
-
 	ClearSelection();
 	RefreshAll();
 }

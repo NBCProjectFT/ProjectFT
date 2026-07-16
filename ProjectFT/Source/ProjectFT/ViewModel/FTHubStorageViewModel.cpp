@@ -4,7 +4,7 @@
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
-#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 
 void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
@@ -298,7 +298,7 @@ EFTItemCategoryType UFTHubStorageViewModel::GetItemCategory(const FName ItemID) 
 		return EFTItemCategoryType::None;
 	}
 
-	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
+	const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(this, ItemID);
 
 	return ItemDataAsset ? ItemDataAsset->ItemData.CategoryType : EFTItemCategoryType::None;
 }

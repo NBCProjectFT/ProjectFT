@@ -2,11 +2,21 @@
 
 #include "Components/TextBlock.h"
 #include "FTQuestListObject.h"
+#include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 
 namespace
 {
-	FString BuildIngredientSummary(const TArray<FTCraftIngredientStruct>& Items)
+	FText ResolveItemName(const UObject* WorldContextObject, const FName ItemID)
+	{
+		const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(WorldContextObject, ItemID);
+		return ItemDataAsset && !ItemDataAsset->ItemData.ItemName.IsEmpty()
+			? ItemDataAsset->ItemData.ItemName
+			: FText::FromName(ItemID);
+	}
+
+	FString BuildIngredientSummary(const UObject* WorldContextObject, const TArray<FTCraftIngredientStruct>& Items)
 	{
 		FString Summary;
 		for (const FTCraftIngredientStruct& Item : Items)
@@ -21,7 +31,7 @@ namespace
 				Summary += TEXT(", ");
 			}
 
-			Summary += FString::Printf(TEXT("%s x%d"), *Item.ItemID.ToString(), Item.Count);
+			Summary += FString::Printf(TEXT("%s x%d"), *ResolveItemName(WorldContextObject, Item.ItemID).ToString(), Item.Count);
 		}
 
 		return Summary;
@@ -48,7 +58,7 @@ namespace
 		return Summary.IsEmpty() ? Quest.Description.ToString() : Summary;
 	}
 
-	FString BuildQuestRewardSummary(const FTQuestStruct& Quest)
+	FString BuildQuestRewardSummary(const UObject* WorldContextObject, const FTQuestStruct& Quest)
 	{
 		FString Summary;
 		if (Quest.CurrencyReward > 0)
@@ -56,7 +66,7 @@ namespace
 			Summary = FString::Printf(TEXT("%d Coin"), Quest.CurrencyReward);
 		}
 
-		const FString ItemRewardSummary = BuildIngredientSummary(Quest.RewardItems);
+		const FString ItemRewardSummary = BuildIngredientSummary(WorldContextObject, Quest.RewardItems);
 		if (!ItemRewardSummary.IsEmpty())
 		{
 			if (!Summary.IsEmpty())
@@ -101,7 +111,7 @@ void UFTQuestEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 
 	if (TXT_QuestReward)
 	{
-		const FString RewardSummary = BuildQuestRewardSummary(Quest);
+		const FString RewardSummary = BuildQuestRewardSummary(this, Quest);
 		TXT_QuestReward->SetText(RewardSummary.IsEmpty()
 			? FText::GetEmpty()
 			: FText::FromString(FString::Printf(TEXT("보상: %s"), *RewardSummary)));

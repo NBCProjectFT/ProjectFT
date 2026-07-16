@@ -4,9 +4,20 @@
 #include "Components/TextBlock.h"
 #include "Engine/Texture2D.h"
 #include "FTCraftRecipeListObject.h"
-#include "FTHubItemDataResolver.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
+
+namespace
+{
+	FText ResolveItemName(const UObject* WorldContextObject, const FName ItemID)
+	{
+		const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(WorldContextObject, ItemID);
+		return ItemDataAsset && !ItemDataAsset->ItemData.ItemName.IsEmpty()
+			? ItemDataAsset->ItemData.ItemName
+			: FText::FromName(ItemID);
+	}
+}
 
 void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
@@ -20,7 +31,7 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 
 	const FTCraftRecipeStruct& Recipe = RecipeObject->GetRecipe();
 	FText RecipeTitle = FText::FromName(Recipe.ResultItemID);
-	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(Recipe.ResultItemID);
+	const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(this, Recipe.ResultItemID);
 	if (ItemDataAsset)
 	{
 		RecipeTitle = ItemDataAsset->ItemData.ItemName.IsEmpty()
@@ -37,7 +48,7 @@ void UFTCraftRecipeEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObjec
 			RequiredItems += TEXT(", ");
 		}
 
-		RequiredItems += FString::Printf(TEXT("%s x%d"), *Ingredient.ItemID.ToString(), Ingredient.Count);
+		RequiredItems += FString::Printf(TEXT("%s x%d"), *ResolveItemName(this, Ingredient.ItemID).ToString(), Ingredient.Count);
 	}
 
 	RecipeNameText->SetText(RecipeTitle);

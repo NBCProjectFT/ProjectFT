@@ -3,6 +3,7 @@
 #include "Engine/Texture2D.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/UI/HubUI/FTRaidLevelListObject.h"
 
 void UFTRaidSelectViewModel::Initialize(AFTHubRaidEntrance* InRaidEntrance, UFTInventoryComponent* InPlayerInventory)
@@ -120,12 +121,12 @@ UTexture2D* UFTRaidSelectViewModel::GetSelectedPreviewImage() const
 UTexture2D* UFTRaidSelectViewModel::GetSelectedRequiredItemIcon() const
 {
 	const FFTRaidEntranceOption* Option = GetSelectedOption();
-	if (!Option || Option->RequiredItemId.IsNone() || !PlayerInventory)
+	if (!Option || Option->RequiredItemId.IsNone())
 	{
 		return nullptr;
 	}
 
-	const UFTItemDataAsset* ItemData = PlayerInventory->FindItemData(Option->RequiredItemId);
+	const UFTItemDataAsset* ItemData = UFTItemFunctionLibrary::FindItemData(this, Option->RequiredItemId);
 	return ItemData && !ItemData->ItemData.ItemIcon.IsNull()
 		? ItemData->ItemData.ItemIcon.LoadSynchronous()
 		: nullptr;
@@ -143,15 +144,12 @@ FText UFTRaidSelectViewModel::GetSelectedEntryCostText() const
 		return FText::FromString(TEXT("무료 입장"));
 	}
 
-	FText RequiredItemName = FText::FromString(TEXT("필요 아이템"));
-	if (PlayerInventory)
+	FText RequiredItemName = FText::FromName(Option->RequiredItemId);
+	if (const UFTItemDataAsset* ItemData = UFTItemFunctionLibrary::FindItemData(this, Option->RequiredItemId))
 	{
-		if (const UFTItemDataAsset* ItemData = PlayerInventory->FindItemData(Option->RequiredItemId))
+		if (!ItemData->ItemData.ItemName.IsEmpty())
 		{
-			if (!ItemData->ItemData.ItemName.IsEmpty())
-			{
-				RequiredItemName = ItemData->ItemData.ItemName;
-			}
+			RequiredItemName = ItemData->ItemData.ItemName;
 		}
 	}
 

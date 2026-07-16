@@ -4,9 +4,9 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTCraftingSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
 #include "ProjectFT/UI/HubUI/FTCraftRecipeListObject.h"
-#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 
 void UFTCraftingViewModel::Initialize(
@@ -219,7 +219,7 @@ void UFTCraftingViewModel::RefreshSelectedRecipeDetails()
 	}
 
 	const FTCraftRecipeStruct& Recipe = SelectedRecipeObject->GetRecipe();
-	const UFTItemDataAsset* ResultItemData = FindItemData(Recipe.ResultItemID);
+	const UFTItemDataAsset* ResultItemData = UFTItemFunctionLibrary::FindItemData(this, Recipe.ResultItemID);
 	FString RequiredItems;
 
 	for (const FTCraftIngredientStruct& Ingredient : Recipe.RequiredItems)
@@ -229,9 +229,14 @@ void UFTCraftingViewModel::RefreshSelectedRecipeDetails()
 			RequiredItems += TEXT("\n");
 		}
 
+		const UFTItemDataAsset* IngredientItemData = UFTItemFunctionLibrary::FindItemData(this, Ingredient.ItemID);
+		const FText IngredientName = IngredientItemData && !IngredientItemData->ItemData.ItemName.IsEmpty()
+			? IngredientItemData->ItemData.ItemName
+			: FText::FromName(Ingredient.ItemID);
+
 		RequiredItems += FString::Printf(
 			TEXT("%s %d / %d"),
-			*Ingredient.ItemID.ToString(),
+			*IngredientName.ToString(),
 			GetOwnedIngredientCount(Ingredient.ItemID),
 			Ingredient.Count);
 	}
@@ -240,7 +245,7 @@ void UFTCraftingViewModel::RefreshSelectedRecipeDetails()
 	bCanCraft = SelectedRecipeObject->CanCraft();
 	SelectedRecipeNameText = ResultItemData && !ResultItemData->ItemData.ItemName.IsEmpty()
 		? ResultItemData->ItemData.ItemName
-		: FText::FromName(Recipe.RecipeID);
+		: FText::FromName(Recipe.ResultItemID);
 	RequiredItemsText = FText::FromString(RequiredItems);
 	ResultItemText = FText::FromString(FString::Printf(TEXT("Result: %s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount));
 	SelectedRecipeTierText = FText::FromString(TEXT("Tier 1"));
@@ -320,16 +325,6 @@ int32 UFTCraftingViewModel::GetOwnedIngredientCount(const FName ItemID) const
 	return CraftingSubsystem
 		? CraftingSubsystem->GetCombinedItemCount(PlayerInventory, StorageInventory, ItemID)
 		: (PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0);
-}
-
-const UFTItemDataAsset* UFTCraftingViewModel::FindItemData(const FName ItemID) const
-{
-	if (ItemID.IsNone())
-	{
-		return nullptr;
-	}
-
-	return FTHubItemDataResolver::FindItemData(ItemID);
 }
 
 void UFTCraftingViewModel::ClearSelectedRecipeDetails()

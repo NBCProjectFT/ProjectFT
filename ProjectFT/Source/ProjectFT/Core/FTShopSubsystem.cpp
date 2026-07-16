@@ -2,6 +2,7 @@
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/AssetManager.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
@@ -10,6 +11,8 @@
 #include "ProjectFT/Data/FTShopDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
 namespace
 {
@@ -21,6 +24,23 @@ namespace
 void UFTShopSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	FlowStateChangedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_FlowStateChanged,
+		this,
+		&ThisClass::HandleFlowStateChanged);
+}
+
+void UFTShopSubsystem::Deinitialize()
+{
+	if (FlowStateChangedListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(FlowStateChangedListenerHandle);
+		FlowStateChangedListenerHandle = FGameplayMessageListenerHandle();
+	}
+
+	Super::Deinitialize();
 }
 
 void UFTShopSubsystem::ConfigureHubStorage(AFTHubStorage* InHubStorage)
@@ -53,6 +73,48 @@ void UFTShopSubsystem::RefreshShopItems()
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Shop Items Refreshed: %d items"), CurrentShopItems.Num());
+}
+
+void UFTShopSubsystem::RefreshShopAndMarketListings()
+{
+	EnsureShopDataLoaded();
+
+	RefreshShopItems();
+	ConsumedMarketPostIDs.Reset();
+
+	if (bGenerateMarketPostsFromTemplates)
+	{
+		GenerateMarketPostsFromTemplates();
+	}
+
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("Shop and market listings refreshed after returning to hub. ShopItems=%d MarketBuyPosts=%d MarketSellPosts=%d"),
+		CurrentShopItems.Num(),
+		MarketBuyPosts.Num(),
+		MarketSellPosts.Num());
+}
+
+void UFTShopSubsystem::HandleFlowStateChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	const EFTFlowStateType NewFlowState = static_cast<EFTFlowStateType>(FMath::RoundToInt(Payload.Value));
+	const bool bReturnedToBaseFromRaid = NewFlowState == EFTFlowStateType::Base && WasRaidFlowState(LastObservedFlowState);
+	LastObservedFlowState = NewFlowState;
+
+	if (bReturnedToBaseFromRaid)
+	{
+		RefreshShopAndMarketListings();
+	}
+}
+
+bool UFTShopSubsystem::WasRaidFlowState(const EFTFlowStateType FlowState) const
+{
+	return FlowState == EFTFlowStateType::RaidEntering
+		|| FlowState == EFTFlowStateType::RaidInProgress
+		|| FlowState == EFTFlowStateType::Escaping
+		|| FlowState == EFTFlowStateType::Escaped
+		|| FlowState == EFTFlowStateType::Failed;
 }
 
 bool UFTShopSubsystem::BuyItem(FName ItemID, UFTInventoryComponent* PlayerInventory)
