@@ -381,17 +381,40 @@ void AFTProjectileActor::HandleProjectileImpact(AActor* HitActor)
 		Destroy();
 	}
 	
+	// 날아가던 원래 속도를 미리 보존합니다.
+	FVector SavedVelocity = FVector::ZeroVector;
 	if (ProjectileMovementComponent)
 	{
+		SavedVelocity = ProjectileMovementComponent->Velocity;
 		ProjectileMovementComponent->StopMovementImmediately();
 		ProjectileMovementComponent->Deactivate();
 	}
 
 	if (ProjectileCollisionComponent)
 	{
-		ProjectileCollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		ProjectileCollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
-		ProjectileCollisionComponent->SetSimulatePhysics(true);
+		ProjectileCollisionComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		ProjectileCollisionComponent->SetSimulatePhysics(false);
+	}
+
+	if (MeshComponent)
+	{
+		// 루트 컴포넌트를 메쉬로 변경하고 분리
+		SetRootComponent(MeshComponent);
+		MeshComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+
+		// 부모(AFTItemActor)의 물리/콜리전 설정 재사용
+		SetupPhysicsAndCollision();
+
+		// 보존했던 속도를 물리 메쉬에 전달하여 관성을 유지시킵니다.
+		MeshComponent->SetPhysicsLinearVelocity(SavedVelocity);
+
+		// 땅에 부딪혔을 때 실감 나게 구르도록 랜덤한 회전력 추가
+		FVector RandomAngular = FVector(
+			FMath::FRandRange(-180.0f, 180.0f),
+			FMath::FRandRange(-180.0f, 180.0f),
+			FMath::FRandRange(-180.0f, 180.0f)
+		);
+		MeshComponent->SetPhysicsAngularVelocityInDegrees(RandomAngular);
 	}
 }
 
