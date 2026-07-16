@@ -49,7 +49,6 @@ void UFTHubStorageWidget::NativeConstruct()
 		PlayerItemsView->OnItemClicked().RemoveAll(this);
 		PlayerItemsView->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandlePlayerItemClicked);
 		PlayerItemsView->OnItemSelectionChanged().RemoveAll(this);
-		PlayerItemsView->OnItemSelectionChanged().AddUObject(this, &UFTHubStorageWidget::HandlePlayerItemSelectionChanged);
 	}
 
 	if (UListView* StorageItemsView = GetStorageItemsView())
@@ -58,7 +57,6 @@ void UFTHubStorageWidget::NativeConstruct()
 		StorageItemsView->OnItemClicked().RemoveAll(this);
 		StorageItemsView->OnItemClicked().AddUObject(this, &UFTHubStorageWidget::HandleStorageItemClicked);
 		StorageItemsView->OnItemSelectionChanged().RemoveAll(this);
-		StorageItemsView->OnItemSelectionChanged().AddUObject(this, &UFTHubStorageWidget::HandleStorageItemSelectionChanged);
 	}
 
 	if (BTN_Store)
@@ -95,6 +93,18 @@ void UFTHubStorageWidget::NativeConstruct()
 	{
 		BTN_QuantityPlus->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleQuantityPlusClicked);
 		BTN_QuantityPlus->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleQuantityPlusClicked);
+	}
+
+	if (BTN_QuantityHalf)
+	{
+		BTN_QuantityHalf->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleQuantityHalfClicked);
+		BTN_QuantityHalf->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleQuantityHalfClicked);
+	}
+
+	if (BTN_QuantityMax)
+	{
+		BTN_QuantityMax->OnClicked.RemoveDynamic(this, &UFTHubStorageWidget::HandleQuantityMaxClicked);
+		BTN_QuantityMax->OnClicked.AddDynamic(this, &UFTHubStorageWidget::HandleQuantityMaxClicked);
 	}
 
 	if (BTN_PlayerFilterAll)
@@ -159,6 +169,26 @@ void UFTHubStorageWidget::RefreshFromViewModel()
 	if (!ViewModel)
 	{
 		return;
+	}
+
+	PlayerSelectedItems.Reset();
+	for (UObject* Item : ViewModel->GetPlayerItemObjects())
+	{
+		if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item);
+			TileObject && TileObject->IsChecked())
+		{
+			PlayerSelectedItems.Add(TWeakObjectPtr<UObject>(Item));
+		}
+	}
+
+	StorageSelectedItems.Reset();
+	for (UObject* Item : ViewModel->GetStorageItemObjects())
+	{
+		if (const UFTItemTileListObject* TileObject = Cast<UFTItemTileListObject>(Item);
+			TileObject && TileObject->IsChecked())
+		{
+			StorageSelectedItems.Add(TWeakObjectPtr<UObject>(Item));
+		}
 	}
 
 	// 목록을 다시 채울 때 ListView가 선택 변경 이벤트를 낼 수 있어서, 재진입을 막는다.
@@ -226,6 +256,16 @@ void UFTHubStorageWidget::RefreshFromViewModel()
 	{
 		BTN_QuantityPlus->SetIsEnabled(ViewModel->CanIncreaseMoveQuantity());
 	}
+
+	if (BTN_QuantityHalf)
+	{
+		BTN_QuantityHalf->SetIsEnabled(ViewModel->CanSetMoveQuantityToHalf());
+	}
+
+	if (BTN_QuantityMax)
+	{
+		BTN_QuantityMax->SetIsEnabled(ViewModel->CanSetMoveQuantityToMax());
+	}
 }
 
 UListView* UFTHubStorageWidget::GetPlayerItemsView() const
@@ -282,21 +322,45 @@ void UFTHubStorageWidget::PushSelectedItemsToViewModel(UListView* ItemsView, con
 
 void UFTHubStorageWidget::HandlePlayerItemClicked(UObject* Item)
 {
+	if (UListView* PlayerItemsView = GetPlayerItemsView())
+	{
+		if (Item)
+		{
+			for (const TWeakObjectPtr<UObject>& SelectedItem : PlayerSelectedItems)
+			{
+				if (SelectedItem.IsValid() && SelectedItem.Get() != Item)
+				{
+					PlayerItemsView->SetItemSelection(SelectedItem.Get(), true);
+				}
+			}
+
+			const bool bWasSelected = PlayerSelectedItems.Contains(TWeakObjectPtr<UObject>(Item));
+			PlayerItemsView->SetItemSelection(Item, !bWasSelected);
+		}
+	}
+
 	PushSelectedItemsToViewModel(GetPlayerItemsView(), true);
 }
 
 void UFTHubStorageWidget::HandleStorageItemClicked(UObject* Item)
 {
-	PushSelectedItemsToViewModel(GetStorageItemsView(), false);
-}
+	if (UListView* StorageItemsView = GetStorageItemsView())
+	{
+		if (Item)
+		{
+			for (const TWeakObjectPtr<UObject>& SelectedItem : StorageSelectedItems)
+			{
+				if (SelectedItem.IsValid() && SelectedItem.Get() != Item)
+				{
+					StorageItemsView->SetItemSelection(SelectedItem.Get(), true);
+				}
+			}
 
-void UFTHubStorageWidget::HandlePlayerItemSelectionChanged(UObject* Item)
-{
-	PushSelectedItemsToViewModel(GetPlayerItemsView(), true);
-}
+			const bool bWasSelected = StorageSelectedItems.Contains(TWeakObjectPtr<UObject>(Item));
+			StorageItemsView->SetItemSelection(Item, !bWasSelected);
+		}
+	}
 
-void UFTHubStorageWidget::HandleStorageItemSelectionChanged(UObject* Item)
-{
 	PushSelectedItemsToViewModel(GetStorageItemsView(), false);
 }
 
@@ -353,6 +417,22 @@ void UFTHubStorageWidget::HandleQuantityPlusClicked()
 	if (ViewModel)
 	{
 		ViewModel->IncreaseMoveQuantity();
+	}
+}
+
+void UFTHubStorageWidget::HandleQuantityHalfClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetMoveQuantityToHalf();
+	}
+}
+
+void UFTHubStorageWidget::HandleQuantityMaxClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetMoveQuantityToMax();
 	}
 }
 

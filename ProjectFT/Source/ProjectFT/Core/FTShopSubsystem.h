@@ -1,11 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
+#include "ProjectFT/Enum/FTFlowStateType.h"
 #include "ProjectFT/Struct/FTShopItemStruct.h"
 #include "ProjectFT/Struct/FTTradePostStruct.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "FTShopSubsystem.generated.h"
 
+struct FFTMessagePayloadStruct;
 class AFTHubStorage;
 class UFTInventoryComponent;
 class UFTItemDataAsset;
@@ -18,12 +21,16 @@ class PROJECTFT_API UFTShopSubsystem : public UGameInstanceSubsystem
 
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
 	void ConfigureHubStorage(AFTHubStorage* InHubStorage);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
 	void RefreshShopItems();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
+	void RefreshShopAndMarketListings();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
 	bool BuyItem(FName ItemID, UFTInventoryComponent* PlayerInventory);
@@ -95,6 +102,8 @@ private:
 	bool HasCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
 	bool AddCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
 	bool RemoveCurrency(UFTInventoryComponent* PlayerInventory, int32 Amount) const;
+	void HandleFlowStateChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	bool WasRaidFlowState(EFTFlowStateType FlowState) const;
 
 private:
 	UPROPERTY(Transient)
@@ -147,4 +156,6 @@ private:
 	float MarketBuyRequestPriceMultiplier = 0.75f;
 	float MarketSellOfferPriceMultiplier = 1.25f;
 	bool bShopDataLoaded = false;
+	EFTFlowStateType LastObservedFlowState = EFTFlowStateType::MainMenu;
+	FGameplayMessageListenerHandle FlowStateChangedListenerHandle;
 };

@@ -4,9 +4,9 @@
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Engine/Texture2D.h"
-#include "FTHubItemDataResolver.h"
 #include "FTTradePostListObject.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 
 void UFTTradePostEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
@@ -23,7 +23,7 @@ void UFTTradePostEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 	const UFTItemDataAsset* ItemDataAsset = nullptr;
 	if (!ItemID.IsNone())
 	{
-		ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
+		ItemDataAsset = UFTItemFunctionLibrary::FindItemData(this, ItemID);
 	}
 
 	const FText ItemName = ItemDataAsset && !ItemDataAsset->ItemData.ItemName.IsEmpty()

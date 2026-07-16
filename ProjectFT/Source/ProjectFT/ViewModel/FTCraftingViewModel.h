@@ -70,7 +70,6 @@ private:
 	void UnbindInventoryDelegates();
 	bool ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, bool bRecipeCanCraft) const;
 	int32 GetOwnedIngredientCount(FName ItemID) const;
-	const class UFTItemDataAsset* FindItemData(FName ItemID) const;
 	void ClearSelectedRecipeDetails();
 
 	UPROPERTY(Transient)

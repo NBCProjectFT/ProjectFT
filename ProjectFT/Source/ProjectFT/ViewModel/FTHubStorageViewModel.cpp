@@ -4,7 +4,7 @@
 #include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
-#include "ProjectFT/UI/HubUI/FTHubItemDataResolver.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 
 void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory)
@@ -86,6 +86,16 @@ bool UFTHubStorageViewModel::CanIncreaseMoveQuantity() const
 	return GetSelectedEntryCount() == 1 && MoveQuantity < GetMaxMoveQuantity();
 }
 
+bool UFTHubStorageViewModel::CanSetMoveQuantityToHalf() const
+{
+	return GetSelectedEntryCount() == 1 && GetMaxMoveQuantity() > 1;
+}
+
+bool UFTHubStorageViewModel::CanSetMoveQuantityToMax() const
+{
+	return GetSelectedEntryCount() == 1 && MoveQuantity < GetMaxMoveQuantity();
+}
+
 bool UFTHubStorageViewModel::CanStoreAll() const
 {
 	return PlayerInventory && PlayerInventory->GetItems().Num() > 0;
@@ -148,6 +158,19 @@ void UFTHubStorageViewModel::IncreaseMoveQuantity()
 void UFTHubStorageViewModel::DecreaseMoveQuantity()
 {
 	MoveQuantity = FMath::Clamp(MoveQuantity - 1, 1, GetMaxMoveQuantity());
+	OnChanged.Broadcast();
+}
+
+void UFTHubStorageViewModel::SetMoveQuantityToHalf()
+{
+	const int32 MaxMoveQuantity = GetMaxMoveQuantity();
+	MoveQuantity = FMath::Clamp(MaxMoveQuantity / 2, 1, MaxMoveQuantity);
+	OnChanged.Broadcast();
+}
+
+void UFTHubStorageViewModel::SetMoveQuantityToMax()
+{
+	MoveQuantity = GetMaxMoveQuantity();
 	OnChanged.Broadcast();
 }
 
@@ -298,7 +321,7 @@ EFTItemCategoryType UFTHubStorageViewModel::GetItemCategory(const FName ItemID) 
 		return EFTItemCategoryType::None;
 	}
 
-	const UFTItemDataAsset* ItemDataAsset = FTHubItemDataResolver::FindItemData(ItemID);
+	const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(this, ItemID);
 
 	return ItemDataAsset ? ItemDataAsset->ItemData.CategoryType : EFTItemCategoryType::None;
 }
