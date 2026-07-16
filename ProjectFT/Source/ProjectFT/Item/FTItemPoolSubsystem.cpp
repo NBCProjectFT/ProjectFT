@@ -246,8 +246,7 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 
 	// 2. 스캔 키(마우스 좌클릭)가 꾹 눌려 있는지 감지
 	const bool bIsScanKeyDown = PC->IsInputKeyDown(EKeys::LeftMouseButton);
-	// 바닥 아이템 미리보기 조회 키(Q) 감지
-	const bool bIsQKeyDown = PC->IsInputKeyDown(EKeys::Q);
+
 
 	// 💡 포스건 장착 상태 및 매대 스캔 조건 검사
 	AFTLootShelf* AimedShelf = Cast<AFTLootShelf>(ActorUnderAim);
@@ -328,8 +327,8 @@ void UFTItemPoolSubsystem::UpdateAllItemPreviews()
 			continue;
 		}
 
-		// 3. 조준 및 Q 키 홀드 조건 만족 시에만 미리보기 노출
-		if (Item == ActorUnderAim && bIsQKeyDown)
+		// 3. 크로스헤어 호버 조건 만족 시 미리보기 노출
+		if (Item == ActorUnderAim)
 		{
 			Item->SetTooltipVisibility(true);
 		}
