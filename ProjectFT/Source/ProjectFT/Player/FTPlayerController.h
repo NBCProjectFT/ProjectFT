@@ -16,6 +16,9 @@ class PROJECTFT_API AFTPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
+public:
+	AFTPlayerController();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -74,6 +77,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
 	TObjectPtr<UInputAction> ToggleInventoryAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Input")
+	TObjectPtr<UInputAction> PauseMenuAction;
+
 private:
 	// Enhanced Input 콜백. 받은 값을 가공 없이 입력 수신자로 넘긴다.
 	void OnMoveTriggered(const FInputActionValue& Value);
@@ -96,6 +102,8 @@ private:
 	void OnQuickSlot5Started(const FInputActionValue& Value);
 	void OnQuickSlot6Started(const FInputActionValue& Value);
 	void ToggleInventoryStarted(const FInputActionValue& Value);
+	void PauseMenuStarted(const FInputActionValue& Value);
+	void TogglePauseMenu();
 
 	// [Temp/Debug] IA 에셋/IMC 매핑 없이 테이저를 테스트하기 위한 핸들러 — 퀵슬롯0 선택 후 사용(T 키에 바인딩).
 	void OnDebugUseQuickSlot0();

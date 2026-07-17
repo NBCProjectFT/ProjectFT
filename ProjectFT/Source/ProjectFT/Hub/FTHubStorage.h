@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ProjectFT/Interface/FTInteractable.h"
+#include "ProjectFT/Struct/FTStorageItemStruct.h"
 #include "FTHubStorage.generated.h"
 
 class UFTInventoryComponent;
@@ -29,6 +30,9 @@ protected:
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Storage", meta = (AllowPrivateAccess = "true"))
 	UFTInventoryComponent* StorageInventory;
+
+	UPROPERTY(EditAnywhere, Category = "Storage|Initial")
+	TArray<FTStorageItemStruct> InitialItems;
 
 	void OpenStorageWidget(AActor* Interactor);
 };

@@ -49,6 +49,7 @@ void UFTMainHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 
 	UpdateHPBars(InDeltaTime);
 	UpdateStaminaBar(InDeltaTime);
+	UpdateCrosshair();
 	
 	// UFTAssetManager::GetAsset();
 }
@@ -162,6 +163,49 @@ void UFTMainHUDWidget::UpdateStaminaBar(float DeltaTime)
 		MID_StaminaBar->SetScalarParameterValue(TEXT("Value"), CurrentStaminaFrontPercent);
 		MID_StaminaBar->SetScalarParameterValue(TEXT("TickDownValue"), CurrentStaminaBackPercent);
 	}
+}
+
+void UFTMainHUDWidget::UpdateCrosshair()
+{
+	if (!HUDViewModel)
+	{
+		return;
+	}
+
+	const FTCrosshairStateStruct& CrosshairState = HUDViewModel->GetCrosshairState();
+	const ESlateVisibility CrosshairVisibility = CrosshairState.bVisible
+		? ESlateVisibility::HitTestInvisible
+		: ESlateVisibility::Collapsed;
+
+	const auto ApplyImage = [CrosshairVisibility, &CrosshairState](UImage* Image, const TSoftObjectPtr<UTexture2D>& Texture, const FVector2D& Translation)
+	{
+		if (!Image)
+		{
+			return;
+		}
+
+		Image->SetVisibility(CrosshairVisibility);
+		Image->SetRenderTranslation(Translation);
+		Image->SetColorAndOpacity(CrosshairState.Color);
+
+		if (CrosshairVisibility == ESlateVisibility::Collapsed)
+		{
+			return;
+		}
+
+		if (UTexture2D* LoadedTexture = Texture.LoadSynchronous())
+		{
+			Image->SetBrushFromTexture(LoadedTexture, true);
+		}
+	};
+
+	const float SpreadScaled = CrosshairState.SpreadMax * CrosshairState.Spread;
+
+	ApplyImage(IMG_CrosshairCenter, CrosshairState.CenterTexture, FVector2D::ZeroVector);
+	ApplyImage(IMG_CrosshairLeft, CrosshairState.LeftTexture, FVector2D(-SpreadScaled, 0.0f));
+	ApplyImage(IMG_CrosshairRight, CrosshairState.RightTexture, FVector2D(SpreadScaled, 0.0f));
+	ApplyImage(IMG_CrosshairTop, CrosshairState.TopTexture, FVector2D(0.0f, -SpreadScaled));
+	ApplyImage(IMG_CrosshairBottom, CrosshairState.BottomTexture, FVector2D(0.0f, SpreadScaled));
 }
 
 void UFTMainHUDWidget::ResolveHUDBarWidgets()

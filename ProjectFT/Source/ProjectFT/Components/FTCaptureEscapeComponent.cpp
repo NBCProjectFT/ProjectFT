@@ -30,7 +30,8 @@ void UFTCaptureEscapeComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 	// 힘싸움: 매 틱 플레이어 자연증가(Gauge.PassiveGainPerSecond)와 AI 자연감소(주입된 DecayPerSecond)가 겨룬다.
 	// 좌우 전환의 능동 힘은 OnStruggleEvent(Event.Struggle)가 별도로 더한다.
-	if (bCaptured && !bEscaped)
+	// 소유자가 죽으면 게이지는 그 값에서 얼어붙는다 — 시체는 발버둥치지도, 저지당하지도 않는다.
+	if (bCaptured && !bEscaped && !IsOwnerDead())
 	{
 		Gauge.Advance(DeltaTime);
 		TryComplete();
@@ -47,7 +48,7 @@ void UFTCaptureEscapeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason
 	Super::EndPlay(EndPlayReason);
 }
 
-bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint, float InEscapeThreshold, float InDecayPerSecond)
+bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint, FName InAttachSocketName, float InEscapeThreshold, float InDecayPerSecond)
 {
 	if (bCaptured || !IsValid(InCaptor))
 	{
@@ -85,14 +86,15 @@ bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponen
 			Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
 
-		// 캡처 중엔 몸(캡슐 yaw)이 컨트롤 회전을 따라 돌지 않게 끈다. 그래야 부착된 캡처 포즈(경비 CapturePoint 회전)를 따른다.
+		// 캡처 중엔 몸(캡슐 yaw)이 컨트롤 회전을 따라 돌지 않게 끈다. 그래야 부착된 캡처 포즈(부착 지점의 회전)를 따른다.
 		bSavedUseControllerRotationYaw = OwnerCharacter->bUseControllerRotationYaw;
 		OwnerCharacter->bUseControllerRotationYaw = false;
 
-		// 붙잡은 지점(경비 CapturePoint)에 부착해 경비 이동을 따라가게 한다.
+		// 어빌리티가 정한 지점/소켓에 부착해 경비를 따라가게 한다. 소켓이 지정되면 그 본의 애니메이션까지 따라간다.
+		// 붙는 건 소유자의 루트(캡슐)이므로 소켓 트랜스폼 = 캡슐 중심이 놓일 자리다(발밑이 아니다).
 		if (InAttachPoint)
 		{
-			OwnerCharacter->AttachToComponent(InAttachPoint, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			OwnerCharacter->AttachToComponent(InAttachPoint, FAttachmentTransformRules::SnapToTargetNotIncludingScale, InAttachSocketName);
 		}
 	}
 
@@ -130,6 +132,15 @@ void UFTCaptureEscapeComponent::EndCapture()
 	if (ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))
 	{
 		OwnerCharacter->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+		// 캡슐을 다시 수직으로 세운다(yaw만 보존). 부착 중엔 캡슐이 부착 지점의 회전을 그대로 따르는데, 소켓이
+		// 애니메이션되는 본이면 pitch/roll까지 물려받고 KeepWorldTransform으로 떼면 그 기울기가 남는다.
+		// 캐릭터는 bUseControllerRotationPitch/Roll이 false라 yaw만 컨트롤러 추종으로 복구될 뿐 pitch/roll을 되돌리는
+		// 주체가 없어서, 세워주지 않으면 기울어진 채로 영영 굳는다(루트에 붙던 시절엔 부착 지점이 늘 수직이라 안 드러났다).
+		FRotator UprightRotation = OwnerCharacter->GetActorRotation();
+		UprightRotation.Pitch = 0.0f;
+		UprightRotation.Roll = 0.0f;
+		OwnerCharacter->SetActorRotation(UprightRotation);
 
 		if (UCapsuleComponent* Capsule = OwnerCharacter->GetCapsuleComponent())
 		{
@@ -177,7 +188,7 @@ void UFTCaptureEscapeComponent::EndCapture()
 
 void UFTCaptureEscapeComponent::OnStruggleEvent(const FGameplayEventData* Payload)
 {
-	if (!bCaptured || bEscaped)
+	if (!bCaptured || bEscaped || IsOwnerDead())
 	{
 		return;
 	}
@@ -199,6 +210,13 @@ void UFTCaptureEscapeComponent::TryComplete()
 		// 어빌리티가 이걸 받아 성공 처리(해방 + 경비 스턴)한다. EndCapture는 어빌리티가 호출한다.
 		OnEscaped.Broadcast();
 	}
+}
+
+bool UFTCaptureEscapeComponent::IsOwnerDead() const
+{
+	// State.Dead는 사망 질의의 단일 소스(AFTCharacterBase::HandleDeath가 Loose 태그로 부여).
+	const UAbilitySystemComponent* ASC = GetOwnerAbilitySystem();
+	return ASC && ASC->HasMatchingGameplayTag(TAG_FT_State_Dead);
 }
 
 UAbilitySystemComponent* UFTCaptureEscapeComponent::GetOwnerAbilitySystem() const

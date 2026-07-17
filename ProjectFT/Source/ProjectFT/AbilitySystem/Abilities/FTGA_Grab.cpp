@@ -5,6 +5,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AIController.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
@@ -47,7 +48,9 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	bEscapedMessageBroadcast = false;
 	CapturedTarget = nullptr;
 	TargetEscapeComp = nullptr;
+	TargetASC = nullptr;
 	CachedAIController = nullptr;
+	LastCaptureDamageTickTime = 0.0f;
 
 	AActor* Avatar = GetAvatarActorFromActorInfo();
 	APawn* AvatarPawn = Cast<APawn>(Avatar);
@@ -82,28 +85,29 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 		return;
 	}
 
-	// 부착 지점(경비 CapturePoint).
-	USceneComponent* AttachPoint = nullptr;
-	if (AFTSecurityCharacter* Security = Cast<AFTSecurityCharacter>(Avatar))
-	{
-		AttachPoint = Security->GetCapturePointComponent();
-	}
-	else
+	// 부착 지점/소켓(잡기 종류가 정하는 붙잡는 자세).
+	AFTSecurityCharacter* Security = Cast<AFTSecurityCharacter>(Avatar);
+	if (!Security)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
+	FName AttachSocketName = NAME_None;
+	USceneComponent* AttachPoint = ResolveCaptureAttachPoint(Security, AttachSocketName);
+
 	// 잡기 대칭 배타(B): 붙잡기 직전, 대상에게 걸린 자가 행동불능(비눗방울/스턴 등 State.Debuff.Immobilized를 부여한 GE)을 제거한다.
 	// → 잡히면 기존 자가CC가 즉시 풀리고(공존 없음), 이후 재적용은 State.Captured가 막는다(A: 트랩 GE의 적용 조건).
 	// 반드시 TryBeginCapture(이동 DisableMovement)보다 먼저 실행 — 자가CC 해제로 베이스가 MOVE_Walking으로 복원해도 캡처가 곧바로 다시 정지시킨다.
-	if (UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target))
+	// 대상 ASC는 여기서 한 번만 찾아 캐시한다(자가CC 해제 · 지속 피해 틱의 사망 판정에 재사용).
+	TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	if (UAbilitySystemComponent* TargetAbilitySystem = TargetASC.Get())
 	{
-		TargetASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TAG_FT_State_Debuff_Immobilized));
+		TargetAbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TAG_FT_State_Debuff_Immobilized));
 	}
 
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo)
-		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint, EscapeThreshold, EscapeDecayPerSecond))
+		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint, AttachSocketName, EscapeThreshold, EscapeDecayPerSecond))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
@@ -116,6 +120,12 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	EscapeComp->OnEscaped.AddDynamic(this, &UFTGA_Grab::OnTargetEscaped);
 	BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetCaptured);
 	bCapturedMessageBroadcast = true;
+
+	// 붙잡힌 대가: 즉시 1회(InitialCaptureDamage) + 붙잡혀 있는 동안 초당 지속(CaptureDamagePerSecond).
+	// 잡힌 것 자체의 대가이므로 이후 어떤 결말(탈출/이송/캡터 무력화)로 끝나든 되돌리지 않는다.
+	ApplyDamageToTarget(InitialCaptureDamage);
+	StartCaptureDamageTick();
+
 	if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
 	{
 		OwnerImmobilizedTagChangedHandle = OwnerASC->RegisterGameplayTagEvent(TAG_FT_State_Debuff_Immobilized, EGameplayTagEventType::NewOrRemoved)
@@ -187,6 +197,102 @@ void UFTGA_Grab::OnOwnerImmobilizedTagChanged(const FGameplayTag Tag, int32 NewC
 	FinishGrab(/*bEscaped=*/true);
 }
 
+void UFTGA_Grab::StartCaptureDamageTick()
+{
+	UWorld* World = GetWorld();
+	if (!World || CaptureDamagePerSecond <= 0.0f)
+	{
+		return;
+	}
+
+	LastCaptureDamageTickTime = World->GetTimeSeconds();
+	World->GetTimerManager().SetTimer(
+		CaptureDamageTimerHandle,
+		this,
+		&UFTGA_Grab::TickCaptureDamage,
+		CaptureDamageTickInterval,
+		/*bLoop=*/true);
+}
+
+void UFTGA_Grab::TickCaptureDamage()
+{
+	UWorld* World = GetWorld();
+	if (!World || bResolved)
+	{
+		return;
+	}
+
+	// 타이머 간격이 아니라 '실제 경과시간'으로 계산한다 — 프레임이 밀려 틱이 늦게 와도 초당 피해량이 그대로 보존된다.
+	const float Now = World->GetTimeSeconds();
+	const float DeltaSeconds = LastCaptureDamageTickTime > 0.0f
+		? FMath::Max(0.0f, Now - LastCaptureDamageTickTime)
+		: CaptureDamageTickInterval;
+	LastCaptureDamageTickTime = Now;
+
+	// 이미 쓰러진 대상은 더 때리지 않는다. 체력이 0에서 클램프돼도 피해 GE는 계속 '적중'으로 처리돼
+	// Event.Character.Damaged/KnockedOut이 틱마다 재방송되기 때문(사망 처리 자체는 bDead 가드로 1회지만 메시지는 아니다).
+	if (const UAbilitySystemComponent* TargetAbilitySystem = TargetASC.Get())
+	{
+		if (TargetAbilitySystem->HasMatchingGameplayTag(TAG_FT_State_Dead))
+		{
+			World->GetTimerManager().ClearTimer(CaptureDamageTimerHandle);
+			return;
+		}
+	}
+
+	ApplyDamageToTarget(CaptureDamagePerSecond * DeltaSeconds);
+}
+
+void UFTGA_Grab::ApplyDamageToTarget(float DamageAmount)
+{
+	if (DamageAmount <= 0.0f || !DamageEffectClass || !CapturedTarget.IsValid())
+	{
+		return;
+	}
+
+	FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DamageEffectClass);
+	if (!DamageSpec.IsValid())
+	{
+		return;
+	}
+
+	// UFTGE_Damage는 SetByCaller(Data.Damage)를 Health에 그대로 더하는 Instant GE — 피해는 음수로 넣는다.
+	DamageSpec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -DamageAmount);
+	const FGameplayAbilityTargetDataHandle TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(CapturedTarget.Get());
+	ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DamageSpec, TargetData);
+}
+
+USceneComponent* UFTGA_Grab::ResolveCaptureAttachPoint(AFTSecurityCharacter* Security, FName& OutAttachSocketName) const
+{
+	OutAttachSocketName = NAME_None;
+	if (!Security)
+	{
+		return nullptr;
+	}
+
+	if (!CaptureAttachSocketName.IsNone())
+	{
+		// DoesSocketExist는 소켓과 본 이름을 모두 본다 — 소켓을 따로 안 만들고 본 이름을 바로 써도 된다.
+		USkeletalMeshComponent* SecurityMesh = Security->GetMesh();
+		if (SecurityMesh && SecurityMesh->DoesSocketExist(CaptureAttachSocketName))
+		{
+			OutAttachSocketName = CaptureAttachSocketName;
+			return SecurityMesh;
+		}
+
+		UE_LOG(
+			LogFTSecurity,
+			Warning,
+			TEXT("Grab: attach socket '%s' not found on %s — falling back to CapturePoint."),
+			*CaptureAttachSocketName.ToString(),
+			*GetNameSafe(SecurityMesh)
+		);
+	}
+
+	// 소켓 미지정/부재 → 루트 기준 CapturePoint(소켓 도입 전 동작).
+	return Security->GetCapturePointComponent();
+}
+
 void UFTGA_Grab::FinishGrab(bool bEscaped)
 {
 	if (bResolved)
@@ -213,17 +319,8 @@ void UFTGA_Grab::FinishGrab(bool bEscaped)
 	}
 	else
 	{
-		// 실패 → 대상에게 데미지(SetByCaller, 음수 크기).
-		if (DamageEffectClass && CapturedTarget.IsValid())
-		{
-			FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DamageEffectClass);
-			if (DamageSpec.IsValid())
-			{
-				DamageSpec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -FailDamage);
-				const FGameplayAbilityTargetDataHandle TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(CapturedTarget.Get());
-				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DamageSpec, TargetData);
-			}
-		}
+		// 실패 → 대상에게 데미지.
+		ApplyDamageToTarget(FailDamage);
 	}
 
 	// 공통 종료 → EndAbility에서 해방/이동정지/정리.
@@ -246,6 +343,7 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(FallbackTimerHandle);
+		World->GetTimerManager().ClearTimer(CaptureDamageTimerHandle);
 	}
 
 	if (OwnerImmobilizedTagChangedHandle.IsValid())
@@ -272,6 +370,7 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 
 	CapturedTarget = nullptr;
 	TargetEscapeComp = nullptr;
+	TargetASC = nullptr;
 	CachedAIController = nullptr;
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);

@@ -47,6 +47,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Shop")
 	int32 GetShopSellPrice(FName ItemID) const;
 
+	UFUNCTION(BlueprintPure, Category = "FT|Shop")
+	bool IsItemSellableToShop(FName ItemID) const;
+
 	UFUNCTION(BlueprintCallable, Category = "FT|Market")
 	bool BuyMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory);
 
@@ -129,6 +132,9 @@ private:
 
 	UPROPERTY(Transient)
 	TSet<FName> ConsumedMarketPostIDs;
+
+	UPROPERTY(Transient)
+	TSet<FName> SellExcludedItemIDs;
 
 	UPROPERTY(Transient)
 	TArray<FText> PostPrefixes;

@@ -1,6 +1,7 @@
 #include "FTHubStorage.h"
 #include "FTHubActorUtils.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTStorageSubsystem.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 AFTHubStorage::AFTHubStorage()
@@ -12,6 +13,11 @@ AFTHubStorage::AFTHubStorage()
 void AFTHubStorage::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (UFTStorageSubsystem* StorageSubsystem = GetGameInstance()->GetSubsystem<UFTStorageSubsystem>())
+	{
+		StorageSubsystem->InitializeStorage(StorageInventory, InitialItems);
+	}
 }
 
 UFTInventoryComponent* AFTHubStorage::GetStorageInventory() const

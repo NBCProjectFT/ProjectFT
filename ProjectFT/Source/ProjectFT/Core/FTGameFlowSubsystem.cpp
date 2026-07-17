@@ -27,6 +27,7 @@ void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_CompleteEscape, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_FailRaid, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ReturnToBase, this, &ThisClass::HandleFlowRequestMessage));
+	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ReturnToMainMenu, this, &ThisClass::HandleFlowRequestMessage));
 }
 
 void UFTGameFlowSubsystem::Deinitialize()
@@ -87,6 +88,10 @@ void UFTGameFlowSubsystem::HandleFlowRequestMessage(FGameplayTag Channel, const 
 	{
 		ReturnToBase();
 	}
+	else if (Channel == TAG_FT_Request_Flow_ReturnToMainMenu)
+	{
+		ReturnToMainMenu();
+	}
 }
 
 void UFTGameFlowSubsystem::RequestStartGame()
@@ -115,7 +120,7 @@ bool UFTGameFlowSubsystem::RequestStartRaidAtLevel(const FName TargetLevelName)
 	}
 
 	PendingRaidLevelName = TargetLevelName;
-	TravelToState(EFTFlowStateType::RaidEntering);
+	TravelToState(EFTFlowStateType::RaidEntering, TargetLevelName);
 	return true;
 }
 
@@ -195,6 +200,23 @@ void UFTGameFlowSubsystem::ReturnToBase()
 	}
 
 	TravelToState(EFTFlowStateType::Base);
+}
+
+void UFTGameFlowSubsystem::ReturnToMainMenu()
+{
+	PendingRaidLevelName = NAME_None;
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->HideEscapedRaid();
+			UIManager->HideFailScreen();
+			UIManager->HidePauseMenu();
+		}
+	}
+
+	TravelToState(EFTFlowStateType::MainMenu);
 }
 
 void UFTGameFlowSubsystem::CompleteLoadingAndOpenCurrentStateLevel()
@@ -319,16 +341,20 @@ TSoftObjectPtr<UFTLevelPreloadDataAsset> UFTGameFlowSubsystem::ResolveLevelPrelo
 	return TSoftObjectPtr<UFTLevelPreloadDataAsset>(FSoftObjectPath(ObjectPath));
 }
 
-void UFTGameFlowSubsystem::TravelToState(EFTFlowStateType TargetFlowState)
+void UFTGameFlowSubsystem::TravelToState(EFTFlowStateType TargetFlowState, FName RequestedLevelName)
 {
-	if (ShouldUseLoadingForState(TargetFlowState))
+	const FName TargetLevelName = RequestedLevelName.IsNone()
+		? ResolveLevelNameForState(TargetFlowState)
+		: RequestedLevelName;
+
+	if (ShouldUseLoadingForState(TargetFlowState, TargetLevelName))
 	{
 		TravelToStateWithLoading(TargetFlowState);
 		return;
 	}
 
 	SetFlowState(TargetFlowState);
-	OpenLevelByName(ResolveLevelNameForState(TargetFlowState));
+	OpenLevelByName(TargetLevelName);
 }
 
 void UFTGameFlowSubsystem::TravelToStateWithLoading(EFTFlowStateType TargetFlowState)
@@ -491,8 +517,26 @@ EFTFlowStateType UFTGameFlowSubsystem::ResolveFlowStateForCurrentWorld() const
 	return CurrentFlowState;
 }
 
-bool UFTGameFlowSubsystem::ShouldUseLoadingForState(EFTFlowStateType State) const
+bool UFTGameFlowSubsystem::ShouldUseLoadingForState(EFTFlowStateType State, FName RequestedLevelName) const
 {
+	if (!RequestedLevelName.IsNone())
+	{
+		if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByLevelName(RequestedLevelName))
+		{
+			return Route->bUseLoadingLevel;
+		}
+
+		if (State == EFTFlowStateType::RaidEntering
+			|| State == EFTFlowStateType::RaidInProgress
+			|| State == EFTFlowStateType::Escaping)
+		{
+			UE_LOG(LogFTFlow, Warning, TEXT("No flow route found for requested raid level. Falling back to loading level. State=%d RequestedLevel=%s"),
+				static_cast<uint8>(State),
+				*RequestedLevelName.ToString());
+			return true;
+		}
+	}
+
 	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByState(State))
 	{
 		return Route->bUseLoadingLevel;
@@ -535,6 +579,7 @@ void UFTGameFlowSubsystem::RestoreMenuInputBeforeTravel(FName LevelName) const
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 		{
 			UIManager->HideMainMenu(/*bKeepMouseCursor=*/LevelName == ResolveLoadingLevelName());
+			UIManager->HidePauseMenu();
 		}
 	}
 }
@@ -582,6 +627,11 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 	case EFTFlowStateType::Failed:
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
+			if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
+			{
+				SaveSubsystem->ClearPlayerInventoryForRaidFailure();
+			}
+
 			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 			{
 				UIManager->ShowFailScreen();

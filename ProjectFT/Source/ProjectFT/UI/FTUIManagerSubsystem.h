@@ -14,6 +14,7 @@ class UFTQuestViewModel;
 class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
+class UFTPauseMenuWidget;
 class UFTCountdownEscapeWidget;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
@@ -89,6 +90,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|UI")
 	bool IsInventoryOpen() const;
 
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowPauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HidePauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void TogglePauseMenu();
+
+	UFUNCTION(BlueprintPure, Category = "FT|UI")
+	bool IsPauseMenuOpen() const;
+
 	
 	
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
@@ -132,6 +145,8 @@ public:
 
 private:
 	APlayerController* GetPrimaryPlayerController() const;
+	bool IsHubModalOpen() const;
+	void RefreshMainHUDVisibility() const;
 	void HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 
@@ -141,6 +156,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTMainMenuWidget> MainMenuWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTPauseMenuWidget> PauseMenuWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;
@@ -168,6 +186,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTRaidSelectViewModel> RaidSelectViewModel = nullptr;
+
+	bool bRaidSelectHidesMainHUD = false;
+	bool bHubMainHidesMainHUD = false;
 
 	TArray<FGameplayMessageListenerHandle> UIMessageListenerHandles;
 };
