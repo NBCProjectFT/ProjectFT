@@ -15,12 +15,16 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTOnCaptureEscaped);
 
 /**
  * 플레이어가 경비에게 "붙잡힌" 상태를 소유하는 컴포넌트(두-바디 상호작용).
- *  - BeginCapture: State.Captured/State.Debuff.Immobilized 부여 + 붙잡은 액터의 지점(CapturePoint)에 attach + 이동/충돌 정지
+ *  - BeginCapture: State.Captured/State.Debuff.Immobilized 부여 + 어빌리티가 지정한 지점/소켓에 attach + 이동/충돌 정지
  *  - 좌우 연타 탈출: 플레이어 입력 → Event.Struggle → 공용 게이지(FTStruggleGaugeStruct)가 채워지고, 가득 차면 OnEscaped 통지
  *  - EndCapture: 부착 해제 + 이동/충돌/태그 원복
  *
  * 탈출 게이지 '계산'은 공용 FTStruggleGaugeStruct에 위임한다(잡기·비눗방울 공용). 이 컴포넌트는 두-바디 상태와
  * 게이지 구동만 담당하고, 성공(스턴)/실패(피해)/수명은 붙잡은 어빌리티(UFTGA_Grab)가 관장한다.
+ *
+ * 소유자가 죽으면 게이지는 그 값에서 동결된다. GE 기반 탈출형(UFTGA_EscapableDebuff)은 소유자 ASC의 어빌리티라
+ * HandleDeath의 CancelAllAbilities로 저절로 멈추지만, 이 컴포넌트는 어빌리티가 아니고 잡기를 소유한 UFTGA_Grab도
+ * '경비' ASC에 있어 그 취소가 닿지 않는다 — 그래서 여기서만 사망을 직접 봐야 한다.
  */
 UCLASS(ClassGroup = (FT), meta = (BlueprintSpawnableComponent))
 class PROJECTFT_API UFTCaptureEscapeComponent : public UActorComponent
@@ -33,10 +37,11 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// 붙잡힘 시작. InCaptor=붙잡은 액터, InAttachPoint=추종할 부착 지점(경비 CapturePoint),
+	// 붙잡힘 시작. InCaptor=붙잡은 액터, InAttachPoint=추종할 부착 지점, InAttachSocketName=그 지점의 소켓(NAME_None이면 지점 자체),
 	// InEscapeThreshold=탈출에 필요한 총 struggle 양(= 경비의 붙잡는 힘), InDecayPerSecond=초당 되끌어내리는 힘(= AI의 탈출 저지력).
-	// 둘 다 붙잡은 어빌리티 UFTGA_Grab이 주입한다(공용 게이지에 그대로 전달). 이미 붙잡힌 상태면 무시.
-	bool TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint, float InEscapeThreshold = 1.0f, float InDecayPerSecond = 0.0f);
+	// 넷 다 붙잡은 어빌리티 UFTGA_Grab이 주입한다(수치는 공용 게이지에 그대로 전달). 이미 붙잡힌 상태면 무시.
+	// 부착 지점/소켓의 조합은 어빌리티가 정한다 — 여기서는 받은 대로 붙일 뿐 소켓 유효성을 다시 보지 않는다.
+	bool TryBeginCapture(AActor* InCaptor, USceneComponent* InAttachPoint, FName InAttachSocketName, float InEscapeThreshold = 1.0f, float InDecayPerSecond = 0.0f);
 
 	// 붙잡힘 해제(어빌리티가 성공/실패/취소 어느 경로로든 호출). 이동/충돌/부착/태그를 원복한다.
 	void EndCapture();
@@ -73,6 +78,9 @@ private:
 
 	// 게이지가 가득 찼으면 1회만 OnEscaped를 통지한다.
 	void TryComplete();
+
+	// 소유자가 사망(State.Dead)했는지. 죽은 뒤에는 게이지의 모든 변화(연타·자연증가·저지력)를 막아 값을 얼린다.
+	bool IsOwnerDead() const;
 
 	UAbilitySystemComponent* GetOwnerAbilitySystem() const;
 

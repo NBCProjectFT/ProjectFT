@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -9,12 +9,15 @@
 #include "FTGA_Grab.generated.h"
 
 class UGameplayEffect;
+class UAbilitySystemComponent;
+class USceneComponent;
 class UFTCaptureEscapeComponent;
 class AAIController;
 class AFTCaptureDestination;
+class AFTSecurityCharacter;
 
 /**
- * [경비 전용] 잡기 어빌리티. 사거리 안의 대상을 확정으로 붙잡아 경비 CapturePoint에 부착하고,
+ * [경비 전용] 잡기 어빌리티. 사거리 안의 대상을 확정으로 붙잡아 경비 몸(CaptureAttachSocketName 소켓)에 부착하고,
  * 가장 가까운 AFTCaptureDestination으로 이송한다.
  *  - 대상이 좌우 연타로 탈출 게이지를 다 채우면 → [성공] 대상 해방 + 자신(경비) 스턴
  *  - 목적지에 도달하면(도착 전 탈출 실패)      → [실패] 대상에게 데미지
@@ -37,6 +40,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float GrabRange = 200.0f;
 
+	// [붙잡는 자세] 대상을 붙일 경비 메시의 소켓(본 이름도 가능). 잡기 종류마다 다른 자세를 쓸 수 있게 어빌리티가 소유한다
+	// — 예) GA_Grab은 앞에 끌기 소켓, GA_GrabStrong은 어깨에 메기 소켓.
+	//
+	// 대상은 '루트(캡슐)'가 이 소켓에 스냅되므로 소켓 트랜스폼은 대상 캡슐 '중심'이 놓일 자리다(발밑 아님).
+	// 캐릭터 메시는 캡슐 기준으로 이미 -90° yaw / Z -88쯤 틀어져 있어 소켓도 그 회전을 물려받는다 —
+	// 대상이 90° 돌아가 보이면 소켓 회전을 스켈레톤 에디터에서 보정할 것(오프셋 튜닝 지점은 여기 하나뿐이다).
+	//
+	// 스켈레톤에 이 소켓이 없으면 경고 후 경비 CapturePoint(루트 기준)에 붙는다 — 소켓을 만들기 전까지는 종전 동작 그대로다.
+	// 비워두면(NAME_None) 경고 없이 같은 폴백.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
+	FName CaptureAttachSocketName = TEXT("Socket_Capture");
+
 	// [탈출 난이도 = 이 경비의 붙잡는 힘] 대상이 탈출하려면 채워야 하는 총 struggle 양.
 	// 대상의 좌우 전환당 힘(UFTCaptureEscapeComponent::StruggleGainPerFlip)으로 이만큼 쌓으면 탈출.
 	// 예) 임계값 17 vs 전환당 힘 1.0 → 약 17번 전환. 값이 클수록 탈출이 어렵다.
@@ -48,17 +63,23 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float EscapeDecayPerSecond = 2.0f;
 
+	// [붙잡힌 순간 1회] 붙잡히자마자 대상이 잃는 체력. 잡힌 것 자체의 고정 대가라 이후 탈출/이송 결과와 무관하게 한 번만 들어간다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
+	float InitialCaptureDamage = 1.0f;
+
+	// [붙잡힌 동안 지속] 대상이 초당 잃는 체력. 탈출 게이지의 힘싸움(자연증가 vs 저지력)과 같은 방식으로 매 틱 경과시간만큼
+	// 쪼개 넣어 부드럽게 깎는다 — 체력은 float이고 HUD 체력바가 보간되므로 소수점 누적이 그대로 자연스럽게 보인다. 0이면 지속 피해 없음.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
+	float CaptureDamagePerSecond = 0.1f;
+
+	// 지속 피해를 적용하는 간격(초). 이 간격마다 CaptureDamagePerSecond × 실제 경과시간을 적용하므로,
+	// 간격을 바꿔도 총 피해량은 같고 '부드러움'만 달라진다(탈출 게이지 UFTGA_EscapableDebuff::EscapeTickInterval과 같은 기본값).
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.01"))
+	float CaptureDamageTickInterval = 0.05f;
+
 	// 탈출 실패(목적지 도달) 시 대상에게 줄 피해량.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float FailDamage = 100.0f;
-
-	// 잡았을 때 대상에게 줄 피해량.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
-	float CaptureStartDamage = 20.0f;
-
-	// 잡고있는 중에 대상에게 초당 줄 피해량.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
-	float CaptureDamagePerSecond = 1.0f;
 
 	// 탈출 성공 시 자신(경비)에게 거는 스턴 지속시간(초).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
@@ -94,18 +115,28 @@ private:
 	// 성공(bEscaped=true)/실패(false) 공통 마무리. 최초 1회만 효과 적용 후 해방·종료.
 	void FinishGrab(bool bEscaped);
 	void BroadcastCaptureMessage(FGameplayTag Channel) const;
-	// 붙잡힌 대상에게 지정한 피해량을 적용한다.
-	void ApplyCaptureDamage(float DamageAmount);
-	// 붙잡혀 있는 동안 타이머로 반복 호출되어 초당 피해를 적용한다.
-	void ApplyCaptureTickDamage();
+
+	// 붙잡은 동안의 지속 피해 타이머 시작/1틱. CaptureDamagePerSecond가 0이면 아예 돌리지 않는다.
+	void StartCaptureDamageTick();
+	void TickCaptureDamage();
+
+	// 대상에게 DamageEffectClass를 SetByCaller(음수 크기)로 적용한다. 초기 1회·지속·실패 피해가 모두 이 경로를 쓴다.
+	void ApplyDamageToTarget(float DamageAmount);
+
+	// 대상을 붙일 지점을 정한다. CaptureAttachSocketName이 경비 스켈레톤에 있으면 (메시, 소켓명),
+	// 없거나 비어 있으면 (CapturePoint, NAME_None)을 돌려준다 — 어느 쪽이든 부착 지점은 non-null이다.
+	USceneComponent* ResolveCaptureAttachPoint(AFTSecurityCharacter* Security, FName& OutAttachSocketName) const;
 
 	AFTCaptureDestination* FindNearestCaptureDestination(const FVector& From) const;
 
 	TWeakObjectPtr<AActor> CapturedTarget;
 	TWeakObjectPtr<UFTCaptureEscapeComponent> TargetEscapeComp;
+	TWeakObjectPtr<UAbilitySystemComponent> TargetASC;
 	TWeakObjectPtr<AAIController> CachedAIController;
 	FTimerHandle FallbackTimerHandle;
 	FTimerHandle CaptureDamageTimerHandle;
+	// 지속 피해를 실제 경과시간으로 적용하기 위한 직전 틱의 월드 시간(타이머 간격이 밀려도 총량이 보존된다).
+	float LastCaptureDamageTickTime = 0.0f;
 	FDelegateHandle OwnerImmobilizedTagChangedHandle;
 	bool bResolved = false;
 	bool bBoundMoveCompleted = false;
