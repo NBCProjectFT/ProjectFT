@@ -85,6 +85,9 @@ public:
 	FVector HomeLocation = FVector::ZeroVector;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	FRotator HomeRotation = FRotator::ZeroRotator;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	FVector ReturnLocation = FVector::ZeroVector;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
