@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -52,6 +52,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float FailDamage = 100.0f;
 
+	// 잡았을 때 대상에게 줄 피해량.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
+	float CaptureStartDamage = 20.0f;
+
+	// 잡고있는 중에 대상에게 초당 줄 피해량.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
+	float CaptureDamagePerSecond = 1.0f;
+
 	// 탈출 성공 시 자신(경비)에게 거는 스턴 지속시간(초).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
 	float EscapeStunDuration = 3.0f;
@@ -86,6 +94,10 @@ private:
 	// 성공(bEscaped=true)/실패(false) 공통 마무리. 최초 1회만 효과 적용 후 해방·종료.
 	void FinishGrab(bool bEscaped);
 	void BroadcastCaptureMessage(FGameplayTag Channel) const;
+	// 붙잡힌 대상에게 지정한 피해량을 적용한다.
+	void ApplyCaptureDamage(float DamageAmount);
+	// 붙잡혀 있는 동안 타이머로 반복 호출되어 초당 피해를 적용한다.
+	void ApplyCaptureTickDamage();
 
 	AFTCaptureDestination* FindNearestCaptureDestination(const FVector& From) const;
 
@@ -93,6 +105,7 @@ private:
 	TWeakObjectPtr<UFTCaptureEscapeComponent> TargetEscapeComp;
 	TWeakObjectPtr<AAIController> CachedAIController;
 	FTimerHandle FallbackTimerHandle;
+	FTimerHandle CaptureDamageTimerHandle;
 	FDelegateHandle OwnerImmobilizedTagChangedHandle;
 	bool bResolved = false;
 	bool bBoundMoveCompleted = false;
