@@ -112,6 +112,18 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	CapturedTarget = Target;
 	TargetEscapeComp = EscapeComp;
 
+	ApplyCaptureDamage(CaptureStartDamage);
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			CaptureDamageTimerHandle,
+			this,
+			&ThisClass::ApplyCaptureTickDamage,
+			1.0f,
+			true
+		);
+	}
+
 	// 탈출 성공 통지 바인딩 후 붙잡기 시작.
 	EscapeComp->OnEscaped.AddDynamic(this, &UFTGA_Grab::OnTargetEscaped);
 	BroadcastCaptureMessage(TAG_FT_Event_SecurityTargetCaptured);
@@ -187,6 +199,34 @@ void UFTGA_Grab::OnOwnerImmobilizedTagChanged(const FGameplayTag Tag, int32 NewC
 	FinishGrab(/*bEscaped=*/true);
 }
 
+void UFTGA_Grab::ApplyCaptureDamage(float DamageAmount)
+{
+	if (!DamageEffectClass || !CapturedTarget.IsValid() || DamageAmount <= 0.0f)
+	{
+		return;
+	}
+
+	FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(
+		CurrentSpecHandle,
+		CurrentActorInfo,
+		CurrentActivationInfo,
+		DamageEffectClass
+	);
+	if (!DamageSpec.IsValid())
+	{
+		return;
+	}
+
+	DamageSpec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -DamageAmount);
+	const FGameplayAbilityTargetDataHandle TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(CapturedTarget.Get());
+	ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DamageSpec, TargetData);
+}
+
+void UFTGA_Grab::ApplyCaptureTickDamage()
+{
+	ApplyCaptureDamage(CaptureDamagePerSecond);
+}
+
 void UFTGA_Grab::FinishGrab(bool bEscaped)
 {
 	if (bResolved)
@@ -246,6 +286,7 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(FallbackTimerHandle);
+		World->GetTimerManager().ClearTimer(CaptureDamageTimerHandle);
 	}
 
 	if (OwnerImmobilizedTagChangedHandle.IsValid())
