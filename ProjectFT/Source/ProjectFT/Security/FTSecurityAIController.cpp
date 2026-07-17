@@ -86,6 +86,8 @@ void AFTSecurityAIController::OnPossess(APawn* InPawn)
 	{
 		HomeLocation = InPawn->GetActorLocation();
 		ReturnLocation = HomeLocation;
+		
+		HomeRotation = InPawn->GetActorRotation();
 	}
 
 	if (SecurityStateTreeAIComponent)
@@ -191,25 +193,9 @@ void AFTSecurityAIController::BeginPlay()
 	{
 		HomeLocation = ControlledPawn->GetActorLocation();
 		ReturnLocation = HomeLocation;
+		
+		HomeRotation = ControlledPawn->GetActorRotation();
 	}
-	
-	/*
-	const FVector StartLocation = ControllPawn->GetActorLocation();
-	const FVector TargetLocation = StartLocation + FVector(500.0f, 0.0f, 0.0f);
-	
-	MoveToLocation(TargetLocation);
-	UE_LOG(LogTemp, Warning, TEXT("Security AI: MoveToLocation Test Started"));
-	*/
-	
-	/*
-	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this,0);
-	if (!PlayerPawn)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Security AI: PlayerPawn is null"));
-		return;
-	}
-	MoveToActor(PlayerPawn);
-	*/
 	
 	if (SecurityPerceptionComponent)
 	{
@@ -935,6 +921,9 @@ void AFTSecurityAIController::CompleteReturn()
 
 	if (!bSpawnedFromSecurityRoom)
 	{
+		ControlledPawn->SetActorRotation(HomeRotation);
+		SetControlRotation(HomeRotation);
+
 		if (bLogSecurityEventDebug)
 		{
 			UE_LOG(LogFTSecurity, Log, TEXT("Security AI '%s' returned home"), *GetName());
