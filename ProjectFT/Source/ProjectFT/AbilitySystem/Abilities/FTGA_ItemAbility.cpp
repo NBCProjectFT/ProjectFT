@@ -18,6 +18,16 @@ UFTGA_ItemAbility::UFTGA_ItemAbility()
 	// (지속시간 = ActiveUseData.CooldownSeconds SetByCaller, 아이템별 태그 = DynamicGrantedTags, 차단 = 호출측 태그 판정.)
 	// 표준 경로를 쓰면 GE의 정적 부여 태그로만 차단해 모든 아이템이 한 쿨다운을 공유하므로 독립 쿨다운이 불가능하다.
 	CooldownEffectClass = UFTGE_Cooldown::StaticClass();
+
+	// 모든 아이템 사용 동작의 공통 식별(Asset) 태그. CancelAbilities는 AssetTags를 매칭하므로 이 태그가 없는 어빌리티는
+	// 어떤 취소 질의에도 잡히지 않는다 — 근접/히트스캔/런처가 자기 태그를 안 달아 취소 불가였던 원인이라 베이스에서 보장한다.
+	// 자식이 SetAssetTags로 더 구체적인 태그(.Channeled/.Aimed)를 달면 이 값을 '대체'하지만, 그 태그들도 이 태그의 자식이라
+	// 부모 질의(Ability.ItemUse)에는 그대로 매칭된다(HasAny는 보유 측 태그를 부모로 확장해 비교).
+	{
+		FGameplayTagContainer AssetTags;
+		AssetTags.AddTag(TAG_FT_Ability_ItemUse);
+		SetAssetTags(AssetTags);
+	}
 }
 
 const UFTItemDataAsset* UFTGA_ItemAbility::CacheActiveItem(const FGameplayEventData* TriggerEventData)
