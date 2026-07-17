@@ -17,6 +17,7 @@ class UFTInventoryWidget;
 class UFTLoadingWidget;
 class UFTMainHUDWidget;
 class UFTMainMenuWidget;
+class UFTPauseMenuWidget;
 class UFTQuestListWidget;
 class UMaterialInterface;
 class UUserWidget;
@@ -56,6 +57,7 @@ public:
 	TSubclassOf<UFTMainMenuWidget> GetMainMenuWidgetClass();
 	TSubclassOf<UFTMainHUDWidget> GetMainHUDWidgetClass();
 	TSubclassOf<UFTInventoryWidget> GetInventoryWidgetClass();
+	TSubclassOf<UFTPauseMenuWidget> GetPauseMenuWidgetClass();
 	TSubclassOf<UFTQuestListWidget> GetQuestListWidgetClass();
 	TSubclassOf<UFTHubStorageWidget> GetHubStorageWidgetClass();
 	TSubclassOf<UFTHubCraftWidget> GetHubCraftWidgetClass();

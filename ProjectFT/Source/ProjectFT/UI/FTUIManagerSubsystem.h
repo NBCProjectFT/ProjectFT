@@ -14,6 +14,7 @@ class UFTQuestViewModel;
 class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
+class UFTPauseMenuWidget;
 class UFTCountdownEscapeWidget;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
@@ -89,6 +90,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|UI")
 	bool IsInventoryOpen() const;
 
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowPauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HidePauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void TogglePauseMenu();
+
+	UFUNCTION(BlueprintPure, Category = "FT|UI")
+	bool IsPauseMenuOpen() const;
+
 	
 	
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
@@ -143,6 +156,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTMainMenuWidget> MainMenuWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTPauseMenuWidget> PauseMenuWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;

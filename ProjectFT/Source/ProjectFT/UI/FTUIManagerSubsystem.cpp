@@ -8,6 +8,7 @@
 #include "FTInventoryWidget.h"
 #include "FTMainHUDWidget.h"
 #include "FTMainMenuWidget.h"
+#include "FTPauseMenuWidget.h"
 #include "HubUI/FTHubCraftWidget.h"
 #include "HubUI/FTHubMainWidget.h"
 #include "HubUI/FTHubMarketPanelWidget.h"
@@ -35,6 +36,7 @@
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/Pawn.h"
+#include "Kismet/GameplayStatics.h"
 
 namespace
 {
@@ -233,6 +235,7 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 
 	HideCountdownEscape();
 	EscapedRaidWidget->AddToViewport(40);
+	UGameplayStatics::SetGamePaused(this, true);
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(EscapedRaidWidget->TakeWidget());
@@ -247,9 +250,16 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 
 void UFTUIManagerSubsystem::HideEscapedRaid()
 {
+	const bool bWasEscapedRaidOpen = EscapedRaidWidget && EscapedRaidWidget->IsInViewport();
+
 	if (EscapedRaidWidget)
 	{
 		EscapedRaidWidget->RemoveFromParent();
+	}
+
+	if (bWasEscapedRaidOpen)
+	{
+		UGameplayStatics::SetGamePaused(this, false);
 	}
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
@@ -360,6 +370,90 @@ void UFTUIManagerSubsystem::ToggleInventory()
 bool UFTUIManagerSubsystem::IsInventoryOpen() const
 {
 	return InventoryWidget && InventoryWidget->IsInViewport();
+}
+
+void UFTUIManagerSubsystem::ShowPauseMenu()
+{
+	if (IsPauseMenuOpen())
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Pause menu widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	if (!PauseMenuWidget)
+	{
+		TSubclassOf<UFTPauseMenuWidget> PauseMenuWidgetClass = UFTAssetManager::Get().GetPauseMenuWidgetClass();
+		if (!PauseMenuWidgetClass)
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Pause menu widget class is not set in UI data."));
+			return;
+		}
+
+		PauseMenuWidget = CreateWidget<UFTPauseMenuWidget>(PlayerController, PauseMenuWidgetClass);
+		if (!PauseMenuWidget)
+		{
+			return;
+		}
+	}
+
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
+
+	PauseMenuWidget->AddToViewport(100);
+	UGameplayStatics::SetGamePaused(this, true);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(PauseMenuWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+	PauseMenuWidget->SetKeyboardFocus();
+}
+
+void UFTUIManagerSubsystem::HidePauseMenu()
+{
+	if (PauseMenuWidget)
+	{
+		PauseMenuWidget->RemoveFromParent();
+	}
+
+	UGameplayStatics::SetGamePaused(this, false);
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
+}
+
+void UFTUIManagerSubsystem::TogglePauseMenu()
+{
+	if (IsPauseMenuOpen())
+	{
+		HidePauseMenu();
+	}
+	else
+	{
+		ShowPauseMenu();
+	}
+}
+
+bool UFTUIManagerSubsystem::IsPauseMenuOpen() const
+{
+	return PauseMenuWidget && PauseMenuWidget->IsInViewport();
 }
 
 

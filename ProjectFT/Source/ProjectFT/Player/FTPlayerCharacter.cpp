@@ -292,55 +292,7 @@ void AFTPlayerCharacter::HandleUseItemPressed()
 		return;
 	}
 
-	if (!AbilitySystemComponent)
-	{
-		return;
-	}
-
-	UFTItemDataAsset* Item = CurrentHeldInventoryItem.ItemDataAsset.Get();
-	if (!Item || !Item->ItemData.UseData.UseAbility)
-	{
-		return;
-	}
-
-	UFTInventoryComponent* Inventory = GetInventoryComponent();
-	if (!Inventory || CurrentHeldInventoryItem.ItemId.IsNone()
-		|| Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
-	{
-		SetCurrentHeldInventoryItem(FFTInventoryItem());
-		return;
-	}
-
-	if (!EnsureUseAbilityGranted(Item->ItemData.UseData.UseAbility))
-	{
-		return;
-	}
-
-	// 발동할 어빌리티가 선언한 트리거 태그를 그 CDO에서 읽어, 그 태그로만 이벤트를 보낸다.
-	// (아이템마다 다른 use-GA를 '정확히 그것만' 발동시키기 위함 — 공용 단일 태그면 같은 태그의 여러 어빌리티가 함께 발동됨.)
-	const UFTGameplayAbility* AbilityCDO = Item->ItemData.UseData.UseAbility.GetDefaultObject();
-	const FGameplayTag EventTag = AbilityCDO ? AbilityCDO->GetTriggerEventTag() : FGameplayTag();
-	if (!EventTag.IsValid())
-	{
-		return;
-	}
-	
-	// 아이템별 쿨다운 차단: 쿨다운을 가진 아이템이면, 그 쿨다운 태그가 아직 붙어 있는 동안 발동하지 않는다.
-	// (표준 CheckCooldown은 GameplayEvent 발동 시 어떤 아이템인지 알 수 없어, 호출측인 여기서 태그로 판정한다.)
-	const FTItemUseStruct& UseData = Item->ItemData.UseData;
-	if (UseData.CooldownSeconds > 0.0f
-		&& AbilitySystemComponent->HasMatchingGameplayTag(UFTGA_ItemAbility::ResolveCooldownTag(UseData)))
-	{
-		return;
-	}
-
-	// 효과/시전/쿨다운/수치는 아이템 데이터(UseData)에 있고, 어빌리티가 페이로드에서 읽어 처리한다.
-	FGameplayEventData Payload;
-	Payload.EventTag = EventTag;
-	Payload.Instigator = this;
-	Payload.Target = this;
-	Payload.OptionalObject = Item;
-	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
+	UseInventoryItem(CurrentHeldInventoryItem);
 }
 
 void AFTPlayerCharacter::HandleUseItemReleased()
@@ -384,7 +336,7 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	}
 
 	// 퀵슬롯 입력이 오면 진행 중인 아이템 동작을 종류 불문 취소한다(부모 Ability.ItemUse = .Channeled/.Aimed 모두 매칭).
-	// 슬롯을 바꾸면 조준 중이던 투척도 던지지 않고 취소된다.
+	// 슬롯을 바꾸든 같은 슬롯을 다시 눌러 집어넣든, 조준 중이던 투척은 던지지 않고 취소된다.
 	CancelItemUseAbilities(TAG_FT_Ability_ItemUse);
 
 	UFTInventoryComponent* Inventory = GetInventoryComponent();
@@ -410,6 +362,23 @@ void AFTPlayerCharacter::HandleSelectQuickSlot(int32 SlotIndex)
 	FFTInventoryItem QuickSlotItem;
 	if (Inventory->GetQuickSlotItem(SlotIndex, QuickSlotItem) && QuickSlotItem.Quantity > 0 && QuickSlotItem.ItemDataAsset)
 	{
+		// 소모성 아이템(회복약 등)인 경우 장착하지 않고 즉시 사용
+		UFTItemDataAsset* Item = QuickSlotItem.ItemDataAsset.Get();
+		if (Item && Item->ItemData.CategoryType == EFTItemCategoryType::Healing)
+		{
+			UseInventoryItem(QuickSlotItem);
+			return;
+		}
+
+		// 현재 선택 중인 퀵슬롯을 다시 입력하면 선택 해제(아이템 집어넣기)
+		if (CurrentHeldInventoryItem.ItemId == QuickSlotItem.ItemId)
+		{
+			SetCurrentHeldInventoryItem(FFTInventoryItem());
+			UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d unequipped '%s' on '%s'."),
+				SlotIndex, *QuickSlotItem.ItemId.ToString(), *GetName());
+			return;
+		}
+
 		SetCurrentHeldInventoryItem(QuickSlotItem);
 		EnsureUseAbilityGranted(CurrentHeldInventoryItem.ItemDataAsset->ItemData.UseData.UseAbility);
 		UE_LOG(LogFTPlayer, Verbose, TEXT("QuickSlot %d equipped '%s' on '%s'."),
@@ -780,6 +749,50 @@ void AFTPlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHei
 	ApplyCrouchCameraCompensation(-HalfHeightAdjust);
 }
 
+bool AFTPlayerCharacter::CanJumpInternal_Implementation() const
+{
+	if (!Super::CanJumpInternal_Implementation())
+	{
+		return false;
+	}
+
+	// 이미 점프 중(JumpMaxHoldTime 동안 가변 높이를 유지하는 구간)이면 비용은 이륙 때 이미 냈다.
+	// 여기서 다시 검사하면 방금 깎인 스태미나 때문에 상승이 중간에 끊기므로 통과시킨다.
+	if (bWasJumping)
+	{
+		return true;
+	}
+
+	return HasEnoughStaminaForJump();
+}
+
+void AFTPlayerCharacter::OnJumped_Implementation()
+{
+	Super::OnJumped_Implementation();
+
+	// 점프가 성립한 뒤에만 여기 도달하므로(CanJump 통과 + DoJump 성공), 헛도는 입력엔 스태미나가 나가지 않는다.
+	if (JumpStaminaCost > 0.0f && AbilitySystemComponent)
+	{
+		AbilitySystemComponent->ApplyModToAttribute(UFTPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -JumpStaminaCost);
+		TimeSinceStaminaUse = 0.0f;
+	}
+}
+
+bool AFTPlayerCharacter::HasEnoughStaminaForJump() const
+{
+	if (JumpStaminaCost <= 0.0f)
+	{
+		return true;
+	}
+
+	if (!PlayerAttributeSet)
+	{
+		return true;
+	}
+
+	return PlayerAttributeSet->GetStamina() >= JumpStaminaCost;
+}
+
 void AFTPlayerCharacter::ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ)
 {
 	// 엔진이 base 고정 시(주로 지상)에만 캡슐 중심을 옮기므로, 그 경우에만 반대로 보정한다.
@@ -811,4 +824,59 @@ bool AFTPlayerCharacter::TryStartTraversal()
 	}
 
 	return TraversalComponent->TryTraversal();
+}
+
+void AFTPlayerCharacter::UseInventoryItem(const FFTInventoryItem& InventoryItem)
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	UFTItemDataAsset* Item = InventoryItem.ItemDataAsset.Get();
+	if (!Item || !Item->ItemData.UseData.UseAbility)
+	{
+		return;
+	}
+
+	UFTInventoryComponent* Inventory = GetInventoryComponent();
+	if (!Inventory || InventoryItem.ItemId.IsNone()
+		|| Inventory->GetItemQuantity(InventoryItem.ItemId) <= 0)
+	{
+		// 사용하려던 아이템이 손에 쥐고 있던 템인데 다 소진되었다면 장착 해제
+		if (InventoryItem.ItemId == CurrentHeldInventoryItem.ItemId)
+		{
+			SetCurrentHeldInventoryItem(FFTInventoryItem());
+		}
+		return;
+	}
+
+	if (!EnsureUseAbilityGranted(Item->ItemData.UseData.UseAbility))
+	{
+		return;
+	}
+
+	// 발동할 어빌리티가 선언한 트리거 태그를 그 CDO에서 읽어, 그 태그로만 이벤트를 보낸다.
+	const UFTGameplayAbility* AbilityCDO = Item->ItemData.UseData.UseAbility.GetDefaultObject();
+	const FGameplayTag EventTag = AbilityCDO ? AbilityCDO->GetTriggerEventTag() : FGameplayTag();
+	if (!EventTag.IsValid())
+	{
+		return;
+	}
+	
+	// 아이템별 쿨다운 차단
+	const FTItemUseStruct& UseData = Item->ItemData.UseData;
+	if (UseData.CooldownSeconds > 0.0f
+		&& AbilitySystemComponent->HasMatchingGameplayTag(UFTGA_ItemAbility::ResolveCooldownTag(UseData)))
+	{
+		return;
+	}
+
+	// 효과/시전/쿨다운/수치는 아이템 데이터(UseData)에 있고, 어빌리티가 페이로드에서 읽어 처리한다.
+	FGameplayEventData Payload;
+	Payload.EventTag = EventTag;
+	Payload.Instigator = this;
+	Payload.Target = this;
+	Payload.OptionalObject = Item;
+	AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
 }

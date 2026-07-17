@@ -31,6 +31,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Save")
 	void RestoreCurrentWorldState();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	void RestoreQuestState();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	void ClearPlayerInventoryForRaidFailure();
+
 	UFUNCTION(BlueprintPure, Category = "FT|Save")
 	bool HasSaveData() const { return bHasSaveData; }
 
@@ -43,6 +49,7 @@ public:
 private:
 	UFTInventoryComponent* FindPlayerInventory() const;
 	UFTInventoryComponent* FindStorageInventory() const;
+	class UFTObjectiveSubsystem* FindObjectiveSubsystem() const;
 	void RestorePlayerInventory();
 	void RestoreStorageInventory();
 
