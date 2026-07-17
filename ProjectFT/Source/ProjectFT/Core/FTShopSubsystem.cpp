@@ -12,6 +12,7 @@
 #include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
 #include "ProjectFT/Data/FTShopDataAsset.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
+#include "ProjectFT/Item/FTItemFunctionLibrary.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
@@ -188,7 +189,7 @@ bool UFTShopSubsystem::CanSellItemToShop(FName ItemID, int32 Count, UFTInventory
 {
 	EnsureShopDataLoaded();
 
-	if (ItemID.IsNone() || ItemID == CurrencyItemID || Count <= 0 || !PlayerInventory)
+	if (!IsItemSellableToShop(ItemID) || Count <= 0 || !PlayerInventory)
 	{
 		return false;
 	}
@@ -199,9 +200,25 @@ bool UFTShopSubsystem::CanSellItemToShop(FName ItemID, int32 Count, UFTInventory
 int32 UFTShopSubsystem::GetShopSellPrice(FName ItemID) const
 {
 	EnsureShopDataLoaded();
+	if (ItemID.IsNone() || ItemID == CurrencyItemID || SellExcludedItemIDs.Contains(ItemID))
+	{
+		return 0;
+	}
 
-	const FTShopItemStruct* ShopItem = FindCurrentShopItem(ItemID);
-	return ShopItem ? FMath::Max(1, ShopItem->Price / 2) : 50;
+	if (const FTShopItemStruct* ShopItem = FindCurrentShopItem(ItemID))
+	{
+		return FMath::Max(1, ShopItem->Price / 2);
+	}
+
+	const UFTItemDataAsset* ItemDataAsset = UFTItemFunctionLibrary::FindItemData(this, ItemID);
+	return ItemDataAsset
+		? FMath::Max(1, ItemDataAsset->ItemData.Cost / 2)
+		: 0;
+}
+
+bool UFTShopSubsystem::IsItemSellableToShop(FName ItemID) const
+{
+	return GetShopSellPrice(ItemID) > 0;
 }
 
 bool UFTShopSubsystem::BuyMarketItem(FName PostID, UFTInventoryComponent* PlayerInventory)
@@ -418,6 +435,7 @@ void UFTShopSubsystem::LoadShopData()
 	MarketSellPosts.Reset();
 	ConsumedMarketPostIDs.Reset();
 	UnlockedShopItemIDs.Reset();
+	SellExcludedItemIDs.Reset();
 	PostPrefixes.Reset();
 	BuyRequestReasons.Reset();
 	SellOfferReasons.Reset();
@@ -447,10 +465,26 @@ void UFTShopSubsystem::LoadShopData()
 		PostEndings = LoadedShopData->PostEndings;
 		RandomSlotCount = LoadedShopData->RandomSlotCount;
 		CurrencyItemID = LoadedShopData->CurrencyItemID;
+
+		for (const TSoftObjectPtr<UFTItemDataAsset>& ExcludedItemRef : LoadedShopData->SellExcludedItems)
+		{
+			if (const UFTItemDataAsset* ExcludedItem = ExcludedItemRef.LoadSynchronous())
+			{
+				if (!ExcludedItem->ItemData.ItemId.IsNone())
+				{
+					SellExcludedItemIDs.Add(ExcludedItem->ItemData.ItemId);
+				}
+			}
+		}
 	}
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Hub shop data asset is not set. Building fallback shop pool from item data assets."));
+	}
+
+	if (!CurrencyItemID.IsNone())
+	{
+		SellExcludedItemIDs.Add(CurrencyItemID);
 	}
 
 	if (RandomItemPool.IsEmpty())

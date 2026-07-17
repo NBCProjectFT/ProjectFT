@@ -38,6 +38,7 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 	/** @brief 플레이어 인벤토리 목록을 표시하는 TileView. */
 	UPROPERTY(meta = (BindWidgetOptional))
