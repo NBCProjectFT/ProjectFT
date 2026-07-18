@@ -46,19 +46,27 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Report")
 	bool bHasReported = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Report")
+	bool bReportRequested = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Report")
 	bool bReportOnlyOnce = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Debug")
 	bool bLogCashierDebug = false;
 
+	/** StateTree Report 상태에서 호출해 대기 중인 신고 메시지를 발행한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Cashier|Report")
+	bool BroadcastRequestedReport();
+
 private:
 	FGameplayMessageListenerHandle CharacterAttackedListenerHandle;
+	FVector PendingReportLocation = FVector::ZeroVector;
 
 	void OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload);
 	void UpdateTargetState();
 	void TryReportObservedStealing();
-	void BroadcastInstantReport(AActor* SuspectActor, const FVector& ReportLocation);
+	void RequestInstantReport(AActor* SuspectActor, const FVector& ReportLocation);
 	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool IsTargetStealing(const AActor* Actor) const;

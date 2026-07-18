@@ -83,7 +83,7 @@ void AFTCashierAIController::OnCharacterAttacked(FGameplayTag Channel, const FFT
 
 	if (Payload.TargetActor == GetPawn())
 	{
-		BroadcastInstantReport(SuspectActor, SuspectActor->GetActorLocation());
+		RequestInstantReport(SuspectActor, SuspectActor->GetActorLocation());
 		return;
 	}
 
@@ -95,7 +95,7 @@ void AFTCashierAIController::OnCharacterAttacked(FGameplayTag Channel, const FFT
 	const FVector ReportLocation = Payload.TargetActor
 		? Payload.TargetActor->GetActorLocation()
 		: SuspectActor->GetActorLocation();
-	BroadcastInstantReport(SuspectActor, ReportLocation);
+	RequestInstantReport(SuspectActor, ReportLocation);
 }
 
 void AFTCashierAIController::UpdateTargetState()
@@ -110,31 +110,58 @@ void AFTCashierAIController::TryReportObservedStealing()
 		return;
 	}
 
-	BroadcastInstantReport(TargetActor, TargetActor->GetActorLocation());
+	RequestInstantReport(TargetActor, TargetActor->GetActorLocation());
 }
 
-void AFTCashierAIController::BroadcastInstantReport(AActor* SuspectActor, const FVector& ReportLocation)
+void AFTCashierAIController::RequestInstantReport(AActor* SuspectActor, const FVector& ReportLocation)
 {
-	if (!SuspectActor || (bReportOnlyOnce && bHasReported))
+	if (!SuspectActor || bReportRequested || (bReportOnlyOnce && bHasReported))
 	{
 		return;
 	}
 
-	bHasReported = true;
-
-	UFTReportMessageLibrary::BroadcastNPCReportCompleted(this, GetPawn(), SuspectActor, ReportLocation, 100.0f);
+	TargetActor = SuspectActor;
+	PendingReportLocation = ReportLocation;
+	bReportRequested = true;
 
 	if (bLogCashierDebug)
 	{
 		UE_LOG(
 			LogFTNPC,
 			Log,
-			TEXT("[Cashier] Instant report: Cashier=%s Target=%s Location=%s"),
+			TEXT("[Cashier] Report requested: Cashier=%s Target=%s Location=%s"),
 			*GetNameSafe(GetPawn()),
 			*GetNameSafe(SuspectActor),
 			*ReportLocation.ToString()
 		);
 	}
+}
+
+bool AFTCashierAIController::BroadcastRequestedReport()
+{
+	if (!bReportRequested || !TargetActor || (bReportOnlyOnce && bHasReported))
+	{
+		return false;
+	}
+
+	bReportRequested = false;
+	bHasReported = true;
+
+	UFTReportMessageLibrary::BroadcastNPCReportCompleted(this, GetPawn(), TargetActor, PendingReportLocation, 100.0f);
+
+	if (bLogCashierDebug)
+	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[Cashier] Instant report broadcast: Cashier=%s Target=%s Location=%s"),
+			*GetNameSafe(GetPawn()),
+			*GetNameSafe(TargetActor),
+			*PendingReportLocation.ToString()
+		);
+	}
+
+	return true;
 }
 
 AActor* AFTCashierAIController::ResolvePlayerActor(AActor* DamageCauser) const
