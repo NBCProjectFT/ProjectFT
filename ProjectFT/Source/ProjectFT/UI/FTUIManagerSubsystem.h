@@ -4,6 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "ProjectFT/Enum/FTRaidResultType.h"
 #include "FTUIManagerSubsystem.generated.h"
 
 struct FFTMessagePayloadStruct;
@@ -73,6 +74,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ShowEscapedRaid();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowFailedRaid();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowRaidResult(EFTRaidResultType ResultType);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideEscapedRaid();
