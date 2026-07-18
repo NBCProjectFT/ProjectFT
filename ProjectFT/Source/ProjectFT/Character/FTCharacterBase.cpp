@@ -158,6 +158,19 @@ void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, in
 	// 콜백의 NewCount(우산 태그 카운트)가 0보다 크면 여전히 봉쇄 — 전부 사라져야(0) 복원된다.
 	const bool bImmobilized = NewCount > 0;
 
+	// 공통 반응: 행동불능이 되면 '진행 중이던' 아이템 동작도 끊는다. UFTGameplayAbility의 ActivationBlockedTags는
+	// 새 발동만 막을 뿐 이미 도는 어빌리티엔 닿지 않아서, 행동불능 직전에 시작한 공격 몽타주가 계속 돌며 적중했다
+	// (예: 잡히기 직전 휘두른 무기가 잡은 경비를 때려 그 자리에서 풀려나는 문제).
+	// 취소 기준은 Ability.ItemUse 에셋 태그 — 행동불능 '중에' 돌아야 하는 탈출/트랩 어빌리티(UFTGA_EscapableDebuff,
+	// UFTGA_BubbleStackTrap)는 아이템 동작이 아니라 여기 걸리지 않는다. 이동 정지보다 먼저 취소해야 어빌리티 종료가
+	// 이동 모드를 되돌려놓아도 아래 봉쇄가 마지막 말이 된다.
+	if (bImmobilized && AbilitySystemComponent)
+	{
+		FGameplayTagContainer CancelTags;
+		CancelTags.AddTag(TAG_FT_Ability_ItemUse);
+		AbilitySystemComponent->CancelAbilities(&CancelTags);
+	}
+
 	// 공통 반응: 행동불능 시작 시 현재 이동 모드를 저장하고 즉시 정지+이동 비활성, 해제 시 저장한 이동 모드로 복원.
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
