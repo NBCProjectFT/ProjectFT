@@ -11,6 +11,11 @@ class UAIPerceptionComponent;
 class UStateTreeAIComponent;
 class UAISenseConfig_Sight;
 class UFTSecurityCallComponent;
+class UFTSecurityCaptureStateComponent;
+class UFTSecurityPursuitStateComponent;
+class UFTSecurityResponseComponent;
+class UFTSecurityReturnComponent;
+class UFTSecurityTargetComponent;
 class AActor;
 struct FFTNPCReportPayloadStruct;
 struct FFTMessagePayloadStruct;
@@ -21,6 +26,10 @@ UCLASS()
 class PROJECTFT_API AFTSecurityAIController : public AFTAIControllerBase
 {
 	GENERATED_BODY()
+	friend class UFTSecurityResponseComponent;
+	friend class UFTSecurityReturnComponent;
+	friend class UFTSecurityCaptureStateComponent;
+	friend class UFTSecurityPursuitStateComponent;
 
 public:
 	AFTSecurityAIController();
@@ -44,6 +53,21 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Call")
 	TObjectPtr<UFTSecurityCallComponent> SecurityCallComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Target")
+	TObjectPtr<UFTSecurityTargetComponent> SecurityTargetComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Response")
+	TObjectPtr<UFTSecurityResponseComponent> SecurityResponseComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Return")
+	TObjectPtr<UFTSecurityReturnComponent> SecurityReturnComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	TObjectPtr<UFTSecurityCaptureStateComponent> SecurityCaptureStateComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Pursuit")
+	TObjectPtr<UFTSecurityPursuitStateComponent> SecurityPursuitStateComponent;
 	
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
@@ -193,13 +217,9 @@ private:
 	void UpdateAbilityState();
 	void UpdateChaseGaugeTargetSeenState();
 	void UpdateSecurityCallGauge(float DeltaTime);
-	void UpdateReturnCollision();
-	void CompleteReturn();
-	bool bReportedTargetSeenToChaseGauge = false;
 	bool bReturnFailureLogged = false;
 	bool bReturnCollisionIgnored = false;
 	bool bCanRequestSecuritySupport = false;
-	float LastTargetVisibleTime = -BIG_NUMBER;
 
 	UPROPERTY()
 	TObjectPtr<AActor> SecurityRoomActor;
