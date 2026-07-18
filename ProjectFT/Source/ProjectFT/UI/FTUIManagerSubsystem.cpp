@@ -205,15 +205,26 @@ void UFTUIManagerSubsystem::SetCountdownEscapeRemainingTime(float RemainingTime)
 
 void UFTUIManagerSubsystem::ShowEscapedRaid()
 {
+	ShowRaidResult(EFTRaidResultType::Escaped);
+}
+
+void UFTUIManagerSubsystem::ShowFailedRaid()
+{
+	ShowRaidResult(EFTRaidResultType::Failed);
+}
+
+void UFTUIManagerSubsystem::ShowRaidResult(EFTRaidResultType ResultType)
+{
 	if (EscapedRaidWidget && EscapedRaidWidget->IsInViewport())
 	{
+		EscapedRaidWidget->SetRaidResult(ResultType);
 		return;
 	}
 
 	APlayerController* PlayerController = GetPrimaryPlayerController();
 	if (!PlayerController)
 	{
-		UE_LOG(LogFTUI, Warning, TEXT("Escaped raid widget was not created because PlayerController is missing."));
+		UE_LOG(LogFTUI, Warning, TEXT("Raid result widget was not created because PlayerController is missing."));
 		return;
 	}
 
@@ -222,7 +233,7 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 		TSubclassOf<UFTEscapedRaidWidget> EscapedRaidWidgetClass = UFTAssetManager::Get().GetEscapedRaidWidgetClass();
 		if (!EscapedRaidWidgetClass)
 		{
-			UE_LOG(LogFTUI, Warning, TEXT("Escaped raid widget class is not set in UI data."));
+			UE_LOG(LogFTUI, Warning, TEXT("Raid result widget class is not set in UI data. Set EscapedRaidWidgetClass to the shared raid result widget."));
 			return;
 		}
 
@@ -234,6 +245,11 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 	}
 
 	HideCountdownEscape();
+	if (FailWidget)
+	{
+		FailWidget->RemoveFromParent();
+	}
+	EscapedRaidWidget->SetRaidResult(ResultType);
 	EscapedRaidWidget->AddToViewport(40);
 	UGameplayStatics::SetGamePaused(this, true);
 
@@ -243,7 +259,8 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
 
-	UE_LOG(LogFTUI, Log, TEXT("Escaped raid widget shown. Widget=%s Class=%s"),
+	UE_LOG(LogFTUI, Log, TEXT("Raid result widget shown. Result=%d Widget=%s Class=%s"),
+		static_cast<int32>(ResultType),
 		*GetNameSafe(EscapedRaidWidget),
 		*GetNameSafe(EscapedRaidWidget->GetClass()));
 }
@@ -838,47 +855,7 @@ bool UFTUIManagerSubsystem::IsHubMainOpen() const
 
 void UFTUIManagerSubsystem::ShowFailScreen()
 {
-	if (FailWidget && FailWidget->IsInViewport())
-	{
-		return;
-	}
-
-	APlayerController* PlayerController = GetPrimaryPlayerController();
-	if (!PlayerController)
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Fail widget was not created because PlayerController is missing."));
-		return;
-	}
-
-	if (!FailWidget)
-	{
-		TSubclassOf<UFTFailWidget> FailWidgetClass = UFTAssetManager::Get().GetFailWidgetClass();
-		if (!FailWidgetClass)
-		{
-			UE_LOG(LogFTUI, Warning, TEXT("Fail widget class is not set in active game data. Set DA_FTGameData.FailWidgetClass to WBP_FailWidget."));
-			return;
-		}
-
-		FailWidget = CreateWidget<UFTFailWidget>(PlayerController, FailWidgetClass);
-		if (!FailWidget)
-		{
-			return;
-		}
-	}
-
-	HideCountdownEscape();
-	HideEscapedRaid();
-	FailWidget->AddToViewport(40);
-
-	FInputModeUIOnly InputMode;
-	InputMode.SetWidgetToFocus(FailWidget->TakeWidget());
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	PlayerController->SetInputMode(InputMode);
-	PlayerController->bShowMouseCursor = true;
-
-	UE_LOG(LogFTUI, Log, TEXT("Fail widget shown. Widget=%s Class=%s"),
-		*GetNameSafe(FailWidget),
-		*GetNameSafe(FailWidget->GetClass()));
+	ShowFailedRaid();
 }
 
 void UFTUIManagerSubsystem::HideFailScreen()
@@ -888,16 +865,7 @@ void UFTUIManagerSubsystem::HideFailScreen()
 		FailWidget->RemoveFromParent();
 	}
 
-	if (APlayerController* PlayerController = GetPrimaryPlayerController())
-	{
-		if (FSlateApplication::IsInitialized())
-		{
-			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
-		}
-
-		PlayerController->SetInputMode(FInputModeGameOnly());
-		PlayerController->bShowMouseCursor = false;
-	}
+	HideEscapedRaid();
 }
 
 void UFTUIManagerSubsystem::ShowSettlementScreen()

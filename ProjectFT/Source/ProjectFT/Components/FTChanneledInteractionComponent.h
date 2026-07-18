@@ -12,7 +12,7 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FFTOnChannelStateChanged, bool, bIsChanneling);
 // 게이지가 가득 차 작업이 완료됨. 대상(소유 액터)이 바인딩해 완료 효과를 처리한다.
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTOnChannelCompleted);
-// 스킬체크 시작. 커서는 0에서 시작해 SweepSeconds 동안 1까지 증가한다.
+// 스킬체크 시작. 커서는 0..1 사이를 왕복하며 제한 시간 동안 입력을 기다린다.
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTOnSkillCheckStarted);
 // 스킬체크 종료(결과 포함).
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FFTOnSkillCheckEnded, EFTSkillCheckResultType, Result);
@@ -58,6 +58,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckTarget() const { return SkillCheckTarget; }
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckSuccessHalfWidth() const { return SkillCheckSuccessHalfWidth; }
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckGreatHalfWidth() const { return SkillCheckGreatHalfWidth; }
+	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckRemainingSeconds() const { return SkillCheckRemainingSeconds; }
+	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetLastSkillCheckProgressBonus() const { return LastSkillCheckProgressBonus; }
+	UFUNCTION(BlueprintPure, Category = "FT|Interaction") int32 GetSkillCheckRewardSerial() const { return SkillCheckRewardSerial; }
 
 	//~ 이벤트(델리게이트)
 	UPROPERTY(BlueprintAssignable, Category = "FT|Interaction") FFTOnChannelStateChanged OnChannelStateChanged;
@@ -82,9 +85,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0"))
 	float SkillCheckIntervalMax = 6.0f;
 
-	// 커서가 0→1까지 이동하는 시간(초).
+	// 커서가 0→1까지 이동하는 시간(초). 왕복 모드에서는 한쪽 끝까지 이동하는 시간으로 사용한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.05"))
 	float SkillCheckSweepSeconds = 1.0f;
+
+	// 스킬체크가 입력을 기다리는 최대 시간. 0 이하이면 시간 제한 없이 입력 전까지 왕복한다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0"))
+	float SkillCheckDurationSeconds = 2.5f;
 
 	// 성공(Good) 판정 반폭. 성공존 = [타깃-반폭, 타깃+반폭]. 0.06이면 폭 0.12(약 ±60ms@1s).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0", ClampMax = "0.5"))
@@ -101,9 +108,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float SkillCheckTargetMax = 0.9f;
 
-	// Miss 시 잃는 진행도.
+	// Good 시 얻는 보너스 진행도.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float MissProgressPenalty = 0.1f;
+	float GoodProgressBonus = 0.07f;
+
+	// Miss 시 잃는 진행도. 기본값 0: 타이밍 실패는 보상만 없고 진행도 패널티는 없다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float MissProgressPenalty = 0.0f;
 
 	// Great 시 얻는 보너스 진행도.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Interaction|SkillCheck", meta = (ClampMin = "0.0", ClampMax = "1.0"))
@@ -139,7 +150,11 @@ private:
 
 	// 스킬체크 상태.
 	bool bSkillCheckActive = false;
-	float SkillCheckCursor = 0.0f;   // 0→1로 증가
+	float SkillCheckCursor = 0.0f;   // 0..1 사이를 왕복
+	float SkillCheckCursorDirection = 1.0f;
 	float SkillCheckTarget = 0.0f;   // 성공존 중심
+	float SkillCheckRemainingSeconds = 0.0f;
 	float TimeUntilNextSkillCheck = 0.0f;
+	float LastSkillCheckProgressBonus = 0.0f;
+	int32 SkillCheckRewardSerial = 0;
 };

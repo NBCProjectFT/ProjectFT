@@ -21,6 +21,7 @@
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Security/FTCaptureDestination.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 
 UFTGA_Grab::UFTGA_Grab()
@@ -319,8 +320,13 @@ void UFTGA_Grab::FinishGrab(bool bEscaped)
 	}
 	else
 	{
-		// 실패 → 대상에게 데미지.
+		// 실패 → 대상에게 데미지 + 레이드 실패 요청. 체력이 남아도 목적지 도착은 실패 조건이다.
 		ApplyDamageToTarget(FailDamage);
+
+		FFTMessagePayloadStruct Payload;
+		Payload.InstigatorActor = GetAvatarActorFromActorInfo();
+		Payload.TargetActor = CapturedTarget.Get();
+		UGameplayMessageSubsystem::Get(this).BroadcastMessage(TAG_FT_Request_Flow_FailRaid, Payload);
 	}
 
 	// 공통 종료 → EndAbility에서 해방/이동정지/정리.
