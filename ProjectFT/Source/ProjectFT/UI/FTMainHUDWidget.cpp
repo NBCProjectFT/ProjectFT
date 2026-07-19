@@ -9,8 +9,12 @@
 #include "Components/ProgressBar.h"
 #include "FTItemSlotEntryWidget.h"
 #include "FTItemSlotListView.h"
+#include "FTInteractionPromptWidget.h"
 #include "FTUIManagerSubsystem.h"
+#include "GameFramework/Pawn.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Interface/FTInteractable.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 
 void UFTMainHUDWidget::NativeConstruct()
@@ -19,6 +23,8 @@ void UFTMainHUDWidget::NativeConstruct()
 
 	ResolveHUDBarWidgets();
 	ResolveHUDViewModel();
+	CreateInteractionPromptWidget();
+	ResolveInteractionPromptBinding();
 	if (HUDViewModel)
 	{
 		HUDViewModel->InitializeFromPlayer(GetOwningPlayerPawn());
@@ -32,6 +38,14 @@ void UFTMainHUDWidget::NativeConstruct()
 	CurrentStaminaBackPercent = InitialStaminaPercent;
 	UpdateHPBars(0.0f);
 	UpdateStaminaBar(0.0f);
+}
+
+void UFTMainHUDWidget::NativeDestruct()
+{
+	ClearInteractionPromptBinding();
+	RemoveInteractionPromptWidget();
+
+	Super::NativeDestruct();
 }
 
 void UFTMainHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -50,6 +64,7 @@ void UFTMainHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	UpdateHPBars(InDeltaTime);
 	UpdateStaminaBar(InDeltaTime);
 	UpdateCrosshair();
+	ResolveInteractionPromptBinding();
 	
 	// UFTAssetManager::GetAsset();
 }
@@ -135,6 +150,34 @@ TArray<UWidget*> UFTMainHUDWidget::GetQuickSlotWidgets() const
 	}
 
 	return QuickSlotWidgets;
+}
+
+void UFTMainHUDWidget::HandleFocusedInteractableChanged(AActor* FocusedActor)
+{
+	if (!InteractionPromptWidget)
+	{
+		return;
+	}
+
+	if (!FocusedActor)
+	{
+		InteractionPromptWidget->HidePrompt();
+		return;
+	}
+
+	FText PromptText = FText::FromString(TEXT("상호작용"));
+	if (FocusedActor->Implements<UFTInteractable>())
+	{
+		PromptText = IFTInteractable::Execute_GetInteractionPrompt(FocusedActor);
+	}
+
+	if (PromptText.IsEmpty())
+	{
+		InteractionPromptWidget->HidePrompt();
+		return;
+	}
+
+	InteractionPromptWidget->ShowPrompt(PromptText);
 }
 
 void UFTMainHUDWidget::UpdateHPBars(float DeltaTime)
@@ -254,5 +297,72 @@ void UFTMainHUDWidget::ResolveHUDViewModel()
 	if (!HUDViewModel)
 	{
 		HUDViewModel = NewObject<UFTHUDViewModel>(this);
+	}
+}
+
+void UFTMainHUDWidget::ResolveInteractionPromptBinding()
+{
+	if (!InteractionPromptWidget)
+	{
+		CreateInteractionPromptWidget();
+	}
+
+	if (InteractionComponent)
+	{
+		return;
+	}
+
+	APawn* OwningPawn = GetOwningPlayerPawn();
+	if (!OwningPawn)
+	{
+		return;
+	}
+
+	InteractionComponent = OwningPawn->FindComponentByClass<UFTInteractionComponent>();
+	if (!InteractionComponent)
+	{
+		return;
+	}
+
+	InteractionComponent->OnFocusedInteractableChanged.AddUniqueDynamic(this, &ThisClass::HandleFocusedInteractableChanged);
+	HandleFocusedInteractableChanged(InteractionComponent->GetFocusedActor());
+}
+
+void UFTMainHUDWidget::ClearInteractionPromptBinding()
+{
+	if (InteractionComponent)
+	{
+		InteractionComponent->OnFocusedInteractableChanged.RemoveDynamic(this, &ThisClass::HandleFocusedInteractableChanged);
+		InteractionComponent = nullptr;
+	}
+}
+
+void UFTMainHUDWidget::CreateInteractionPromptWidget()
+{
+	if (InteractionPromptWidget || !InteractionPromptWidgetClass)
+	{
+		return;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (!OwningPlayer)
+	{
+		return;
+	}
+
+	InteractionPromptWidget = CreateWidget<UFTInteractionPromptWidget>(OwningPlayer, InteractionPromptWidgetClass);
+	if (InteractionPromptWidget)
+	{
+		InteractionPromptWidget->AddToViewport(15);
+		InteractionPromptWidget->HidePrompt();
+	}
+}
+
+void UFTMainHUDWidget::RemoveInteractionPromptWidget()
+{
+	if (InteractionPromptWidget)
+	{
+		InteractionPromptWidget->RemoveFromParent();
+		InteractionPromptWidget = nullptr;
 	}
 }
