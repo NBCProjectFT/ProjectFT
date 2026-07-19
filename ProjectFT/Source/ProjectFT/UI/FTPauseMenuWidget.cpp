@@ -6,6 +6,7 @@
 #include "Components/Slider.h"
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
+#include "Components/WidgetSwitcher.h"
 #include "InputCoreTypes.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Kismet/GameplayStatics.h"
@@ -55,14 +56,31 @@ void UFTPauseMenuWidget::NativeConstruct()
 
 	UpdateReturnToBaseButtonVisibility();
 
+	if (!SW_PausePanels)
+	{
+		SW_PausePanels = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("SW_PausePanels")));
+	}
+	if (!PauseMenuBox)
+	{
+		PauseMenuBox = GetWidgetFromName(TEXT("PauseMenuBox"));
+	}
+	if (!OptionsPanel)
+	{
+		OptionsPanel = GetWidgetFromName(TEXT("OptionsPanel"));
+	}
+	if (!ConfirmPanel)
+	{
+		ConfirmPanel = GetWidgetFromName(TEXT("ConfirmPanel"));
+	}
+
 	if (SLD_MasterVolume)
 	{
 		SLD_MasterVolume->OnValueChanged.RemoveAll(this);
 		SLD_MasterVolume->OnValueChanged.AddDynamic(this, &ThisClass::HandleMasterVolumeChanged);
 	}
 
-	CloseOptionsPanel();
-	HideConfirm();
+	PendingConfirmType = EFTPauseMenuConfirmType::None;
+	ShowPauseMenuPanel();
 }
 
 FReply UFTPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -78,27 +96,14 @@ FReply UFTPauseMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FK
 
 void UFTPauseMenuWidget::OpenOptionsPanel()
 {
-	HideConfirm();
-
-	if (OptionsPanel)
-	{
-		OptionsPanel->SetVisibility(ESlateVisibility::Visible);
-	}
-
+	PendingConfirmType = EFTPauseMenuConfirmType::None;
+	ShowOptionsPanel();
 	SetModalLayerVisible(true);
 }
 
 void UFTPauseMenuWidget::CloseOptionsPanel()
 {
-	if (OptionsPanel)
-	{
-		OptionsPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-
-	if (!ConfirmPanel || ConfirmPanel->GetVisibility() != ESlateVisibility::Visible)
-	{
-		SetModalLayerVisible(false);
-	}
+	ShowPauseMenuPanel();
 }
 
 void UFTPauseMenuWidget::RequestClosePauseMenu()
@@ -204,37 +209,52 @@ UButton* UFTPauseMenuWidget::ResolveButtonByMenuIndex(int32 ButtonIndex) const
 	return nullptr;
 }
 
+void UFTPauseMenuWidget::ShowPauseMenuPanel()
+{
+	ActivatePanel(PauseMenuBox);
+	SetModalLayerVisible(false);
+}
+
+void UFTPauseMenuWidget::ShowOptionsPanel()
+{
+	ActivatePanel(OptionsPanel);
+}
+
+void UFTPauseMenuWidget::ShowConfirmPanel()
+{
+	ActivatePanel(ConfirmPanel);
+}
+
+void UFTPauseMenuWidget::ActivatePanel(UWidget* PanelToShow)
+{
+	if (!PanelToShow)
+	{
+		return;
+	}
+
+	if (SW_PausePanels && SW_PausePanels->GetChildIndex(PanelToShow) != INDEX_NONE)
+	{
+		SW_PausePanels->SetActiveWidget(PanelToShow);
+	}
+}
+
 void UFTPauseMenuWidget::ShowConfirm(EFTPauseMenuConfirmType ConfirmType, const FText& Message)
 {
 	PendingConfirmType = ConfirmType;
-	CloseOptionsPanel();
 
 	if (TXT_ConfirmMessage)
 	{
 		TXT_ConfirmMessage->SetText(Message);
 	}
 
-	if (ConfirmPanel)
-	{
-		ConfirmPanel->SetVisibility(ESlateVisibility::Visible);
-	}
-
+	ShowConfirmPanel();
 	SetModalLayerVisible(true);
 }
 
 void UFTPauseMenuWidget::HideConfirm()
 {
 	PendingConfirmType = EFTPauseMenuConfirmType::None;
-
-	if (ConfirmPanel)
-	{
-		ConfirmPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-
-	if (!OptionsPanel || OptionsPanel->GetVisibility() != ESlateVisibility::Visible)
-	{
-		SetModalLayerVisible(false);
-	}
+	ShowPauseMenuPanel();
 }
 
 void UFTPauseMenuWidget::SetModalLayerVisible(bool bVisible)

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "ProjectFT/Enum/FTRaidResultType.h"
 #include "FTEscapedRaidWidget.generated.h"
 
 class UButton;
@@ -9,7 +10,7 @@ class UTextBlock;
 class UUserWidget;
 
 /**
- * 레이드 탈출 성공 후 표시되는 결과 위젯.
+ * 레이드 탈출 성공/실패 후 표시되는 공용 결과 위젯.
  * WBP_EscapedRaid 안에 WBP_Button 인스턴스를 WBP_ReturnToBaseButton_Escaped 이름으로 두고,
  * 그 내부의 FTGameButton 클릭만 C++에서 바인딩해 Flow 요청 메시지를 보낸다.
  */
@@ -19,6 +20,9 @@ class PROJECTFT_API UFTEscapedRaidWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	UFUNCTION(BlueprintCallable, Category = "FT|Raid Result")
+	void SetRaidResult(EFTRaidResultType NewResultType);
+
 	// 정산 정보 문구를 갱신한다. 실제 보상/획득 아이템 계산은 후속 정산 시스템에서 전달한다.
 	UFUNCTION(BlueprintCallable, Category = "FT|Raid Result")
 	void SetSettlementText(const FText& NewSettlementText);
@@ -35,6 +39,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "FT|Raid Result")
 	TObjectPtr<UTextBlock> SettlementText = nullptr;
 
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "FT|Raid Result")
+	TObjectPtr<UTextBlock> EscapedText = nullptr;
+
 private:
 	UFUNCTION()
 	void HandleReturnToBaseClicked();
@@ -43,6 +50,16 @@ private:
 	UButton* ResolveButtonInsideWidget(UUserWidget* UserWidget, FName ButtonName) const;
 	void BindReturnToBaseButton();
 	void UnbindReturnToBaseButton();
+	void ApplyResultText();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Raid Result", meta = (AllowPrivateAccess = "true"))
+	FText EscapedResultText = FText::FromString(TEXT("탈출 성공"));
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Raid Result", meta = (AllowPrivateAccess = "true"))
+	FText FailedResultText = FText::FromString(TEXT("탈출 실패"));
+
+	UPROPERTY(Transient)
+	EFTRaidResultType ResultType = EFTRaidResultType::Escaped;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UButton> CachedReturnToBaseButton = nullptr;

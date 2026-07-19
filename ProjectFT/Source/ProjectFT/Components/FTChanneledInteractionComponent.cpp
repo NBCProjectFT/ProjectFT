@@ -131,10 +131,27 @@ void UFTChanneledInteractionComponent::TickChannel(float DeltaTime)
 	// 1) 스킬체크가 떠 있으면 커서를 진행시키고, 입력 없이 끝까지 가면 Miss로 확정.
 	if (bSkillCheckActive)
 	{
-		SkillCheckCursor += DeltaTime / SkillCheckSweepSeconds;
+		SkillCheckCursor += (DeltaTime / SkillCheckSweepSeconds) * SkillCheckCursorDirection;
+
 		if (SkillCheckCursor >= 1.0f)
 		{
 			SkillCheckCursor = 1.0f;
+			SkillCheckCursorDirection = -1.0f;
+		}
+		else if (SkillCheckCursor <= 0.0f)
+		{
+			SkillCheckCursor = 0.0f;
+			SkillCheckCursorDirection = 1.0f;
+		}
+
+		if (SkillCheckDurationSeconds > 0.0f)
+		{
+			SkillCheckRemainingSeconds -= DeltaTime;
+		}
+
+		if (SkillCheckDurationSeconds > 0.0f && SkillCheckRemainingSeconds <= 0.0f)
+		{
+			SkillCheckRemainingSeconds = 0.0f;
 			EndSkillCheck(EFTSkillCheckResultType::Miss);
 		}
 	}
@@ -167,6 +184,9 @@ void UFTChanneledInteractionComponent::StartSkillCheck()
 	SkillCheckTarget = (Lo <= Hi) ? FMath::FRandRange(Lo, Hi) : 0.5f;
 
 	SkillCheckCursor = 0.0f;
+	SkillCheckCursorDirection = 1.0f;
+	SkillCheckRemainingSeconds = SkillCheckDurationSeconds;
+	LastSkillCheckProgressBonus = 0.0f;
 	bSkillCheckActive = true;
 
 	OnSkillCheckStarted.Broadcast();
@@ -192,17 +212,27 @@ EFTSkillCheckResultType UFTChanneledInteractionComponent::EvaluateSkillCheckAtCu
 void UFTChanneledInteractionComponent::EndSkillCheck(EFTSkillCheckResultType Result)
 {
 	bSkillCheckActive = false;
+	LastSkillCheckProgressBonus = 0.0f;
 
 	switch (Result)
 	{
 		//스킬체크 Great일 때 실행하고 싶은 로직은 여기 작성
 	case EFTSkillCheckResultType::Great:
+		LastSkillCheckProgressBonus = GreatProgressBonus;
 		SetProgress(Progress + GreatProgressBonus);
+		break;
+
+	case EFTSkillCheckResultType::Good:
+		LastSkillCheckProgressBonus = GoodProgressBonus;
+		SetProgress(Progress + GoodProgressBonus);
 		break;
 
 		//스킬체크 Miss일 때 실행하고 싶은 로직은 여기 작성
 	case EFTSkillCheckResultType::Miss:
-		SetProgress(Progress - MissProgressPenalty);
+		if (MissProgressPenalty > 0.0f)
+		{
+			SetProgress(Progress - MissProgressPenalty);
+		}
 		if (bMissStopsChannel)
 		{
 			OnSkillCheckEnded.Broadcast(Result);
@@ -212,8 +242,13 @@ void UFTChanneledInteractionComponent::EndSkillCheck(EFTSkillCheckResultType Res
 		break;
 
 	default:
-		// Good / None: 진행도 변화 없음. 필요하면 위에 Great, Miss처럼 만드시면 됩니다.
+		// None: 진행도 변화 없음.
 		break;
+	}
+
+	if (LastSkillCheckProgressBonus > 0.0f)
+	{
+		++SkillCheckRewardSerial;
 	}
 
 	UE_LOG(LogFTPlayer, Verbose, TEXT("SkillCheck result on '%s': %d (cursor=%.2f, target=%.2f)."),

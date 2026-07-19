@@ -51,10 +51,12 @@ void UFTAssetManager::PreloadLevelAssetsAsync(
 		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectAllInventoryItemPreloadAssetPaths();
 		if (InventoryItemAssetPaths.IsEmpty())
 		{
+			RetainPreloadedAssetsForNextPreload(TArray<FSoftObjectPath>());
 			OnLoaded.ExecuteIfBound();
 			return;
 		}
 
+		RetainPreloadedAssetsForNextPreload(InventoryItemAssetPaths);
 		UE_LOG(LogFTAsset, Log, TEXT("Preloading %d inventory item assets without level preload data."), InventoryItemAssetPaths.Num());
 		LoadPreloadPathQueue(InventoryItemAssetPaths, 0, InventoryItemAssetPaths.Num(), OnLoaded, OnProgress);
 		return;
@@ -67,16 +69,36 @@ void UFTAssetManager::PreloadLevelAssetsAsync(
 		TArray<FSoftObjectPath> InventoryItemAssetPaths = CollectAllInventoryItemPreloadAssetPaths();
 		if (InventoryItemAssetPaths.IsEmpty())
 		{
+			RetainPreloadedAssetsForNextPreload(TArray<FSoftObjectPath>());
 			OnLoaded.ExecuteIfBound();
 			return;
 		}
 
+		RetainPreloadedAssetsForNextPreload(InventoryItemAssetPaths);
 		UE_LOG(LogFTAsset, Log, TEXT("Preloading %d inventory item assets after level preload data load failed."), InventoryItemAssetPaths.Num());
 		LoadPreloadPathQueue(InventoryItemAssetPaths, 0, InventoryItemAssetPaths.Num(), OnLoaded, OnProgress);
 		return;
 	}
 
 	TArray<FSoftObjectPath> AssetPaths = CollectLevelPreloadAssetPaths(*LoadedLevelPreloadData);
+	TArray<FSoftObjectPath> RetainedPreloadAssetPaths = AssetPaths;
+	TSet<FString> RetainedAssetPathStrings;
+	for (const FSoftObjectPath& AssetPath : RetainedPreloadAssetPaths)
+	{
+		if (AssetPath.IsValid())
+		{
+			RetainedAssetPathStrings.Add(AssetPath.ToString());
+		}
+	}
+
+	AddUniqueAssetPath(RetainedPreloadAssetPaths, RetainedAssetPathStrings, LevelPreloadDataAsset.ToSoftObjectPath());
+	if (LoadedLevelPreloadData->bUseInventoryPreloadDataAsset)
+	{
+		AddUniqueAssetPath(RetainedPreloadAssetPaths, RetainedAssetPathStrings, LoadedLevelPreloadData->InventoryPreloadDataAsset.ToSoftObjectPath());
+	}
+
+	RetainPreloadedAssetsForNextPreload(RetainedPreloadAssetPaths);
+
 	if (AssetPaths.IsEmpty())
 	{
 		UE_LOG(LogFTAsset, Warning, TEXT("No assets to preload for level preload data: %s"), *LoadedLevelPreloadData->GetName());
@@ -285,6 +307,43 @@ void UFTAssetManager::AddLoadedAssets(const TArray<FSoftObjectPath>& LoadedPaths
 		{
 			UE_LOG(LogFTAsset, Warning, TEXT("Preloaded asset did not resolve: %s"), *LoadedPath.ToString());
 		}
+	}
+}
+
+void UFTAssetManager::RetainPreloadedAssetsForNextPreload(const TArray<FSoftObjectPath>& NextPreloadAssetPaths)
+{
+	TSet<FString> NextPreloadAssetPathStrings;
+	for (const FSoftObjectPath& AssetPath : NextPreloadAssetPaths)
+	{
+		if (AssetPath.IsValid())
+		{
+			NextPreloadAssetPathStrings.Add(AssetPath.ToString());
+		}
+	}
+
+	int32 ReleasedCount = 0;
+	{
+		FScopeLock LoadedAssetsLock(&LoadedAssetsCritical);
+		for (const FString& ActivePreloadAssetPathString : ActivePreloadAssetPathStrings)
+		{
+			if (NextPreloadAssetPathStrings.Contains(ActivePreloadAssetPathString))
+			{
+				continue;
+			}
+
+			const FSoftObjectPath ActivePreloadAssetPath(ActivePreloadAssetPathString);
+			if (const UObject* ActivePreloadAsset = ActivePreloadAssetPath.ResolveObject())
+			{
+				ReleasedCount += LoadedAssets.Remove(ActivePreloadAsset);
+			}
+		}
+
+		ActivePreloadAssetPathStrings = MoveTemp(NextPreloadAssetPathStrings);
+	}
+
+	if (ReleasedCount > 0)
+	{
+		UE_LOG(LogFTAsset, Log, TEXT("Released %d preloaded assets that are not used by the next preload."), ReleasedCount);
 	}
 }
 
