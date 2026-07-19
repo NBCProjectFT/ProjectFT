@@ -24,6 +24,37 @@ class UFTUIManagerSubsystem;
 class AFTItemActor;
 struct FOnAttributeChangeData;
 
+/** Player Blueprint defaults used to initialize the two AttributeSets owned by the player's ASC. */
+USTRUCT(BlueprintType)
+struct PROJECTFT_API FFTPlayerInitialAttributes
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float Health = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float MaxHealth = 5.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float MoveSpeed = 600.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float Stamina = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float MaxStamina = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float Dexterity = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float SprintSpeedMultiplier = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes", meta = (ClampMin = "0.0"))
+	float CrouchSpeedMultiplier = 0.5f;
+};
+
 // GAS 배선(ASC/공용 속성셋/IAbilitySystemInterface/사망 훅)은 AFTCharacterBase가 제공한다.
 UCLASS()
 class PROJECTFT_API AFTPlayerCharacter : public AFTCharacterBase, public IFTInputInterface
@@ -74,6 +105,14 @@ public:
 	// 경비에게 붙잡힌 상태(UFTGA_Grab). 이동/시점/아이템 입력이 막히고 좌우 연타 탈출만 허용된다.
 	UFUNCTION(BlueprintPure, Category = "FT|Capture")
 	bool IsCaptured() const;
+
+	// 현재 ASC 속성으로 계산한 최대 이동 속도. AnimBP가 블렌드 좌표와 재생 속도를
+	// 같은 기준으로 정규화할 수 있도록 원본 애니메이션 제작 속도와 분리해 제공한다.
+	UFUNCTION(BlueprintPure, Category = "FT|Movement")
+	float GetSprintMovementSpeed() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Movement")
+	float GetCrouchMovementSpeed() const;
 
 protected:
 	// Called when the game starts or when spawned
@@ -128,6 +167,12 @@ protected:
 	// 이 세트는 캐릭터 서브오브젝트라 베이스의 ASC에 자동 등록된다.
 	UPROPERTY()
 	TObjectPtr<UFTPlayerAttributeSet> PlayerAttributeSet;
+
+	// 플레이어 ASC의 공용/전용 AttributeSet에 BeginPlay 시 적용할 초기 스탯.
+	// BP 클래스 기본값 또는 레벨 인스턴스에서 조정할 수 있으며, 기존 하드코딩 기본값과 동일하게 시작한다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS|Initial Attributes",
+		meta = (ShowOnlyInnerProperties, AllowPrivateAccess = "true"))
+	FFTPlayerInitialAttributes InitialAttributes;
         
 	// 현재 플레이어가 손에 들고 있는 실질적인 아이템. 사용 입력은 이 아이템의 UseData를 기준으로 처리한다.
 	// 직접 대입하지 말고 SetCurrentHeldInventoryItem()으로만 바꾼다(비주얼 액터 동기화를 위해).
@@ -170,6 +215,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement", meta = (ClampMin = "0.0"))
 	float CrouchCameraInterpSpeed = 10.0f;
 
+	// 서 있을 때 캡슐 높이에 대한 앉은 캡슐 높이의 비율.
+	// BeginPlay에서 BP/인스턴스에 적용된 실제 캡슐 크기를 기준으로 CrouchedHalfHeight를 계산한다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Movement",
+		meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float CrouchCapsuleHeightRatio = 0.65f;
+
 	// true면 점프 입력 시 traversal(vault/hurdle/mantle)을 먼저 시도하고, 장애물이 없으면 일반 점프한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Traversal")
 	bool bTryTraversalBeforeJump = true;
@@ -179,6 +230,9 @@ protected:
 	float StruggleInputDeadzone = 0.3f;
 
 private:
+	// 에디터에 설정된 InitialAttributes를 ASC의 base value로 반영한 뒤 파생 이동속도를 갱신한다.
+	void ApplyInitialAbilitySystemAttributes();
+
 	// MoveSpeed×스프린트/앉기 배수로 MaxWalkSpeed/Crouched를 갱신한다(베이스의 기본 파생을 override).
 	virtual void ApplyMovementSpeed() override;
 
@@ -230,11 +284,16 @@ private:
     
 	// 앉기/일어서기로 캡슐 중심이 실제로 이동한 경우에만 그만큼 카메라를 반대로 보정한다.
 	void ApplyCrouchCameraCompensation(float CameraOffsetDeltaZ);
+
+	// BP/인스턴스의 초기 캡슐 크기를 저장하고 CrouchCapsuleHeightRatio로 앉은 높이를 설정한다.
+	void InitializeCrouchCapsuleSize();
     
 	// 스프린트 입력을 꾹 누르고 있는 동안 true(키 상태).
 	bool bSprintHeld = false;
     
 	// 실제로 스프린트가 적용 중인지(키 + 스태미나 + 비크라우치 조건 충족).
+	// AnimBP가 이동 상태를 분기할 수 있도록 읽기 전용으로 노출한다(쓰기는 UpdateSprintState 단독).
+	UPROPERTY(BlueprintReadOnly, Category = "FT|Movement", meta = (AllowPrivateAccess = "true"))
 	bool bIsSprinting = false;
     
 	// 스태미나 0으로 탈진한 상태. 일정 비율 회복 전까지 스프린트 재개를 막는다.
@@ -248,6 +307,10 @@ private:
     
 	// 캡슐 높이 변화로 생긴 카메라 Z 보정량. 매 프레임 0으로 보간된다.
 	float CrouchCameraOffsetZ = 0.0f;
+
+	// BeginPlay 시점의 실제 캡슐 크기. BP가 네이티브 생성자 기본값을 덮어쓴 결과까지 반영한다.
+	float InitialCapsuleRadius = 0.0f;
+	float InitialCapsuleHalfHeight = 0.0f;
 
 	// 현재 손에 어태치된 아이템 비주얼 액터. 들고 있지 않으면 nullptr.
 	UPROPERTY(Transient)

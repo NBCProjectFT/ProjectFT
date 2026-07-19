@@ -13,6 +13,8 @@ class UProgressBar;
 class UTexture2D;
 class UWidget;
 class UUserWidget;
+class UFTInteractionComponent;
+class UFTInteractionPromptWidget;
 
 UCLASS()
 class PROJECTFT_API UFTMainHUDWidget : public UUserWidget
@@ -21,6 +23,7 @@ class PROJECTFT_API UFTMainHUDWidget : public UUserWidget
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 public:
@@ -52,6 +55,9 @@ public:
 	TArray<UWidget*> GetQuickSlotWidgets() const;
 
 private:
+	UFUNCTION()
+	void HandleFocusedInteractableChanged(AActor* FocusedActor);
+
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidget))
 	TObjectPtr<UImage> IMG_HPBar = nullptr;
 
@@ -75,6 +81,9 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
 	TObjectPtr<UImage> IMG_CrosshairBottom = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|HUD|Interaction", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UFTInteractionPromptWidget> InteractionPromptWidgetClass;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|HUD|ItemSlot", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
 	int32 DefaultSlotCount = 5;
@@ -105,10 +114,20 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> MID_StaminaBar = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTInteractionComponent> InteractionComponent = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTInteractionPromptWidget> InteractionPromptWidget = nullptr;
 	
 	void UpdateHPBars(float DeltaTime);
 	void UpdateStaminaBar(float DeltaTime);
 	void UpdateCrosshair();
 	void ResolveHUDBarWidgets();
 	void ResolveHUDViewModel();
+	void ResolveInteractionPromptBinding();
+	void ClearInteractionPromptBinding();
+	void CreateInteractionPromptWidget();
+	void RemoveInteractionPromptWidget();
 };

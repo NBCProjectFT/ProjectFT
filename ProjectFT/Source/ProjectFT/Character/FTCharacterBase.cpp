@@ -3,6 +3,8 @@
 #include "FTCharacterBase.h"
 
 #include "AbilitySystemComponent.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -156,12 +158,26 @@ void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, in
 {
 	// 우산 태그 카운트가 곧 '동시에 활성인 행동불능 수'다. 여러 효과가 겹쳐도 카운트로 합성되므로,
 	// 콜백의 NewCount(우산 태그 카운트)가 0보다 크면 여전히 봉쇄 — 전부 사라져야(0) 복원된다.
-	const bool bImmobilized = NewCount > 0;
+	// AnimBP가 읽는 캐시이기도 하다(포즈 종류는 GetActiveImmobilizePoseTag가 그때그때 판정).
+	bIsImmobilized = NewCount > 0;
+
+	// 공통 반응: 행동불능이 되면 '진행 중이던' 아이템 동작도 끊는다. UFTGameplayAbility의 ActivationBlockedTags는
+	// 새 발동만 막을 뿐 이미 도는 어빌리티엔 닿지 않아서, 행동불능 직전에 시작한 공격 몽타주가 계속 돌며 적중했다
+	// (예: 잡히기 직전 휘두른 무기가 잡은 경비를 때려 그 자리에서 풀려나는 문제).
+	// 취소 기준은 Ability.ItemUse 에셋 태그 — 행동불능 '중에' 돌아야 하는 탈출/트랩 어빌리티(UFTGA_EscapableDebuff,
+	// UFTGA_BubbleStackTrap)는 아이템 동작이 아니라 여기 걸리지 않는다. 이동 정지보다 먼저 취소해야 어빌리티 종료가
+	// 이동 모드를 되돌려놓아도 아래 봉쇄가 마지막 말이 된다.
+	if (bIsImmobilized && AbilitySystemComponent)
+	{
+		FGameplayTagContainer CancelTags;
+		CancelTags.AddTag(TAG_FT_Ability_ItemUse);
+		AbilitySystemComponent->CancelAbilities(&CancelTags);
+	}
 
 	// 공통 반응: 행동불능 시작 시 현재 이동 모드를 저장하고 즉시 정지+이동 비활성, 해제 시 저장한 이동 모드로 복원.
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
-		if (bImmobilized)
+		if (bIsImmobilized)
 		{
 			if (!bHasPreImmobilizedMovementMode)
 			{
@@ -192,12 +208,32 @@ void AFTCharacterBase::OnImmobilizeTagChanged(const FGameplayTag CallbackTag, in
 
 	// 행동불능 '지속' 연출(GameplayCue)은 각 GE(GE_Stun 등)의 GameplayCues에 달려
 	// GE 수명과 함께 자동 발동/제거된다(여기서 직접 Add/Remove하지 않는다 — 중복 발동 방지).
-	OnImmobilizedStateChanged(bImmobilized);
+	OnImmobilizedStateChanged(bIsImmobilized);
 }
 
 void AFTCharacterBase::OnImmobilizedStateChanged(bool bImmobilized)
 {
 	// 기본 구현 없음. 자식이 AI 로직 정지/애니 등 추가 반응을 처리한다(이동 정지/복원은 베이스가 이미 처리).
+}
+
+FGameplayTag AFTCharacterBase::GetActiveImmobilizePoseTag() const
+{
+	if (!bIsImmobilized || !AbilitySystemComponent)
+	{
+		return FGameplayTag();
+	}
+
+	for (const FGameplayTag& Candidate : ImmobilizePosePriority)
+	{
+		if (Candidate.IsValid() && AbilitySystemComponent->HasMatchingGameplayTag(Candidate))
+		{
+			return Candidate;
+		}
+	}
+
+	// 우선순위 목록이 비었거나 어느 것도 안 맞으면 우산 태그로 폴백한다.
+	// 행동불능인데 빈 태그를 돌려주면 AnimBP가 포즈를 못 고르고 서 있게 되므로, '공용 행동불능' 포즈로 수렴시킨다.
+	return TAG_FT_State_Debuff_Immobilized;
 }
 
 void AFTCharacterBase::OnHostileEffectApplied(UAbilitySystemComponent* Source, const FGameplayEffectSpec& Spec, FActiveGameplayEffectHandle Handle)
@@ -240,6 +276,63 @@ void AFTCharacterBase::OnHostileEffectApplied(UAbilitySystemComponent* Source, c
 	{
 		UGameplayMessageSubsystem::Get(World).BroadcastMessage(TAG_FT_Event_CharacterAttacked, Payload);
 	}
+
+	// 피격 연출도 같은 신호에 얹는다 — 데미지/스턴/슬로우 구분 없이 "맞으면 반응"이 되도록.
+	// 어그로 방송이 연출 실패에 영향받지 않게 방송 뒤에 재생한다.
+	PlayHitReact(Payload.EffectTags);
+}
+
+void AFTCharacterBase::PlayHitReact(const FGameplayTagContainer& EffectTags)
+{
+	if (bDead)
+	{
+		return;
+	}
+
+	// 구속 연출(잡힘/비눗방울 등)이 도는 중엔 기본적으로 피격 몽타주로 덮어쓰지 않는다.
+	if (!bPlayHitReactWhileImmobilized && AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized))
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// 산탄/다단히트가 한 프레임에 여러 GE로 들어와도 몽타주가 처음부터 재시작하며 떠는 것을 막는다.
+	const float Now = World->GetTimeSeconds();
+	if (HitReactMinInterval > 0.0f && (Now - LastHitReactTime) < HitReactMinInterval)
+	{
+		return;
+	}
+
+	UAnimMontage* MontageToPlay = SelectHitReactMontage(EffectTags);
+	if (!MontageToPlay)
+	{
+		return;
+	}
+
+	USkeletalMeshComponent* CharacterMesh = GetMesh();
+	UAnimInstance* AnimInstance = CharacterMesh ? CharacterMesh->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		return;
+	}
+
+	// 재생에 실패하면(슬롯 없음/에셋 불일치) 쿨다운을 찍지 않아, 다음 피격에서 다시 시도된다.
+	if (AnimInstance->Montage_Play(MontageToPlay, 1.0f) > 0.0f)
+	{
+		LastHitReactTime = Now;
+	}
+}
+
+UAnimMontage* AFTCharacterBase::SelectHitReactMontage_Implementation(const FGameplayTagContainer& EffectTags) const
+{
+	// 기본은 공격 종류 불문 단일 몽타주. 태그별 분기는 BP/자식에서 override 한다.
+	return HitReactMontage;
 }
 
 void AFTCharacterBase::PlayStruggleJitter()

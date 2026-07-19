@@ -97,6 +97,13 @@ void AFTPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 공용 AttributeSet과 플레이어 전용 AttributeSet이 ASC에 등록되고 ActorInfo가 초기화된 뒤,
+	// Player BP/인스턴스에서 지정한 초기 base value를 한 번 적용한다.
+	ApplyInitialAbilitySystemAttributes();
+
+	// BP가 네이티브 생성자의 캡슐 크기를 덮어쓴 뒤의 실제 값을 기준으로 앉은 높이를 계산한다.
+	InitializeCrouchCapsuleSize();
+
 	if (UFTInventoryComponent* Inventory = GetInventoryComponent())
 	{
 		Inventory->OnInventoryChanged.AddDynamic(this, &AFTPlayerCharacter::OnInventoryChangedCallback);
@@ -122,6 +129,43 @@ void AFTPlayerCharacter::BeginPlay()
 		DefaultBoomRelativeLocation = CameraBoom->GetRelativeLocation();
 	}
 
+}
+
+void AFTPlayerCharacter::ApplyInitialAbilitySystemAttributes()
+{
+	if (!AbilitySystemComponent || !AttributeSet || !PlayerAttributeSet)
+	{
+		return;
+	}
+
+	const float MaxHealth = FMath::Max(InitialAttributes.MaxHealth, 0.0f);
+	const float MaxStamina = FMath::Max(InitialAttributes.MaxStamina, 0.0f);
+
+	// 최대값을 먼저 적용해야 현재값의 클램프가 에디터 설정을 기준으로 동작한다.
+	AbilitySystemComponent->SetNumericAttributeBase(UFTAttributeSet::GetMaxHealthAttribute(), MaxHealth);
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UFTAttributeSet::GetHealthAttribute(),
+		FMath::Clamp(InitialAttributes.Health, 0.0f, MaxHealth));
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UFTAttributeSet::GetMoveSpeedAttribute(),
+		FMath::Max(InitialAttributes.MoveSpeed, 0.0f));
+
+	AbilitySystemComponent->SetNumericAttributeBase(UFTPlayerAttributeSet::GetMaxStaminaAttribute(), MaxStamina);
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UFTPlayerAttributeSet::GetStaminaAttribute(),
+		FMath::Clamp(InitialAttributes.Stamina, 0.0f, MaxStamina));
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UFTPlayerAttributeSet::GetDexterityAttribute(),
+		FMath::Max(InitialAttributes.Dexterity, 0.0f));
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UFTPlayerAttributeSet::GetSprintSpeedMultiplierAttribute(),
+		FMath::Max(InitialAttributes.SprintSpeedMultiplier, 0.0f));
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UFTPlayerAttributeSet::GetCrouchSpeedMultiplierAttribute(),
+		FMath::Max(InitialAttributes.CrouchSpeedMultiplier, 0.0f));
+
+	// 배수 변경 delegate는 아래 BeginPlay 배선보다 먼저 적용되므로, 모든 값을 쓴 뒤 한 번 명시적으로 동기화한다.
+	ApplyMovementSpeed();
 }
 
 void AFTPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -631,6 +675,24 @@ void AFTPlayerCharacter::ApplyMovementSpeed()
 	}
 }
 
+float AFTPlayerCharacter::GetSprintMovementSpeed() const
+{
+	const float BaseSpeed = AttributeSet ? AttributeSet->GetMoveSpeed() : InitialAttributes.MoveSpeed;
+	const float Multiplier = PlayerAttributeSet
+		? PlayerAttributeSet->GetSprintSpeedMultiplier()
+		: InitialAttributes.SprintSpeedMultiplier;
+	return FMath::Max(BaseSpeed * Multiplier, 0.0f);
+}
+
+float AFTPlayerCharacter::GetCrouchMovementSpeed() const
+{
+	const float BaseSpeed = AttributeSet ? AttributeSet->GetMoveSpeed() : InitialAttributes.MoveSpeed;
+	const float Multiplier = PlayerAttributeSet
+		? PlayerAttributeSet->GetCrouchSpeedMultiplier()
+		: InitialAttributes.CrouchSpeedMultiplier;
+	return FMath::Max(BaseSpeed * Multiplier, 0.0f);
+}
+
 void AFTPlayerCharacter::UpdateSprintState(float DeltaSeconds)
 {
 	if (!AbilitySystemComponent || !PlayerAttributeSet)
@@ -812,6 +874,24 @@ void AFTPlayerCharacter::UpdateCrouchCameraOffset()
 	{
 		CameraBoom->SetRelativeLocation(DefaultBoomRelativeLocation + FVector(0.0f, 0.0f, CrouchCameraOffsetZ));
 	}
+}
+
+void AFTPlayerCharacter::InitializeCrouchCapsuleSize()
+{
+	UCapsuleComponent* Capsule = GetCapsuleComponent();
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!Capsule || !Movement)
+	{
+		return;
+	}
+
+	InitialCapsuleRadius = Capsule->GetUnscaledCapsuleRadius();
+	InitialCapsuleHalfHeight = Capsule->GetUnscaledCapsuleHalfHeight();
+
+	// 캡슐 Half Height는 Radius보다 작을 수 없고, 크라우치가 서 있는 캡슐보다 커지지 않게 제한한다.
+	const float RequestedHalfHeight = InitialCapsuleHalfHeight * FMath::Clamp(CrouchCapsuleHeightRatio, 0.0f, 1.0f);
+	const float CrouchedHalfHeight = FMath::Clamp(RequestedHalfHeight, InitialCapsuleRadius, InitialCapsuleHalfHeight);
+	Movement->SetCrouchedHalfHeight(CrouchedHalfHeight);
 }
 
 bool AFTPlayerCharacter::TryStartTraversal()

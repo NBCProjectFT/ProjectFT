@@ -15,6 +15,7 @@
 #include "FTCharacterBase.generated.h"
 
 class UAbilitySystemComponent;
+class UAnimMontage;
 class UFTAttributeSet;
 class UGameplayAbility;
 struct FOnAttributeChangeData;
@@ -44,9 +45,33 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|GAS")
 	bool IsDead() const { return bDead; }
 
+	// 행동불능(우산 태그 State.Debuff.Immobilized 보유) 상태인지. AnimBP가 행동불능 스테이트 진입/이탈 판정에 쓴다.
+	UFUNCTION(BlueprintPure, Category = "FT|Debuff")
+	bool IsImmobilized() const { return bIsImmobilized; }
+
+	// 지금 재생해야 할 행동불능 '포즈'를 대표하는 태그(예: State.Debuff.Stun).
+	// 여러 행동불능이 겹쳤을 땐 ImmobilizePosePriority 순서로 하나만 고른다. 행동불능이 아니면 빈 태그.
+	// AnimBP는 이 값 하나만 비교해서 스턴/마비/비눗방울 포즈를 분기하면 된다.
+	// 캐시하지 않고 호출 시점에 ASC를 조회한다 — 하나의 GE가 우산 태그와 개별 태그(Stun 등)를 함께 부여할 때
+	// 태그 추가 순서가 보장되지 않아, 우산 태그 콜백 시점에 캐시하면 개별 태그를 놓칠 수 있기 때문.
+	UFUNCTION(BlueprintPure, Category = "FT|Debuff")
+	FGameplayTag GetActiveImmobilizePoseTag() const;
+
 	// 발버둥 입력이 유효하게 처리됐을 때 메시만 짧게 흔든다. 캡슐/Actor 위치는 건드리지 않는다.
 	UFUNCTION(BlueprintCallable, Category = "FT|Feedback")
 	void PlayStruggleJitter();
+
+	// 피격 반응 몽타주를 재생한다. 적대적 GE를 맞으면 OnHostileEffectApplied가 자동으로 부르지만,
+	// GE를 거치지 않는 연출(스크립트 이벤트 등)에서 BP가 직접 호출할 수도 있다.
+	// EffectTags는 몽타주 선택 분기용 — 비워서 호출하면 SelectHitReactMontage의 기본값(HitReactMontage)이 쓰인다.
+	UFUNCTION(BlueprintCallable, Category = "FT|Feedback")
+	void PlayHitReact(const FGameplayTagContainer& EffectTags);
+
+	// 공격 종류(에셋 태그 + 부여 태그)에 따라 재생할 피격 몽타주를 고르는 확장 지점.
+	// 기본 구현은 종류 불문 HitReactMontage. 스턴/화염 등 반응을 나누고 싶으면 BP나 자식에서 override 한다.
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "FT|Feedback")
+	UAnimMontage* SelectHitReactMontage(const FGameplayTagContainer& EffectTags) const;
+	virtual UAnimMontage* SelectHitReactMontage_Implementation(const FGameplayTagContainer& EffectTags) const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -75,6 +100,17 @@ protected:
 	// 행동불능 시작/해제 시 확장 훅(AI 로직 정지, 애니 등). 기본 구현 없음 — 이동 정지/복원은 베이스가 이미 처리.
 	virtual void OnImmobilizedStateChanged(bool bImmobilized);
 
+	// 행동불능이 겹쳤을 때 어떤 포즈가 이기는지의 순서. 위에 있을수록 우선(예: 잡힘 > 스턴 > 비눗방울).
+	// 여기 없는(또는 배열이 빈) 행동불능은 우산 태그 State.Debuff.Immobilized로 폴백되므로,
+	// AnimBP에 '공용 행동불능' 스테이트 하나만 있으면 새 상태이상이 추가돼도 포즈가 비지 않는다.
+	// 생성자 기본값은 기존 BP 인스턴스에 전파가 불안정해서 비워둔다 — 값은 BP에서 채울 것.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Debuff")
+	TArray<FGameplayTag> ImmobilizePosePriority;
+
+	// 우산 태그 카운트에서 갱신되는 행동불능 여부 캐시. 쓰기는 OnImmobilizeTagChanged 단독이다.
+	UPROPERTY(BlueprintReadOnly, Category = "FT|Debuff")
+	bool bIsImmobilized = false;
+
 	// GE가 자신에게 적용될 때마다 호출(BeginPlay에서 ASC의 OnGameplayEffectAppliedDelegateToSelf에 바인딩 — instant/duration 모두).
 	// 적대적 행동(Effect.Hostile 에셋 태그)을 부여하는 GE면 데미지/상태이상 구분 없이 "공격당함"으로 간주해,
 	// 공격자(EffectContext에서 추출, 더미 속성 불필요)를 담아 Event.Character.Attacked를 발행한다. 어그로는 이 단일 신호를 구독한다.
@@ -93,6 +129,20 @@ protected:
 	// 경비 전용 능력(잡기 등)은 여기가 아니라 AFTSecurityCharacter의 DefaultAbilities에서 부여한다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|GAS")
 	TArray<TSubclassOf<UGameplayAbility>> CommonAbilities;
+
+	// 적대적 GE(Effect.Hostile)를 맞았을 때 재생할 기본 피격 몽타주. 비워두면 피격 반응 없음(기존 동작 유지).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback")
+	TObjectPtr<UAnimMontage> HitReactMontage = nullptr;
+
+	// 피격 반응 재생 최소 간격(초). 산탄/다단히트로 몽타주가 매 히트마다 처음부터 재시작해
+	// 제자리에서 떠는 것을 막는다. 0이면 제한 없음.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.0"))
+	float HitReactMinInterval = 0.35f;
+
+	// true면 행동불능(잡힘/비눗방울 등) 중에도 피격 반응을 재생한다. 기본은 false —
+	// 구속 연출이 도는 중에 피격 몽타주가 상체를 덮어써 자세가 풀려 보이기 때문.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback")
+	bool bPlayHitReactWhileImmobilized = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.0"))
 	float StruggleJitterAmplitude = 8.0f;
@@ -113,6 +163,10 @@ private:
 	void UpdateStruggleJitter();
 	void StopStruggleJitter();
 	void ApplyStruggleJitterOffset(const FVector& NewOffset);
+
+	// 마지막으로 피격 몽타주를 재생한 월드 시각. HitReactMinInterval 판정용
+	// (월드 시각은 0부터 시작하므로, 큰 음수로 두면 첫 피격은 간격 검사를 항상 통과한다).
+	float LastHitReactTime = -1000.0f;
 
 	FTimerHandle StruggleJitterTimerHandle;
 	FVector StruggleJitterAppliedOffset = FVector::ZeroVector;
