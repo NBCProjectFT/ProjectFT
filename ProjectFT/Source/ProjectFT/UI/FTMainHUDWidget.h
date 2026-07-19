@@ -15,6 +15,7 @@ class UWidget;
 class UUserWidget;
 class UFTInteractionComponent;
 class UFTInteractionPromptWidget;
+class UFTShelfHealthBarWidget;
 
 UCLASS()
 class PROJECTFT_API UFTMainHUDWidget : public UUserWidget
@@ -84,6 +85,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|HUD|Interaction", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UFTInteractionPromptWidget> InteractionPromptWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|HUD|Shelf", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UFTShelfHealthBarWidget> ShelfHealthBarWidgetClass;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|HUD|ItemSlot", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
 	int32 DefaultSlotCount = 5;
@@ -120,6 +124,12 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTInteractionPromptWidget> InteractionPromptWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTShelfHealthBarWidget> ShelfHealthBarWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<class AFTLootShelf> FocusedShelf;
 	
 	void UpdateHPBars(float DeltaTime);
 	void UpdateStaminaBar(float DeltaTime);
@@ -130,4 +140,8 @@ private:
 	void ClearInteractionPromptBinding();
 	void CreateInteractionPromptWidget();
 	void RemoveInteractionPromptWidget();
+	void CreateShelfHealthBarWidget();
+	void RemoveShelfHealthBarWidget();
+	void UpdateShelfHealthBar();
+	void HideShelfHealthBar();
 };
