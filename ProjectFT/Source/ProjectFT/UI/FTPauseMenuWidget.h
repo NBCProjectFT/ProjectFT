@@ -14,6 +14,7 @@ class USoundMix;
 class UTextBlock;
 class UUserWidget;
 class UWidget;
+class UWidgetSwitcher;
 
 UCLASS()
 class PROJECTFT_API UFTPauseMenuWidget : public UUserWidget
@@ -34,6 +35,12 @@ public:
 	void RequestClosePauseMenu();
 
 protected:
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "FT|Pause")
+	TObjectPtr<UWidgetSwitcher> SW_PausePanels;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "FT|Pause")
+	TObjectPtr<UWidget> PauseMenuBox;
+
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "FT|Pause")
 	TObjectPtr<UWidget> OptionsPanel;
 
@@ -86,6 +93,10 @@ private:
 	UButton* ResolveButton(FName DirectButtonName, FName WrapperWidgetName) const;
 	UButton* ResolveButtonInsideWidget(UUserWidget* UserWidget, FName ButtonName) const;
 	UButton* ResolveButtonByMenuIndex(int32 ButtonIndex) const;
+	void ShowPauseMenuPanel();
+	void ShowOptionsPanel();
+	void ShowConfirmPanel();
+	void ActivatePanel(UWidget* PanelToShow);
 	void ShowConfirm(EFTPauseMenuConfirmType ConfirmType, const FText& Message);
 	void HideConfirm();
 	void SetModalLayerVisible(bool bVisible);

@@ -1,15 +1,14 @@
 #include "FTNPCReportComponent.h"
 
-#include "GameFramework/GameplayMessageSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Message/FTReportMessageLibrary.h"
 #include "ProjectFT/NPC/FTNPCAIController.h"
 #include "ProjectFT/Struct/FTCharacterAttackedPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
-#include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 
 UFTNPCReportComponent::UFTNPCReportComponent()
 {
@@ -415,14 +414,14 @@ void UFTNPCReportComponent::BroadcastReportMessage(FGameplayTag Channel, AActor*
 		return;
 	}
 
-	FFTNPCReportPayloadStruct Payload;
-	Payload.ReporterActor = Controller->GetPawn();
-	Payload.TargetActor = TargetActor;
-	Payload.ReportLocation = TargetActor ? TargetActor->GetActorLocation() : FVector::ZeroVector;
-	Payload.ReportAmount = InReportAmount;
-	Payload.ReportProgress = ReportProgress;
-
-	UGameplayMessageSubsystem::Get(Controller).BroadcastMessage(Channel, Payload);
+	UFTReportMessageLibrary::BroadcastNPCReportMessage(
+		Controller,
+		Channel,
+		Controller->GetPawn(),
+		TargetActor,
+		TargetActor ? TargetActor->GetActorLocation() : FVector::ZeroVector,
+		InReportAmount,
+		ReportProgress);
 }
 
 void UFTNPCReportComponent::ResetReportState()

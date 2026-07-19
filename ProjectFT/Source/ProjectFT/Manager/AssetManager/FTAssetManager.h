@@ -85,6 +85,7 @@ private:
 	void LoadPreloadPathQueue(TArray<FSoftObjectPath> PendingPaths, int32 CompletedCount, int32 TotalCount, FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress);
 	void HandlePreloadPathLoaded(FSoftObjectPath LoadedPath, TArray<FSoftObjectPath> PendingPaths, int32 CompletedCount, int32 TotalCount, FSimpleDelegate OnLoaded, FFTAssetLoadProgressDelegate OnProgress);
 	void AddLoadedAssets(const TArray<FSoftObjectPath>& LoadedPaths);
+	void RetainPreloadedAssetsForNextPreload(const TArray<FSoftObjectPath>& NextPreloadAssetPaths);
 	void RemoveCompletedLoadHandles();
 
 private:
@@ -98,6 +99,8 @@ private:
 	TSet<TObjectPtr<const UObject>> LoadedAssets;
 
 	TArray<TSharedPtr<FStreamableHandle>> ActiveLoadHandles;
+
+	TSet<FString> ActivePreloadAssetPathStrings;
 
 	FCriticalSection LoadedAssetsCritical;
 };
