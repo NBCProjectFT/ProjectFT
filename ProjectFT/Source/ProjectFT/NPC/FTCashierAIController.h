@@ -2,14 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "Perception/AIPerceptionTypes.h"
-#include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/AI/FTAIControllerBase.h"
 #include "FTCashierAIController.generated.h"
 
+class UFTInstantReportComponent;
 class UAIPerceptionComponent;
 class UAISenseConfig_Sight;
 class UStateTreeAIComponent;
-struct FFTCharacterAttackedPayloadStruct;
 
 UCLASS()
 class PROJECTFT_API AFTCashierAIController : public AFTAIControllerBase
@@ -32,6 +31,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Cashier")
 	TObjectPtr<UAISenseConfig_Sight> SightConfig;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Report")
+	TObjectPtr<UFTInstantReportComponent> InstantReportComponent;
 
 	UFUNCTION()
 	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
@@ -60,15 +62,6 @@ public:
 	bool BroadcastRequestedReport();
 
 private:
-	FGameplayMessageListenerHandle CharacterAttackedListenerHandle;
-	FVector PendingReportLocation = FVector::ZeroVector;
-
-	void OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload);
-	void UpdateTargetState();
-	void TryReportObservedStealing();
-	void RequestInstantReport(AActor* SuspectActor, const FVector& ReportLocation);
-	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
+	void SyncInstantReportStateFromComponent();
 	bool IsPlayerActor(const AActor* Actor) const;
-	bool IsTargetStealing(const AActor* Actor) const;
-	bool CanWitnessActor(AActor* Actor) const;
 };

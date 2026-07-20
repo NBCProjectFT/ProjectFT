@@ -35,6 +35,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityDeployed, "Event.Security.Deployed")
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityReturnedToRoom, "Event.Security.ReturnedToRoom");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfRestockRequested, "Event.Shelf.RestockRequested");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfRestocked, "Event.Shelf.Restocked");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_StealCompleted, "Event.Steal.Completed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterDamaged, "Event.Character.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterAttacked, "Event.Character.Attacked");
