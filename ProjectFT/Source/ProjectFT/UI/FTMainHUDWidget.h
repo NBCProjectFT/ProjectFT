@@ -14,7 +14,7 @@ class UTexture2D;
 class UWidget;
 class UUserWidget;
 class UFTInteractionComponent;
-class UFTInteractionPromptWidget;
+class UFTInteractionStatusWidget;
 class UFTShelfHealthBarWidget;
 
 UCLASS()
@@ -84,7 +84,7 @@ private:
 	TObjectPtr<UImage> IMG_CrosshairBottom = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|HUD|Interaction", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<UFTInteractionPromptWidget> InteractionPromptWidgetClass;
+	TSubclassOf<UFTInteractionStatusWidget> InteractionStatusWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|HUD|Shelf", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UFTShelfHealthBarWidget> ShelfHealthBarWidgetClass;
@@ -123,7 +123,7 @@ private:
 	TObjectPtr<UFTInteractionComponent> InteractionComponent = nullptr;
 
 	UPROPERTY(Transient)
-	TObjectPtr<UFTInteractionPromptWidget> InteractionPromptWidget = nullptr;
+	TObjectPtr<UFTInteractionStatusWidget> InteractionStatusWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTShelfHealthBarWidget> ShelfHealthBarWidget = nullptr;
@@ -138,8 +138,8 @@ private:
 	void ResolveHUDViewModel();
 	void ResolveInteractionPromptBinding();
 	void ClearInteractionPromptBinding();
-	void CreateInteractionPromptWidget();
-	void RemoveInteractionPromptWidget();
+	void CreateInteractionStatusWidget();
+	void RemoveInteractionStatusWidget();
 	void CreateShelfHealthBarWidget();
 	void RemoveShelfHealthBarWidget();
 	void UpdateShelfHealthBar();
