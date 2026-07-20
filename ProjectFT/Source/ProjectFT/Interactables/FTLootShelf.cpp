@@ -92,6 +92,25 @@ void AFTLootShelf::BeginPlay()
 		ChanneledInteraction->SetActive(true);
 		ChanneledInteraction->OnCompleted.AddDynamic(this, &AFTLootShelf::HandleStealCompleted);
 	}
+
+	// 재입고 요청 메시지 리스너 등록
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	RestockRequestListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_ShelfRestockRequested,
+		this,
+		&ThisClass::HandleRestockRequested
+	);
+}
+
+void AFTLootShelf::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (RestockRequestListenerHandle.IsValid())
+	{
+		UGameplayMessageSubsystem::Get(this).UnregisterListener(RestockRequestListenerHandle);
+		RestockRequestListenerHandle = FGameplayMessageListenerHandle();
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 FText AFTLootShelf::GetInteractionPrompt_Implementation() const
@@ -218,7 +237,7 @@ void AFTLootShelf::HandleStealCompleted()
 	// 데이터 에셋이 유효하고 쿨다운 대기 시간이 설정된 경우 쿨다운 상태로 이행
 	if (ShelfDataAsset && ShelfDataAsset->CooldownSeconds > 0.0f)
 	{
-		StartInteractionCooldown(ShelfDataAsset->CooldownSeconds);
+		StartInteractionCooldown();
 	}
 	else
 	{
@@ -232,7 +251,7 @@ void AFTLootShelf::HandleStealCompleted()
 	}
 }
 
-void AFTLootShelf::StartInteractionCooldown(float CooldownDuration)
+void AFTLootShelf::StartInteractionCooldown()
 {
 	bIsOnCooldown = true;
 
@@ -247,9 +266,6 @@ void AFTLootShelf::StartInteractionCooldown(float CooldownDuration)
 	{
 		ShelfMesh->SetStaticMesh(ShelfDataAsset->CooldownMesh);
 	}
-
-	// 쿨다운 타이머 시작
-	GetWorld()->GetTimerManager().SetTimer(CooldownTimerHandle, this, &AFTLootShelf::EndInteractionCooldown, CooldownDuration, false);
 }
 
 void AFTLootShelf::EndInteractionCooldown()
@@ -266,6 +282,38 @@ void AFTLootShelf::EndInteractionCooldown()
 	if (ShelfDataAsset && ShelfDataAsset->ShelfMesh && ShelfMesh)
 	{
 		ShelfMesh->SetStaticMesh(ShelfDataAsset->ShelfMesh);
+	}
+
+	// 매대가 다시 채워졌을 때 방송 (Event.Shelf.Restocked)
+	FFTMessagePayloadStruct RestockedPayload;
+	RestockedPayload.TargetActor = this;
+	RestockedPayload.Value = 1.0f;
+
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(
+		TAG_FT_Event_ShelfRestocked,
+		RestockedPayload
+	);
+}
+
+void AFTLootShelf::HandleRestockRequested(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
+{
+	if (Payload.TargetActor != this)
+	{
+		return;
+	}
+
+	// 비어 있는 쿨다운 상태이고, 이미 타이머가 작동 중이 아닐 때만 재입고 타이머 시작
+	if (bIsOnCooldown && ShelfDataAsset && !GetWorld()->GetTimerManager().IsTimerActive(CooldownTimerHandle))
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			CooldownTimerHandle,
+			this,
+			&AFTLootShelf::EndInteractionCooldown,
+			ShelfDataAsset->CooldownSeconds,
+			false
+		);
+
+		UE_LOG(LogFTItem, Log, TEXT("매대 '%s'가 재입고 요청을 수신하여 %f초 타이머를 시작합니다."), *GetName(), ShelfDataAsset->CooldownSeconds);
 	}
 }
 
