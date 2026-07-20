@@ -31,6 +31,9 @@ public:
 	/* @brief : 에셋 할당 및 컴포넌트 변수 설정을 처리하는 생성 시점의 메서드입니다. */
 	virtual void OnConstruction(const FTransform& Transform) override;
 
+	UFUNCTION(BlueprintPure, Category = "FT|Shelf|Status")
+	float GetHealthPercent() const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -43,8 +46,6 @@ protected:
 
 	/* @brief : 매대 파괴 시 아이템들을 주변 바닥에 드롭시킵니다. */
 	void DropItemsOnFloor();
-
-	void TestCode();
 
 	/* @brief : 지정된 데이터 에셋에 맞게 매대의 스태틱 메시 및 내구도 설정을 초기화합니다. */
 	void InitializeFromDataAsset();
@@ -86,11 +87,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Data")
 	TObjectPtr<class UFTLootShelfDataAsset> ShelfDataAsset;
 
-
-
 	/* @brief : 현재 매대의 내구도 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Status")
 	float Health = 30.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Shelf|Status")
+	float MaxHealth = 30.0f;
 
 	/* @brief : 상호작용 및 파괴 완료 상태 여부 */
 	bool bHasBeenLooted = false;

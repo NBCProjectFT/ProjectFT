@@ -7,8 +7,10 @@
 #include "FTLoadingWidget.generated.h"
 
 class UButton;
+class UImage;
 class UTextBlock;
 class UProgressBar;
+class UWidget;
 
 /**
  * 
@@ -33,12 +35,28 @@ class PROJECTFT_API UFTLoadingWidget : public UUserWidget
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Loading", meta=(AllowPrivateAccess=true, BindWidget))
 	UProgressBar* PB_LoadingBar;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Loading", meta=(AllowPrivateAccess=true, BindWidgetOptional))
+	UImage* Image_0;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Loading", meta=(AllowPrivateAccess=true, BindWidgetOptional))
+	UImage* IMG_ReadyBlackBackground;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Loading", meta=(AllowPrivateAccess=true, BindWidgetOptional))
+	UWidget* SizeBox_LoadingBar;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Loading", meta=(AllowPrivateAccess=true, BindWidgetOptional))
+	UWidget* SizeBox_LoadingText;
+
+	UPROPERTY(meta = (BindWidgetAnim), Transient)
+	TObjectPtr<UWidgetAnimation> TB_Text_Opacity;
+	
 protected:
 	virtual void NativeOnInitialized() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 public:
 	void SetPercent(float Percent) const;
-	void ReadyToStart() const;
+	void ReadyToStart();
 	bool BindOnButtonClicked(TFunction<void()> InCallback);
 	void SetObjectName(const FString& ObjectName, const int32& CompleteNum, const int32& TotalNum) const;
 
@@ -47,4 +65,7 @@ public:
 	
 	UFUNCTION()
 	void HandleButtonClicked();
+
+private:
+	bool bReadyToStart = false;
 };
