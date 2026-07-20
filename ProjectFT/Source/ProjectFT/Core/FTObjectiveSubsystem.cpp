@@ -377,6 +377,16 @@ void UFTObjectiveSubsystem::RestoreQuestSaveData(const FFTQuestSaveData& SaveDat
 		return;
 	}
 
+	const bool bHasSavedQuestState = !SaveData.AvailableQuestIDs.IsEmpty()
+		|| !SaveData.ActiveQuestIDs.IsEmpty()
+		|| !SaveData.CompletedQuestIDs.IsEmpty();
+	if (!bHasSavedQuestState)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Quest save restore skipped: snapshot is marked valid but contains no quest state. Keeping configured initial quests."));
+		return;
+	}
+
 	if (!QuestDataTable)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Quest save restore failed: QuestDataTable is not assigned."));
