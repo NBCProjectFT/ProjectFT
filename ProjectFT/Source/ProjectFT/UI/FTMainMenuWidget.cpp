@@ -39,6 +39,9 @@ void UFTMainMenuWidget::NativeConstruct()
 			TEXT("Required WBP_Button 'WBP_StartButton' or its inner FTGameButton was not found."));
 	}
 
+	BindButton(TEXT("WBP_ContinueButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleContinueButtonClicked));
+	CachedContinueButton = ResolveWrappedButton(TEXT("WBP_ContinueButton"));
+
 	BindButton(TEXT("WBP_OptionsButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleOptionsButtonClicked));
 	BindButton(TEXT("WBP_OptionsBackButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleOptionsBackButtonClicked));
 	BindButton(TEXT("WBP_QuitButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleQuitButtonClicked));
@@ -72,10 +75,7 @@ FReply UFTMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKe
 
 bool UFTMainMenuWidget::BindButton(FName WrapperWidgetName, FName HandlerName, bool bRequired)
 {
-	UUserWidget* ButtonWidget = WidgetTree
-		? Cast<UUserWidget>(WidgetTree->FindWidget(WrapperWidgetName))
-		: nullptr;
-	UButton* Button = ResolveButtonInsideWidget(ButtonWidget, TEXT("FTGameButton"));
+	UButton* Button = ResolveWrappedButton(WrapperWidgetName);
 	if (!Button)
 	{
 		if (bRequired)
@@ -93,6 +93,14 @@ bool UFTMainMenuWidget::BindButton(FName WrapperWidgetName, FName HandlerName, b
 	Delegate.BindUFunction(this, HandlerName);
 	Button->OnClicked.Add(Delegate);
 	return true;
+}
+
+UButton* UFTMainMenuWidget::ResolveWrappedButton(FName WrapperWidgetName) const
+{
+	UUserWidget* ButtonWidget = WidgetTree
+		? Cast<UUserWidget>(WidgetTree->FindWidget(WrapperWidgetName))
+		: nullptr;
+	return ResolveButtonInsideWidget(ButtonWidget, TEXT("FTGameButton"));
 }
 
 UButton* UFTMainMenuWidget::ResolveButtonInsideWidget(UUserWidget* UserWidget, FName ButtonName) const
@@ -165,6 +173,30 @@ void UFTMainMenuWidget::HandleStartButtonClicked()
 	MessageSubsystem.BroadcastMessage(TAG_FT_Request_Flow_StartGame, Payload);
 }
 
+void UFTMainMenuWidget::HandleContinueButtonClicked()
+{
+	if (!CachedContinueButton || !CachedContinueButton->GetIsEnabled())
+	{
+		return;
+	}
+
+	OnContinueGameRequested.Broadcast();
+
+	FFTMessagePayloadStruct Payload;
+	Payload.InstigatorActor = GetOwningPlayerPawn();
+
+	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
+	MessageSubsystem.BroadcastMessage(TAG_FT_Request_Flow_ContinueGame, Payload);
+}
+
+void UFTMainMenuWidget::SetContinueButtonEnabled(bool bEnabled)
+{
+	if (CachedContinueButton)
+	{
+		CachedContinueButton->SetIsEnabled(bEnabled);
+	}
+}
+
 void UFTMainMenuWidget::HandleOptionsButtonClicked()
 {
 	ShowOptionsPanel();
@@ -194,12 +226,6 @@ void UFTMainMenuWidget::HandleQuitConfirmButtonClicked()
 void UFTMainMenuWidget::QuitGame()
 {
 	OnQuitGameRequested.Broadcast();
-
-	FFTMessagePayloadStruct Payload;
-	Payload.InstigatorActor = GetOwningPlayerPawn();
-
-	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	MessageSubsystem.BroadcastMessage(TAG_FT_Request_UI_MainMenu_QuitGame, Payload);
 
 	if (APlayerController* PlayerController = GetOwningPlayer())
 	{

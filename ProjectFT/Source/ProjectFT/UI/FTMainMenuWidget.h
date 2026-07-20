@@ -16,6 +16,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTMainMenuRequestEvent);
  *
  * Required Blueprint names:
  * - WBP_StartButton
+ * - WBP_ContinueButton
  * - WBP_OptionsButton
  * - WBP_QuitButton
  * - WBP_OptionsBackButton
@@ -46,6 +47,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|MainMenu")
 	void ShowQuitConfirmPanel();
 
+	/** Called by the flow/save owner after checking whether a resumable save exists. */
+	UFUNCTION(BlueprintCallable, Category = "FT|MainMenu")
+	void SetContinueButtonEnabled(bool bEnabled);
+
+	UPROPERTY(BlueprintAssignable, Category = "FT|MainMenu|Request")
+	FFTMainMenuRequestEvent OnContinueGameRequested;
+
 	/** Presentation hook. Application logic should listen to the gameplay message tag. */
 	UPROPERTY(BlueprintAssignable, Category = "FT|MainMenu|Request")
 	FFTMainMenuRequestEvent OnQuitGameRequested;
@@ -53,6 +61,9 @@ public:
 protected:
 	UFUNCTION()
 	void HandleStartButtonClicked();
+
+	UFUNCTION()
+	void HandleContinueButtonClicked();
 
 	UFUNCTION()
 	void HandleOptionsButtonClicked();
@@ -71,6 +82,7 @@ protected:
 
 private:
 	bool BindButton(FName WrapperWidgetName, FName HandlerName, bool bRequired = false);
+	UButton* ResolveWrappedButton(FName WrapperWidgetName) const;
 	UButton* ResolveButtonInsideWidget(UUserWidget* UserWidget, FName ButtonName) const;
 	void ResolvePanels();
 	void ActivatePanel(UWidget* PanelToShow);
@@ -92,4 +104,7 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWidget> CachedQuitConfirmBorder = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UButton> CachedContinueButton = nullptr;
 };
