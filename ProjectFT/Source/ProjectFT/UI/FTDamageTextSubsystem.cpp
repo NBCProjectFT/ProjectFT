@@ -1,25 +1,24 @@
 #include "FTDamageTextSubsystem.h"
 
-#include "../Struct/FTDamageTextPayloadStruct.h"
 #include "Animation/WidgetAnimation.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
-#include "Camera/PlayerCameraManager.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInterface.h"
 #include "NativeGameplayTags.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
-#include "Blueprint/WidgetLayoutLibrary.h"
-#include "GameFramework/PlayerController.h"
-#include "Materials/MaterialInterface.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
+#include "ProjectFT/Struct/FTDamageTextPayloadStruct.h"
 
-namespace FTDamageTextMessage
+namespace FTDamageTextMessageTags
 {
-	UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Received, "Event.Damage.Received");
-	UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_Damage_Dealt, "Event.Damage.Dealt");
+	UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_DamageText, "Event.Damage.Text");
 }
 
 void UFTDamageTextSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -61,7 +60,6 @@ void UFTDamageTextSubsystem::Tick(float DeltaTime)
 }
 
 
-// UFTDamageTextSubsystem의 Tick 비용을 STATGROUP_Tickables 그룹에 기록
 TStatId UFTDamageTextSubsystem::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UFTDamageTextSubsystem, STATGROUP_Tickables);
@@ -295,16 +293,16 @@ void UFTDamageTextSubsystem::RegisterDamageMessageListeners()
 {
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 
-	DamageReceivedListenerHandle = MessageSubsystem.RegisterListener(
-		FTDamageTextMessage::TAG_FT_Event_Damage_Received,
+	CharacterDamagedListenerHandle = MessageSubsystem.RegisterListener(
+		TAG_FT_Event_CharacterDamaged,
 		this,
-		&ThisClass::HandleDamageReceived
+		&ThisClass::HandleCharacterDamaged
 	);
 
-	DamageDealtListenerHandle = MessageSubsystem.RegisterListener(
-		FTDamageTextMessage::TAG_FT_Event_Damage_Dealt,
+	DamageTextListenerHandle = MessageSubsystem.RegisterListener(
+		FTDamageTextMessageTags::TAG_FT_Event_DamageText,
 		this,
-		&ThisClass::HandleDamageDealt
+		&ThisClass::HandleDamageTextMessage
 	);
 }
 
@@ -312,27 +310,54 @@ void UFTDamageTextSubsystem::UnregisterDamageMessageListeners()
 {
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 
-	if (DamageReceivedListenerHandle.IsValid())
+	if (CharacterDamagedListenerHandle.IsValid())
 	{
-		MessageSubsystem.UnregisterListener(DamageReceivedListenerHandle);
-		DamageReceivedListenerHandle = FGameplayMessageListenerHandle();
+		MessageSubsystem.UnregisterListener(CharacterDamagedListenerHandle);
+		CharacterDamagedListenerHandle = FGameplayMessageListenerHandle();
 	}
 
-	if (DamageDealtListenerHandle.IsValid())
+	if (DamageTextListenerHandle.IsValid())
 	{
-		MessageSubsystem.UnregisterListener(DamageDealtListenerHandle);
-		DamageDealtListenerHandle = FGameplayMessageListenerHandle();
+		MessageSubsystem.UnregisterListener(DamageTextListenerHandle);
+		DamageTextListenerHandle = FGameplayMessageListenerHandle();
 	}
 }
 
-void UFTDamageTextSubsystem::HandleDamageReceived(FGameplayTag Channel, const FFTDamageTextPayloadStruct& Payload)
+void UFTDamageTextSubsystem::HandleCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload)
 {
+	if (Payload.DamageAmount <= 0.0f || !ShouldShowDamageTextForLocalPlayer(Payload))
+	{
+		return;
+	}
+
+	ShowDamageText(Payload.DamageAmount, Payload.HitLocation);
+}
+
+bool UFTDamageTextSubsystem::ShouldShowDamageTextForLocalPlayer(const FFTCharacterDamagePayloadStruct& Payload) const
+{
+	return ShouldShowDamageTextForLocalPlayer(Payload.InstigatorActor, Payload.TargetActor);
+}
+
+void UFTDamageTextSubsystem::HandleDamageTextMessage(FGameplayTag Channel, const FFTDamageTextPayloadStruct& Payload)
+{
+	if (Payload.Damage <= 0.0f || !ShouldShowDamageTextForLocalPlayer(Payload.InstigatorActor, Payload.TargetActor))
+	{
+		return;
+	}
+
 	ShowDamageText(Payload.Damage, Payload.HitLocation);
 }
 
-void UFTDamageTextSubsystem::HandleDamageDealt(FGameplayTag Channel, const FFTDamageTextPayloadStruct& Payload)
+bool UFTDamageTextSubsystem::ShouldShowDamageTextForLocalPlayer(AActor* InstigatorActor, AActor* TargetActor) const
 {
-	ShowDamageText(Payload.Damage, Payload.HitLocation);
+	const APlayerController* PlayerController = GetOwningPlayerController();
+	const APawn* LocalPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (!LocalPawn)
+	{
+		return false;
+	}
+
+	return TargetActor == LocalPawn || InstigatorActor == LocalPawn;
 }
 
 void UFTDamageTextSubsystem::HideDamageText(int32 PoolIndex)
@@ -420,3 +445,4 @@ APlayerController* UFTDamageTextSubsystem::GetOwningPlayerController() const
 	const ULocalPlayer* LocalPlayer = GetLocalPlayer();
 	return LocalPlayer ? LocalPlayer->GetPlayerController(GetWorld()) : nullptr;
 }
+

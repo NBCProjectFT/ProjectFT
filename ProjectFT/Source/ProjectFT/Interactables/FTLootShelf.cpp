@@ -2,6 +2,8 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/DamageEvents.h"
+#include "NativeGameplayTags.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
@@ -13,7 +15,13 @@
 #include "ProjectFT/Data/FTLootShelfDataAsset.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Struct/FTDamageTextPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+
+namespace FTDamageTextMessageTags
+{
+	UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_FT_Event_DamageText, "Event.Damage.Text");
+}
 
 AFTLootShelf::AFTLootShelf()
 {
@@ -47,7 +55,10 @@ void AFTLootShelf::OnConstruction(const FTransform& Transform)
 
 void AFTLootShelf::InitializeFromDataAsset()
 {
-	if (!ShelfDataAsset) return;
+	if (!ShelfDataAsset)
+	{
+		return;
+	}
 
 	// Static Mesh 설정
 	if (ShelfMesh)
@@ -60,6 +71,7 @@ void AFTLootShelf::InitializeFromDataAsset()
 	}
 
 	// 내구도 설정
+	MaxHealth = ShelfDataAsset->MaxHealth;
 	Health = ShelfDataAsset->MaxHealth;
 
 	if (ChanneledInteraction)
@@ -97,7 +109,7 @@ FText AFTLootShelf::GetInteractionPrompt_Implementation() const
 	{
 		return ShelfDataAsset->InteractionPrompt;
 	}
-	return FText::FromString(TEXT("훔치기"));
+	return FText::FromString(TEXT("E로 훔치기"));
 }
 
 float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
@@ -106,8 +118,15 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 
 	if (bHasBeenLooted) return ActualDamage;
 
-	Health -= DamageAmount;
+	const float AppliedDamage = FMath::Max(0.0f, DamageAmount);
+	if (AppliedDamage <= 0.0f)
+	{
+		return ActualDamage;
+	}
 
+	Health = FMath::Clamp(Health - AppliedDamage, 0.0f, MaxHealth);
+
+	UE_LOG(LogFTItem, Log, TEXT("매대 체력 : '%f'"), Health);
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 
 	// 1. 데미지를 입을 때마다 '파괴 중(Damaged)' 메시지 브로드캐스트
@@ -117,6 +136,28 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 	DamagedPayload.Value = Health;
 
 	MessageSubsystem.BroadcastMessage(TAG_FT_Event_ShelfDamaged, DamagedPayload);
+
+	FVector DamageTextLocation = GetActorLocation();
+	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+	{
+		const FPointDamageEvent* PointDamageEvent = static_cast<const FPointDamageEvent*>(&DamageEvent);
+		if (!PointDamageEvent->HitInfo.ImpactPoint.IsNearlyZero())
+		{
+			DamageTextLocation = PointDamageEvent->HitInfo.ImpactPoint;
+		}
+		else if (!PointDamageEvent->HitInfo.Location.IsNearlyZero())
+		{
+			DamageTextLocation = PointDamageEvent->HitInfo.Location;
+		}
+	}
+
+	FFTDamageTextPayloadStruct DamageTextPayload;
+	DamageTextPayload.InstigatorActor = DamageCauser;
+	DamageTextPayload.TargetActor = this;
+	DamageTextPayload.Damage = AppliedDamage;
+	DamageTextPayload.HitLocation = DamageTextLocation;
+
+	MessageSubsystem.BroadcastMessage(FTDamageTextMessageTags::TAG_FT_Event_DamageText, DamageTextPayload);
 
 	// 2. 체력이 0 이하가 되어 파괴되었을 때 '파괴 완료(Destroyed)' 메시지 브로드캐스트
 	if (Health <= 0.0f)
@@ -149,6 +190,11 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 	}
 
 	return ActualDamage;
+}
+
+float AFTLootShelf::GetHealthPercent() const
+{
+	return MaxHealth > 0.0f ? FMath::Clamp(Health / MaxHealth, 0.0f, 1.0f) : 0.0f;
 }
 
 void AFTLootShelf::HandleStealCompleted()
@@ -332,3 +378,4 @@ void AFTLootShelf::SpawnItemActor(UFTItemDataAsset* ItemDataAsset)
 		NewItem->UpdateAppearance();
 	}
 }
+

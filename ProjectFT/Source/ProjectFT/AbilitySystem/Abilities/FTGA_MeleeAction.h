@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FTGA_ItemAbility.h"
+#include "FTGA_DamageItemAbility.h"
 #include "FTGA_MeleeAction.generated.h"
 
 class UFTItemDataAsset;
@@ -21,7 +21,7 @@ struct FFTMeleeActionStruct;
  * - Hit 이벤트가 들어오면 맞은 액터에게 ItemData.UseData.UseEffects를 적용한다.
  */
 UCLASS()
-class PROJECTFT_API UFTGA_MeleeAction : public UFTGA_ItemAbility
+class PROJECTFT_API UFTGA_MeleeAction : public UFTGA_DamageItemAbility
 {
 	GENERATED_BODY()
 

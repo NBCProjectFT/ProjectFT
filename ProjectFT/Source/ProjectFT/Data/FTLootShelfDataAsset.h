@@ -53,7 +53,7 @@ public:
 
 	/* @brief : 상호작용 시 표시할 기본 프롬프트 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
-	FText InteractionPrompt = FText::FromString(TEXT("훔치기"));
+	FText InteractionPrompt = FText::FromString(TEXT("E로 훔치기"));
 
 	/* @brief : 상호작용 쿨다운 중일 때 표시할 프롬프트 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
