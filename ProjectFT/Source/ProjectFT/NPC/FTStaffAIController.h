@@ -6,6 +6,7 @@
 #include "FTStaffAIController.generated.h"
 
 struct FFTMessagePayloadStruct;
+class AFTShoppingPoint;
 
 UCLASS()
 class PROJECTFT_API AFTStaffAIController : public AFTCashierAIController
@@ -40,6 +41,18 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Staff|Restock")
 	bool bRestockCompleted = false;
 
+	/** 비어있는 매대가 없을 때 직원이 이동할 대기 순찰 위치입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Staff|Wander")
+	FVector StaffWanderLocation = FVector::ZeroVector;
+
+	/** 현재 직원 대기 순찰 목적지가 있는지 나타냅니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Staff|Wander")
+	bool bHasStaffWanderTarget = false;
+
+	/** 직원 대기 순찰 Move To에서 도착으로 인정할 거리입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Staff|Wander")
+	float StaffWanderAcceptanceRadius = 100.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Staff|Debug")
 	bool bLogStaffDebug = false;
 
@@ -51,9 +64,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Staff|Restock")
 	void ClearRestockTarget();
 
+	/** 비어있는 매대가 없을 때 이동할 쇼핑 포인트 기반 대기 순찰 위치를 선택합니다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Staff|Wander")
+	bool PickRandomStaffWanderTarget();
+
+	/** 현재 선택한 대기 순찰 포인트 점유를 해제합니다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Staff|Wander")
+	void ClearStaffWanderTarget();
+
 private:
 	FGameplayMessageListenerHandle StealCompletedListenerHandle;
 	FGameplayMessageListenerHandle ShelfRestockedListenerHandle;
+
+	UPROPERTY()
+	TObjectPtr<AFTShoppingPoint> CurrentStaffWanderPoint;
 
 	void OnStealCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void OnShelfRestocked(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
