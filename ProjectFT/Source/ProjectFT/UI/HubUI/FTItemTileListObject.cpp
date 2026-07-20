@@ -47,6 +47,11 @@ int32 UFTItemTileListObject::GetPrice() const
 	return Price;
 }
 
+float UFTItemTileListObject::GetUnitWeight() const
+{
+	return UnitWeight;
+}
+
 float UFTItemTileListObject::GetTotalWeight() const
 {
 	return UnitWeight * Count;

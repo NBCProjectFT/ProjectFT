@@ -162,6 +162,23 @@ bool UFTShopViewModel::CanExecuteTradeAction() const
 	return CurrentMode == EFTShopPanelMode::Buy ? CanBuySelectedItem() : CanSellSelectedItem();
 }
 
+bool UFTShopViewModel::CanSetTradeQuantityToHalf() const
+{
+	if (!GetSelectedItem())
+	{
+		return false;
+	}
+
+	const int32 MaxTradeQuantity = GetMaxTradeQuantity();
+	const int32 HalfTradeQuantity = FMath::Clamp(MaxTradeQuantity / 2, 1, MaxTradeQuantity);
+	return MaxTradeQuantity > 1 && TradeQuantity != HalfTradeQuantity;
+}
+
+bool UFTShopViewModel::CanSetTradeQuantityToMax() const
+{
+	return GetSelectedItem() && TradeQuantity < GetMaxTradeQuantity();
+}
+
 void UFTShopViewModel::RefreshAll()
 {
 	const FName PreviousShopItemID = SelectedShopItem ? SelectedShopItem->GetItemID() : NAME_None;
@@ -249,6 +266,19 @@ void UFTShopViewModel::IncreaseTradeQuantity()
 void UFTShopViewModel::DecreaseTradeQuantity()
 {
 	TradeQuantity = FMath::Clamp(TradeQuantity - 1, 1, GetMaxTradeQuantity());
+	NotifyChanged();
+}
+
+void UFTShopViewModel::SetTradeQuantityToHalf()
+{
+	const int32 MaxTradeQuantity = GetMaxTradeQuantity();
+	TradeQuantity = FMath::Clamp(MaxTradeQuantity / 2, 1, MaxTradeQuantity);
+	NotifyChanged();
+}
+
+void UFTShopViewModel::SetTradeQuantityToMax()
+{
+	TradeQuantity = GetMaxTradeQuantity();
 	NotifyChanged();
 }
 
@@ -463,7 +493,7 @@ int32 UFTShopViewModel::GetMaxTradeQuantity() const
 		return 99;
 	}
 
-	return FMath::Clamp(ShopSubsystem->GetCurrencyAmount(PlayerInventory) / UnitPrice, 1, 99);
+	return FMath::Max(1, ShopSubsystem->GetCurrencyAmount(PlayerInventory) / UnitPrice);
 }
 
 int32 UFTShopViewModel::GetUnitPrice() const

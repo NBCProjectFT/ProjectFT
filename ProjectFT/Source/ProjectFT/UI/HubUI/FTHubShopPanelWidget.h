@@ -94,6 +94,12 @@ protected:
 	UButton* BTN_QuantityPlus;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityHalf;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BTN_QuantityMax;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* BTN_TradeAction;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -119,6 +125,12 @@ private:
 
 	UFUNCTION()
 	void HandleQuantityPlusClicked();
+
+	UFUNCTION()
+	void HandleQuantityHalfClicked();
+
+	UFUNCTION()
+	void HandleQuantityMaxClicked();
 
 	UFUNCTION()
 	void HandleTradeActionClicked();

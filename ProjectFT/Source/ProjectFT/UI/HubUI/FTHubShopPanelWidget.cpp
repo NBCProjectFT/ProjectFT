@@ -76,6 +76,18 @@ void UFTHubShopPanelWidget::NativeConstruct()
 		BTN_QuantityPlus->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleQuantityPlusClicked);
 	}
 
+	if (BTN_QuantityHalf)
+	{
+		BTN_QuantityHalf->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleQuantityHalfClicked);
+		BTN_QuantityHalf->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleQuantityHalfClicked);
+	}
+
+	if (BTN_QuantityMax)
+	{
+		BTN_QuantityMax->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleQuantityMaxClicked);
+		BTN_QuantityMax->OnClicked.AddDynamic(this, &UFTHubShopPanelWidget::HandleQuantityMaxClicked);
+	}
+
 	if (BTN_TradeAction)
 	{
 		BTN_TradeAction->OnClicked.RemoveDynamic(this, &UFTHubShopPanelWidget::HandleTradeActionClicked);
@@ -175,6 +187,16 @@ void UFTHubShopPanelWidget::RefreshFromViewModel()
 		BTN_TradeAction->SetIsEnabled(ViewModel->CanExecuteTradeAction());
 	}
 
+	if (BTN_QuantityHalf)
+	{
+		BTN_QuantityHalf->SetIsEnabled(ViewModel->CanSetTradeQuantityToHalf());
+	}
+
+	if (BTN_QuantityMax)
+	{
+		BTN_QuantityMax->SetIsEnabled(ViewModel->CanSetTradeQuantityToMax());
+	}
+
 	if (IMG_SelectedItemIcon)
 	{
 		if (UTexture2D* IconTexture = ViewModel->GetSelectedItemIcon().LoadSynchronous())
@@ -262,6 +284,22 @@ void UFTHubShopPanelWidget::HandleQuantityPlusClicked()
 	if (ViewModel)
 	{
 		ViewModel->IncreaseTradeQuantity();
+	}
+}
+
+void UFTHubShopPanelWidget::HandleQuantityHalfClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetTradeQuantityToHalf();
+	}
+}
+
+void UFTHubShopPanelWidget::HandleQuantityMaxClicked()
+{
+	if (ViewModel)
+	{
+		ViewModel->SetTradeQuantityToMax();
 	}
 }
 

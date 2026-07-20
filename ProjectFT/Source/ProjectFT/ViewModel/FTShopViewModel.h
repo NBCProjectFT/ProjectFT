@@ -57,6 +57,8 @@ public:
 	bool CanBuySelectedItem() const;
 	bool CanSellSelectedItem() const;
 	bool CanExecuteTradeAction() const;
+	bool CanSetTradeQuantityToHalf() const;
+	bool CanSetTradeQuantityToMax() const;
 
 	void RefreshAll();
 	void SetBuyMode();
@@ -66,6 +68,8 @@ public:
 	void SelectCurrentItemObject(UObject* ItemObject);
 	void IncreaseTradeQuantity();
 	void DecreaseTradeQuantity();
+	void SetTradeQuantityToHalf();
+	void SetTradeQuantityToMax();
 	bool BuySelectedItem();
 	bool SellSelectedItem();
 	bool ExecuteTradeAction();

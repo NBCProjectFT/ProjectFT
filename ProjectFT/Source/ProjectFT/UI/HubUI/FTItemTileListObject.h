@@ -23,6 +23,7 @@ public:
 	int32 GetCount() const;
 	int32 GetOwnedCount() const;
 	int32 GetPrice() const;
+	float GetUnitWeight() const;
 	float GetTotalWeight() const;
 	bool IsLocked() const;
 	bool HasOwnedCount() const;

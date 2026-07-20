@@ -42,7 +42,7 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 
 	if (TXT_ItemWeight)
 	{
-		TXT_ItemWeight->SetText(FText::FromString(FString::Printf(TEXT("%.1fkg"), TileObject->GetTotalWeight())));
+		TXT_ItemWeight->SetText(FText::FromString(FString::Printf(TEXT("%.1fkg"), TileObject->GetUnitWeight())));
 	}
 
 	if (CHK_ItemSelected)
