@@ -10,7 +10,6 @@
 
 struct FFTFlowLevelRouteStruct;
 struct FFTMessagePayloadStruct;
-struct FFTNPCReportPayloadStruct;
 class UFTLevelPreloadDataAsset;
 
 UCLASS()
@@ -76,7 +75,6 @@ public:
 private:
 	void HandleStartGameMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleFlowRequestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
-	void HandleSecurityTargetCapturedMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void TravelToState(EFTFlowStateType TargetFlowState, FName RequestedLevelName = NAME_None);
 	void TravelToStateWithLoading(EFTFlowStateType TargetFlowState);
 	const FFTFlowLevelRouteStruct* FindFlowLevelRouteByState(EFTFlowStateType State) const;
