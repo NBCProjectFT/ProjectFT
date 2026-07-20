@@ -13,6 +13,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_CompleteEscape, "Request.Flow.Complet
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_FailRaid, "Request.Flow.FailRaid");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_ReturnToBase, "Request.Flow.ReturnToBase");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_ReturnToMainMenu, "Request.Flow.ReturnToMainMenu");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_UI_MainMenu_QuitGame, "Request.UI.MainMenu.QuitGame");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemPickedUp, "Event.Item.PickedUp");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemConsumed, "Event.Item.Consumed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ReportGaugeChanged, "Event.ReportGauge.Changed");
