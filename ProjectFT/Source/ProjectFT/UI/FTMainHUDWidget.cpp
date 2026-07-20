@@ -10,10 +10,12 @@
 #include "FTItemSlotEntryWidget.h"
 #include "FTItemSlotListView.h"
 #include "FTInteractionPromptWidget.h"
+#include "FTShelfHealthBarWidget.h"
 #include "FTUIManagerSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Interactables/FTLootShelf.h"
 #include "ProjectFT/Interface/FTInteractable.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 
@@ -24,6 +26,7 @@ void UFTMainHUDWidget::NativeConstruct()
 	ResolveHUDBarWidgets();
 	ResolveHUDViewModel();
 	CreateInteractionPromptWidget();
+	CreateShelfHealthBarWidget();
 	ResolveInteractionPromptBinding();
 	if (HUDViewModel)
 	{
@@ -44,6 +47,7 @@ void UFTMainHUDWidget::NativeDestruct()
 {
 	ClearInteractionPromptBinding();
 	RemoveInteractionPromptWidget();
+	RemoveShelfHealthBarWidget();
 
 	Super::NativeDestruct();
 }
@@ -64,6 +68,7 @@ void UFTMainHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	UpdateHPBars(InDeltaTime);
 	UpdateStaminaBar(InDeltaTime);
 	UpdateCrosshair();
+	UpdateShelfHealthBar();
 	ResolveInteractionPromptBinding();
 	
 	// UFTAssetManager::GetAsset();
@@ -154,15 +159,25 @@ TArray<UWidget*> UFTMainHUDWidget::GetQuickSlotWidgets() const
 
 void UFTMainHUDWidget::HandleFocusedInteractableChanged(AActor* FocusedActor)
 {
-	if (!InteractionPromptWidget)
+	if (!FocusedActor)
 	{
+		FocusedShelf.Reset();
+		HideShelfHealthBar();
+		if (InteractionPromptWidget)
+		{
+			InteractionPromptWidget->HidePrompt();
+		}
 		return;
 	}
 
-	if (!FocusedActor)
+	FocusedShelf = Cast<AFTLootShelf>(FocusedActor);
+	if (!FocusedShelf.IsValid())
 	{
-		InteractionPromptWidget->HidePrompt();
-		return;
+		HideShelfHealthBar();
+	}
+	else
+	{
+		UpdateShelfHealthBar();
 	}
 
 	FText PromptText = FText::FromString(TEXT("상호작용"));
@@ -173,11 +188,17 @@ void UFTMainHUDWidget::HandleFocusedInteractableChanged(AActor* FocusedActor)
 
 	if (PromptText.IsEmpty())
 	{
-		InteractionPromptWidget->HidePrompt();
+		if (InteractionPromptWidget)
+		{
+			InteractionPromptWidget->HidePrompt();
+		}
 		return;
 	}
 
-	InteractionPromptWidget->ShowPrompt(PromptText);
+	if (InteractionPromptWidget)
+	{
+		InteractionPromptWidget->ShowPrompt(PromptText);
+	}
 }
 
 void UFTMainHUDWidget::UpdateHPBars(float DeltaTime)
@@ -364,5 +385,74 @@ void UFTMainHUDWidget::RemoveInteractionPromptWidget()
 	{
 		InteractionPromptWidget->RemoveFromParent();
 		InteractionPromptWidget = nullptr;
+	}
+}
+
+void UFTMainHUDWidget::CreateShelfHealthBarWidget()
+{
+	if (ShelfHealthBarWidget)
+	{
+		return;
+	}
+
+	TSubclassOf<UFTShelfHealthBarWidget> HealthBarWidgetClass = ShelfHealthBarWidgetClass;
+
+	if (!HealthBarWidgetClass)
+	{
+		return;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (!OwningPlayer)
+	{
+		return;
+	}
+
+	ShelfHealthBarWidget = CreateWidget<UFTShelfHealthBarWidget>(OwningPlayer, HealthBarWidgetClass);
+	if (ShelfHealthBarWidget)
+	{
+		ShelfHealthBarWidget->AddToViewport(16);
+		ShelfHealthBarWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void UFTMainHUDWidget::RemoveShelfHealthBarWidget()
+{
+	if (ShelfHealthBarWidget)
+	{
+		ShelfHealthBarWidget->RemoveFromParent();
+		ShelfHealthBarWidget = nullptr;
+	}
+
+	FocusedShelf.Reset();
+}
+
+void UFTMainHUDWidget::UpdateShelfHealthBar()
+{
+	if (!FocusedShelf.IsValid())
+	{
+		HideShelfHealthBar();
+		return;
+	}
+
+	if (!ShelfHealthBarWidget)
+	{
+		CreateShelfHealthBarWidget();
+	}
+
+	if (!ShelfHealthBarWidget)
+	{
+		return;
+	}
+
+	ShelfHealthBarWidget->SetHealthPercent(FocusedShelf->GetHealthPercent());
+	ShelfHealthBarWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+}
+
+void UFTMainHUDWidget::HideShelfHealthBar()
+{
+	if (ShelfHealthBarWidget)
+	{
+		ShelfHealthBarWidget->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }
