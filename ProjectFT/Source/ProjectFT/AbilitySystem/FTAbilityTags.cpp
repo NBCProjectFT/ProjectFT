@@ -50,6 +50,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowRelease, "Event.Throw.Release");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_TargetHit, "Event.TargetHit");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Damage, "Data.Damage");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Data_Damage_Object, "Data.Damage.Object");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Type_Misc, "Item.Type.Misc");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Item_Type_Usable, "Item.Type.Usable");
