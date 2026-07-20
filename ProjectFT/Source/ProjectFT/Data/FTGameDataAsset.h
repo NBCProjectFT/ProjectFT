@@ -19,6 +19,7 @@ class UFTInventoryWidget;
 class UFTLoadingWidget;
 class UFTMainHUDWidget;
 class UFTMainMenuWidget;
+class UFTPauseMenuWidget;
 class UFTQuestListWidget;
 class UMaterialInterface;
 class UUserWidget;
@@ -64,6 +65,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTInventoryWidget> InventoryWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
+	TSoftClassPtr<UFTPauseMenuWidget> PauseMenuWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Core")
 	TSoftClassPtr<UFTQuestListWidget> QuestListWidgetClass;

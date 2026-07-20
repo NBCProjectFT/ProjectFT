@@ -1,11 +1,14 @@
 #include "FTUIManagerSubsystem.h"
 
 #include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "FTCountdownEscapeWidget.h"
 #include "FTEscapedRaidWidget.h"
 #include "FTFailWidget.h"
 #include "FTInventoryWidget.h"
+#include "FTMainHUDWidget.h"
 #include "FTMainMenuWidget.h"
+#include "FTPauseMenuWidget.h"
 #include "HubUI/FTHubCraftWidget.h"
 #include "HubUI/FTHubMainWidget.h"
 #include "HubUI/FTHubMarketPanelWidget.h"
@@ -33,6 +36,7 @@
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/Pawn.h"
+#include "Kismet/GameplayStatics.h"
 
 namespace
 {
@@ -201,15 +205,26 @@ void UFTUIManagerSubsystem::SetCountdownEscapeRemainingTime(float RemainingTime)
 
 void UFTUIManagerSubsystem::ShowEscapedRaid()
 {
+	ShowRaidResult(EFTRaidResultType::Escaped);
+}
+
+void UFTUIManagerSubsystem::ShowFailedRaid()
+{
+	ShowRaidResult(EFTRaidResultType::Failed);
+}
+
+void UFTUIManagerSubsystem::ShowRaidResult(EFTRaidResultType ResultType)
+{
 	if (EscapedRaidWidget && EscapedRaidWidget->IsInViewport())
 	{
+		EscapedRaidWidget->SetRaidResult(ResultType);
 		return;
 	}
 
 	APlayerController* PlayerController = GetPrimaryPlayerController();
 	if (!PlayerController)
 	{
-		UE_LOG(LogFTUI, Warning, TEXT("Escaped raid widget was not created because PlayerController is missing."));
+		UE_LOG(LogFTUI, Warning, TEXT("Raid result widget was not created because PlayerController is missing."));
 		return;
 	}
 
@@ -218,7 +233,7 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 		TSubclassOf<UFTEscapedRaidWidget> EscapedRaidWidgetClass = UFTAssetManager::Get().GetEscapedRaidWidgetClass();
 		if (!EscapedRaidWidgetClass)
 		{
-			UE_LOG(LogFTUI, Warning, TEXT("Escaped raid widget class is not set in UI data."));
+			UE_LOG(LogFTUI, Warning, TEXT("Raid result widget class is not set in UI data. Set EscapedRaidWidgetClass to the shared raid result widget."));
 			return;
 		}
 
@@ -230,7 +245,13 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 	}
 
 	HideCountdownEscape();
+	if (FailWidget)
+	{
+		FailWidget->RemoveFromParent();
+	}
+	EscapedRaidWidget->SetRaidResult(ResultType);
 	EscapedRaidWidget->AddToViewport(40);
+	UGameplayStatics::SetGamePaused(this, true);
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(EscapedRaidWidget->TakeWidget());
@@ -238,16 +259,24 @@ void UFTUIManagerSubsystem::ShowEscapedRaid()
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
 
-	UE_LOG(LogFTUI, Log, TEXT("Escaped raid widget shown. Widget=%s Class=%s"),
+	UE_LOG(LogFTUI, Log, TEXT("Raid result widget shown. Result=%d Widget=%s Class=%s"),
+		static_cast<int32>(ResultType),
 		*GetNameSafe(EscapedRaidWidget),
 		*GetNameSafe(EscapedRaidWidget->GetClass()));
 }
 
 void UFTUIManagerSubsystem::HideEscapedRaid()
 {
+	const bool bWasEscapedRaidOpen = EscapedRaidWidget && EscapedRaidWidget->IsInViewport();
+
 	if (EscapedRaidWidget)
 	{
 		EscapedRaidWidget->RemoveFromParent();
+	}
+
+	if (bWasEscapedRaidOpen)
+	{
+		UGameplayStatics::SetGamePaused(this, false);
 	}
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
@@ -264,7 +293,7 @@ void UFTUIManagerSubsystem::HideEscapedRaid()
 
 void UFTUIManagerSubsystem::ShowInventory()
 {
-	if (IsInventoryOpen())
+	if (IsInventoryOpen() || IsHubModalOpen())
 	{
 		return;
 	}
@@ -360,6 +389,90 @@ bool UFTUIManagerSubsystem::IsInventoryOpen() const
 	return InventoryWidget && InventoryWidget->IsInViewport();
 }
 
+void UFTUIManagerSubsystem::ShowPauseMenu()
+{
+	if (IsPauseMenuOpen())
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = GetPrimaryPlayerController();
+	if (!PlayerController)
+	{
+		UE_LOG(LogFTUI, Warning, TEXT("Pause menu widget was not created because PlayerController is missing."));
+		return;
+	}
+
+	if (!PauseMenuWidget)
+	{
+		TSubclassOf<UFTPauseMenuWidget> PauseMenuWidgetClass = UFTAssetManager::Get().GetPauseMenuWidgetClass();
+		if (!PauseMenuWidgetClass)
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Pause menu widget class is not set in UI data."));
+			return;
+		}
+
+		PauseMenuWidget = CreateWidget<UFTPauseMenuWidget>(PlayerController, PauseMenuWidgetClass);
+		if (!PauseMenuWidget)
+		{
+			return;
+		}
+	}
+
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
+
+	PauseMenuWidget->AddToViewport(100);
+	UGameplayStatics::SetGamePaused(this, true);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(PauseMenuWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	PlayerController->SetInputMode(InputMode);
+	PlayerController->bShowMouseCursor = true;
+	PauseMenuWidget->SetKeyboardFocus();
+}
+
+void UFTUIManagerSubsystem::HidePauseMenu()
+{
+	if (PauseMenuWidget)
+	{
+		PauseMenuWidget->RemoveFromParent();
+	}
+
+	UGameplayStatics::SetGamePaused(this, false);
+
+	if (APlayerController* PlayerController = GetPrimaryPlayerController())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
+
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+	}
+}
+
+void UFTUIManagerSubsystem::TogglePauseMenu()
+{
+	if (IsPauseMenuOpen())
+	{
+		HidePauseMenu();
+	}
+	else
+	{
+		ShowPauseMenu();
+	}
+}
+
+bool UFTUIManagerSubsystem::IsPauseMenuOpen() const
+{
+	return PauseMenuWidget && PauseMenuWidget->IsInViewport();
+}
+
 
 
 void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory, UFTInventoryComponent* StorageInventory)
@@ -373,6 +486,10 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 	if (HubCraftWidget && HubCraftWidget->IsInViewport())
 	{
 		HideCrafting();
+		return;
+	}
+	if (IsHubModalOpen())
+	{
 		return;
 	}
 
@@ -404,15 +521,20 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 	{
 		CraftingViewModel = NewObject<UFTCraftingViewModel>(this);
 	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
 
 	HubCraftWidget->InitializeCraftWidget(PlayerInventory, StorageInventory, CraftingViewModel);
 	HubCraftWidget->AddToViewport(20);
 
-	FInputModeGameAndUI InputMode;
+	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(HubCraftWidget->TakeWidget());
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
+	HubCraftWidget->SetKeyboardFocus();
 }
 
 void UFTUIManagerSubsystem::HideCrafting()
@@ -424,6 +546,10 @@ void UFTUIManagerSubsystem::HideCrafting()
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
 	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
 	}
@@ -442,6 +568,10 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 	if (HubStorageWidget && HubStorageWidget->IsInViewport())
 	{
 		HideStorage();
+		return;
+	}
+	if (IsHubModalOpen())
+	{
 		return;
 	}
 
@@ -473,15 +603,20 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 	{
 		HubStorageViewModel = NewObject<UFTHubStorageViewModel>(this);
 	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
 
 	HubStorageWidget->InitializeStorageWidget(HubStorage, PlayerInventory, HubStorageViewModel);
 	HubStorageWidget->AddToViewport(20);
 
-	FInputModeGameAndUI InputMode;
+	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(HubStorageWidget->TakeWidget());
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
+	HubStorageWidget->SetKeyboardFocus();
 }
 
 void UFTUIManagerSubsystem::HideStorage()
@@ -493,6 +628,10 @@ void UFTUIManagerSubsystem::HideStorage()
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
 	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
 	}
@@ -508,6 +647,10 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	if (RaidSelectWidget && RaidSelectWidget->IsInViewport())
 	{
 		HideRaidSelect();
+		return;
+	}
+	if (IsHubModalOpen())
+	{
 		return;
 	}
 
@@ -534,6 +677,10 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	{
 		RaidSelectViewModel = NewObject<UFTRaidSelectViewModel>(this);
 	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
 	RaidSelectViewModel->Initialize(RaidEntrance, PlayerInventory);
 	RaidSelectWidget->InitializeRaidSelect(RaidSelectViewModel);
 	RaidSelectWidget->AddToViewport(20);
@@ -544,6 +691,8 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
 	RaidSelectWidget->SetKeyboardFocus();
+	bRaidSelectHidesMainHUD = true;
+	RefreshMainHUDVisibility();
 }
 
 void UFTUIManagerSubsystem::HideRaidSelect()
@@ -562,6 +711,13 @@ void UFTUIManagerSubsystem::HideRaidSelect()
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
 	}
+
+	const bool bWasHidingMainHUD = bRaidSelectHidesMainHUD;
+	bRaidSelectHidesMainHUD = false;
+	if (bWasHidingMainHUD)
+	{
+		RefreshMainHUDVisibility();
+	}
 }
 
 void UFTUIManagerSubsystem::ShowHubMain(
@@ -573,6 +729,10 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	if (HubMainWidget && HubMainWidget->IsInViewport())
 	{
 		HideHubMain();
+		return;
+	}
+	if (IsHubModalOpen())
+	{
 		return;
 	}
 
@@ -645,6 +805,10 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	{
 		UE_LOG(LogFTUI, Warning, TEXT("Hub shop panel is missing from HubMainWidget."));
 	}
+	if (IsInventoryOpen())
+	{
+		HideInventory();
+	}
 
 	HubMainWidget->AddToViewport(20);
 
@@ -654,6 +818,8 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	PlayerController->SetInputMode(InputMode);
 	PlayerController->bShowMouseCursor = true;
 	HubMainWidget->SetKeyboardFocus();
+	bHubMainHidesMainHUD = true;
+	RefreshMainHUDVisibility();
 }
 
 void UFTUIManagerSubsystem::HideHubMain()
@@ -673,6 +839,13 @@ void UFTUIManagerSubsystem::HideHubMain()
 		PlayerController->SetInputMode(FInputModeGameOnly());
 		PlayerController->bShowMouseCursor = false;
 	}
+
+	const bool bWasHidingMainHUD = bHubMainHidesMainHUD;
+	bHubMainHidesMainHUD = false;
+	if (bWasHidingMainHUD)
+	{
+		RefreshMainHUDVisibility();
+	}
 }
 
 bool UFTUIManagerSubsystem::IsHubMainOpen() const
@@ -682,47 +855,7 @@ bool UFTUIManagerSubsystem::IsHubMainOpen() const
 
 void UFTUIManagerSubsystem::ShowFailScreen()
 {
-	if (FailWidget && FailWidget->IsInViewport())
-	{
-		return;
-	}
-
-	APlayerController* PlayerController = GetPrimaryPlayerController();
-	if (!PlayerController)
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Fail widget was not created because PlayerController is missing."));
-		return;
-	}
-
-	if (!FailWidget)
-	{
-		TSubclassOf<UFTFailWidget> FailWidgetClass = UFTAssetManager::Get().GetFailWidgetClass();
-		if (!FailWidgetClass)
-		{
-			UE_LOG(LogFTUI, Warning, TEXT("Fail widget class is not set in active game data. Set DA_FTGameData.FailWidgetClass to WBP_FailWidget."));
-			return;
-		}
-
-		FailWidget = CreateWidget<UFTFailWidget>(PlayerController, FailWidgetClass);
-		if (!FailWidget)
-		{
-			return;
-		}
-	}
-
-	HideCountdownEscape();
-	HideEscapedRaid();
-	FailWidget->AddToViewport(40);
-
-	FInputModeUIOnly InputMode;
-	InputMode.SetWidgetToFocus(FailWidget->TakeWidget());
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	PlayerController->SetInputMode(InputMode);
-	PlayerController->bShowMouseCursor = true;
-
-	UE_LOG(LogFTUI, Log, TEXT("Fail widget shown. Widget=%s Class=%s"),
-		*GetNameSafe(FailWidget),
-		*GetNameSafe(FailWidget->GetClass()));
+	ShowFailedRaid();
 }
 
 void UFTUIManagerSubsystem::HideFailScreen()
@@ -732,16 +865,7 @@ void UFTUIManagerSubsystem::HideFailScreen()
 		FailWidget->RemoveFromParent();
 	}
 
-	if (APlayerController* PlayerController = GetPrimaryPlayerController())
-	{
-		if (FSlateApplication::IsInitialized())
-		{
-			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
-		}
-
-		PlayerController->SetInputMode(FInputModeGameOnly());
-		PlayerController->bShowMouseCursor = false;
-	}
+	HideEscapedRaid();
 }
 
 void UFTUIManagerSubsystem::ShowSettlementScreen()
@@ -752,6 +876,32 @@ APlayerController* UFTUIManagerSubsystem::GetPrimaryPlayerController() const
 {
 	const UGameInstance* OwningGameInstance = GetGameInstance();
 	return OwningGameInstance ? OwningGameInstance->GetFirstLocalPlayerController() : nullptr;
+}
+
+bool UFTUIManagerSubsystem::IsHubModalOpen() const
+{
+	return (HubCraftWidget && HubCraftWidget->IsInViewport())
+		|| (HubStorageWidget && HubStorageWidget->IsInViewport())
+		|| (RaidSelectWidget && RaidSelectWidget->IsInViewport())
+		|| (HubMainWidget && HubMainWidget->IsInViewport());
+}
+
+void UFTUIManagerSubsystem::RefreshMainHUDVisibility() const
+{
+	TArray<UUserWidget*> MainHUDWidgets;
+	UWidgetBlueprintLibrary::GetAllWidgetsOfClass(
+		this,
+		MainHUDWidgets,
+		UFTMainHUDWidget::StaticClass(),
+		true);
+
+	const ESlateVisibility Visibility = !bRaidSelectHidesMainHUD && !bHubMainHidesMainHUD
+		? ESlateVisibility::Visible
+		: ESlateVisibility::Collapsed;
+	for (UUserWidget* MainHUDWidget : MainHUDWidgets)
+	{
+		MainHUDWidget->SetVisibility(Visibility);
+	}
 }
 
 void UFTUIManagerSubsystem::HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)

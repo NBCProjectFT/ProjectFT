@@ -31,12 +31,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Save")
 	void RestoreCurrentWorldState();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	void RestoreQuestState();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	void ClearPlayerInventoryForRaidFailure();
+
 	UFUNCTION(BlueprintPure, Category = "FT|Save")
 	bool HasSaveData() const { return bHasSaveData; }
+
+	/**
+	 * Returns an item count from the storage snapshot already held in memory.
+	 * This is read-only and does not load, save, or mutate the current save game.
+	 */
+	int32 GetStorageSnapshotItemCount(FName ItemID) const;
 
 private:
 	UFTInventoryComponent* FindPlayerInventory() const;
 	UFTInventoryComponent* FindStorageInventory() const;
+	class UFTObjectiveSubsystem* FindObjectiveSubsystem() const;
 	void RestorePlayerInventory();
 	void RestoreStorageInventory();
 

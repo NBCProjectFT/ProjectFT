@@ -328,8 +328,13 @@ void UFTShopViewModel::RefreshPlayerItems()
 
 	for (const FFTInventoryItem& InventoryItem : PlayerInventory->GetItems())
 	{
+		if (!ShopSubsystem || !ShopSubsystem->IsItemSellableToShop(InventoryItem.ItemId))
+		{
+			continue;
+		}
+
 		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		const int32 SellPrice = ShopSubsystem ? ShopSubsystem->GetShopSellPrice(InventoryItem.ItemId) : 0;
+		const int32 SellPrice = ShopSubsystem->GetShopSellPrice(InventoryItem.ItemId);
 		ItemObject->InitializeItem(InventoryItem.ItemId, InventoryItem.Quantity, SellPrice);
 		PlayerItemObjects.Add(ItemObject);
 	}

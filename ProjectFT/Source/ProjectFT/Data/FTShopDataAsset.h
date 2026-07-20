@@ -78,6 +78,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shop")
 	int32 RandomSlotCount = 6;
 
+	/** Items that must not appear in the shop sell list or be sold through the shop API. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shop|Sell")
+	TArray<TSoftObjectPtr<UFTItemDataAsset>> SellExcludedItems;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shop|Currency")
 	FName CurrencyItemID = TEXT("ID_Common_Coin");
 };

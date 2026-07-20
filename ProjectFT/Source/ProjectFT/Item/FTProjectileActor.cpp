@@ -362,7 +362,7 @@ void AFTProjectileActor::HandleProjectileImpact(AActor* HitActor)
 			if (ProjectileActorData->ItemData.UseData.EffectMagnitudes.Contains(DamageTag))
 			{
 				const float DamageValue = ProjectileActorData->ItemData.UseData.EffectMagnitudes[DamageTag];
-				if (DamageValue > 0.0f && (!HitActor || !HitActor->Implements<UFTDamageable>()))
+				if (DamageValue < 0.0f && (!HitActor || !HitActor->Implements<UFTDamageable>()))
 				{
 					bShouldPostponeExplosion = true;
 				}
@@ -516,11 +516,11 @@ void AFTProjectileActor::Explode(AActor* DirectHitActor)
 					}
 				}
 
-				if (DamageValue > 0.0f)
+				if (DamageValue < 0.0f)
 				{
 					UGameplayStatics::ApplyDamage(
 						TargetActor,
-						DamageValue,
+						FMath::Abs(DamageValue),
 						GetInstigatorController(),
 						this,
 						UDamageType::StaticClass()
@@ -613,7 +613,7 @@ bool AFTProjectileActor::IsValidDirectHitTarget(AActor* TargetActor) const
 		const FGameplayTag DamageTag = FGameplayTag::RequestGameplayTag(TEXT("Data.Damage"));
 		if (ProjectileActorData->ItemData.UseData.EffectMagnitudes.Contains(DamageTag))
 		{
-			return ProjectileActorData->ItemData.UseData.EffectMagnitudes[DamageTag] > 0.0f;
+			return ProjectileActorData->ItemData.UseData.EffectMagnitudes[DamageTag] < 0.0f;
 		}
 		return false;
 	}

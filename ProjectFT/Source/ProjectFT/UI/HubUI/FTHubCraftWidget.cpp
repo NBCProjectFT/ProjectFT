@@ -8,6 +8,7 @@
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
 #include "Engine/Texture2D.h"
+#include "InputCoreTypes.h"
 #include "ProjectFT/Core/FTCraftingSubsystem.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTCraftingViewModel.h"
@@ -46,6 +47,7 @@ void UFTHubCraftWidget::InitializeCraftWidget(
 void UFTHubCraftWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	SetIsFocusable(true);
 
 	if (LV_CraftRecipes)
 	{
@@ -79,6 +81,17 @@ void UFTHubCraftWidget::NativeConstruct()
 	}
 
 	RefreshFromViewModel();
+}
+
+FReply UFTHubCraftWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::E)
+	{
+		HandleCloseClicked();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UFTHubCraftWidget::RefreshFromViewModel()

@@ -4,6 +4,7 @@
 #include "Components/ProgressBar.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
+#include "TimerManager.h"
 
 void UFTNPCReportGaugeWidget::NativeConstruct()
 {
@@ -22,6 +23,12 @@ void UFTNPCReportGaugeWidget::NativeConstruct()
 
 void UFTNPCReportGaugeWidget::NativeDestruct()
 {
+	// 위젯이 제거될 때 아직 예약된 아이콘 숨긴 타이머가 남아있으면 정리합니다.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReportIconTimerHandle);
+	}
+
 	if (ReportGaugeChangedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(ReportGaugeChangedListenerHandle);
@@ -64,10 +71,44 @@ void UFTNPCReportGaugeWidget::UpdateReportProgress(float ReportProgress)
 
 void UFTNPCReportGaugeWidget::SetReportCompleted(bool bCompleted)
 {
+	if (!ReportIconImage)
+	{
+		return;
+	}
+
+	// 기존에 돌고 있던 아이콘 숨김 타이머를 먼저 취소합니다.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReportIconTimerHandle);
+	}
+
+	// bCompleted true면 아이콘을 보이고, false면 숨깁니다.
+	ReportIconImage->SetVisibility(bCompleted
+		? ESlateVisibility::HitTestInvisible
+		: ESlateVisibility::Collapsed);
+
+	// 신고가 완료되었을때
+	if (bCompleted)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			// ReportIconDisplayDuration초 뒤에 HideReportIcon()을 한 번 호출합니다.
+			World->GetTimerManager().SetTimer(
+				ReportIconTimerHandle,
+				this,
+				&ThisClass::HideReportIcon,
+				ReportIconDisplayDuration,
+				false
+			);
+		}
+	}
+}
+
+void UFTNPCReportGaugeWidget::HideReportIcon()
+{
 	if (ReportIconImage)
 	{
-		ReportIconImage->SetVisibility(bCompleted
-			? ESlateVisibility::HitTestInvisible
-			: ESlateVisibility::Collapsed);
+		// ReportIconImage만 숨깁니다.
+		ReportIconImage->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }

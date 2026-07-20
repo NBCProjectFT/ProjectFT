@@ -10,6 +10,7 @@
 
 struct FFTFlowLevelRouteStruct;
 struct FFTMessagePayloadStruct;
+struct FFTNPCReportPayloadStruct;
 class UFTLevelPreloadDataAsset;
 
 UCLASS()
@@ -54,6 +55,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void ReturnToBase();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void ReturnToMainMenu();
+
 	// Called by LoadingGameMode after its preload is done and the player confirms.
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void CompleteLoadingAndOpenCurrentStateLevel();
@@ -72,6 +76,7 @@ public:
 private:
 	void HandleStartGameMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleFlowRequestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void HandleSecurityTargetCapturedMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void TravelToState(EFTFlowStateType TargetFlowState, FName RequestedLevelName = NAME_None);
 	void TravelToStateWithLoading(EFTFlowStateType TargetFlowState);
 	const FFTFlowLevelRouteStruct* FindFlowLevelRouteByState(EFTFlowStateType State) const;

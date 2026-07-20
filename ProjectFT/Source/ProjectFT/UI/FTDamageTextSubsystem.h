@@ -12,6 +12,7 @@ class UTextBlock;
 class UImage;
 class UWidgetAnimation;
 class UMaterialInterface;
+struct FFTCharacterDamagePayloadStruct;
 struct FFTDamageTextPayloadStruct;
 
 USTRUCT()
@@ -67,8 +68,10 @@ private:
 	void RegisterDamageMessageListeners();
 	void UnregisterDamageMessageListeners();
 
-	void HandleDamageReceived(FGameplayTag Channel, const FFTDamageTextPayloadStruct& Payload);
-	void HandleDamageDealt(FGameplayTag Channel, const FFTDamageTextPayloadStruct& Payload);
+	void HandleCharacterDamaged(FGameplayTag Channel, const FFTCharacterDamagePayloadStruct& Payload);
+	void HandleDamageTextMessage(FGameplayTag Channel, const FFTDamageTextPayloadStruct& Payload);
+	bool ShouldShowDamageTextForLocalPlayer(const FFTCharacterDamagePayloadStruct& Payload) const;
+	bool ShouldShowDamageTextForLocalPlayer(AActor* InstigatorActor, AActor* TargetActor) const;
 
 private:
 	void HideDamageText(int32 PoolIndex);
@@ -88,8 +91,8 @@ private:
 	TArray<FFTDamageTextPoolItemStruct> DamageTextPool;
 
 private:
-	FGameplayMessageListenerHandle DamageReceivedListenerHandle;
-	FGameplayMessageListenerHandle DamageDealtListenerHandle;
+	FGameplayMessageListenerHandle CharacterDamagedListenerHandle;
+	FGameplayMessageListenerHandle DamageTextListenerHandle;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Damage Text")

@@ -12,6 +12,7 @@
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTFlowLevelRouteStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -27,6 +28,8 @@ void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_CompleteEscape, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_FailRaid, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ReturnToBase, this, &ThisClass::HandleFlowRequestMessage));
+	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ReturnToMainMenu, this, &ThisClass::HandleFlowRequestMessage));
+	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityTargetCaptured, this, &ThisClass::HandleSecurityTargetCapturedMessage));
 }
 
 void UFTGameFlowSubsystem::Deinitialize()
@@ -87,6 +90,20 @@ void UFTGameFlowSubsystem::HandleFlowRequestMessage(FGameplayTag Channel, const 
 	{
 		ReturnToBase();
 	}
+	else if (Channel == TAG_FT_Request_Flow_ReturnToMainMenu)
+	{
+		ReturnToMainMenu();
+	}
+}
+
+void UFTGameFlowSubsystem::HandleSecurityTargetCapturedMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
+{
+	UE_LOG(LogFTFlow, Log, TEXT("Security capture event received. Channel=%s Reporter=%s Target=%s"),
+		*Channel.ToString(),
+		*GetNameSafe(Payload.ReporterActor),
+		*GetNameSafe(Payload.TargetActor));
+
+	RequestFailRaid();
 }
 
 void UFTGameFlowSubsystem::RequestStartGame()
@@ -172,7 +189,7 @@ void UFTGameFlowSubsystem::RequestFailRaid()
 		{
 			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 			{
-				UIManager->ShowFailScreen();
+				UIManager->ShowFailedRaid();
 			}
 		}
 		return;
@@ -195,6 +212,23 @@ void UFTGameFlowSubsystem::ReturnToBase()
 	}
 
 	TravelToState(EFTFlowStateType::Base);
+}
+
+void UFTGameFlowSubsystem::ReturnToMainMenu()
+{
+	PendingRaidLevelName = NAME_None;
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->HideEscapedRaid();
+			UIManager->HideFailScreen();
+			UIManager->HidePauseMenu();
+		}
+	}
+
+	TravelToState(EFTFlowStateType::MainMenu);
 }
 
 void UFTGameFlowSubsystem::CompleteLoadingAndOpenCurrentStateLevel()
@@ -557,6 +591,7 @@ void UFTGameFlowSubsystem::RestoreMenuInputBeforeTravel(FName LevelName) const
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 		{
 			UIManager->HideMainMenu(/*bKeepMouseCursor=*/LevelName == ResolveLoadingLevelName());
+			UIManager->HidePauseMenu();
 		}
 	}
 }
@@ -604,9 +639,15 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 	case EFTFlowStateType::Failed:
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
+			if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
+			{
+				SaveSubsystem->ClearPlayerInventoryForRaidFailure();
+			}
+
 			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
 			{
-				UIManager->ShowFailScreen();
+				UIManager->HideFailScreen();
+				UIManager->ShowFailedRaid();
 			}
 		}
 		BroadcastFlowEvent(TAG_FT_Event_RaidFailed);

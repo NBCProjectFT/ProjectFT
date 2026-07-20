@@ -4,6 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "ProjectFT/Enum/FTRaidResultType.h"
 #include "FTUIManagerSubsystem.generated.h"
 
 struct FFTMessagePayloadStruct;
@@ -14,6 +15,7 @@ class UFTQuestViewModel;
 class UFTSettlementViewModel;
 class UFTInventoryWidget;
 class UFTMainMenuWidget;
+class UFTPauseMenuWidget;
 class UFTCountdownEscapeWidget;
 class UFTEscapedRaidWidget;
 class UFTFailWidget;
@@ -74,6 +76,12 @@ public:
 	void ShowEscapedRaid();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowFailedRaid();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowRaidResult(EFTRaidResultType ResultType);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void HideEscapedRaid();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
@@ -88,6 +96,18 @@ public:
 	// 인벤토리 열림 상태의 단일 소스. 위젯이 뷰포트에 붙어 있으면 열린 것으로 본다.
 	UFUNCTION(BlueprintPure, Category = "FT|UI")
 	bool IsInventoryOpen() const;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void ShowPauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void HidePauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|UI")
+	void TogglePauseMenu();
+
+	UFUNCTION(BlueprintPure, Category = "FT|UI")
+	bool IsPauseMenuOpen() const;
 
 	
 	
@@ -132,6 +152,8 @@ public:
 
 private:
 	APlayerController* GetPrimaryPlayerController() const;
+	bool IsHubModalOpen() const;
+	void RefreshMainHUDVisibility() const;
 	void HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 
@@ -141,6 +163,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTMainMenuWidget> MainMenuWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTPauseMenuWidget> PauseMenuWidget = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTCountdownEscapeWidget> CountdownEscapeWidget = nullptr;
@@ -168,6 +193,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTRaidSelectViewModel> RaidSelectViewModel = nullptr;
+
+	bool bRaidSelectHidesMainHUD = false;
+	bool bHubMainHidesMainHUD = false;
 
 	TArray<FGameplayMessageListenerHandle> UIMessageListenerHandles;
 };

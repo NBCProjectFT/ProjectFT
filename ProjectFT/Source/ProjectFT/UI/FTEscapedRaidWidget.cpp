@@ -12,6 +12,7 @@ void UFTEscapedRaidWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	ApplyResultText();
 	BindReturnToBaseButton();
 }
 
@@ -28,6 +29,12 @@ void UFTEscapedRaidWidget::SetSettlementText(const FText& NewSettlementText)
 	{
 		SettlementText->SetText(NewSettlementText);
 	}
+}
+
+void UFTEscapedRaidWidget::SetRaidResult(EFTRaidResultType NewResultType)
+{
+	ResultType = NewResultType;
+	ApplyResultText();
 }
 
 void UFTEscapedRaidWidget::RequestReturnToBase()
@@ -66,6 +73,7 @@ UButton* UFTEscapedRaidWidget::ResolveReturnToBaseButton() const
 	{
 		TEXT("WBP_ReturnToBaseButton_Escaped"),
 		TEXT("WBP_ReturnToBaseButton_Escape"),
+		TEXT("WBP_ReturnToBaseButton_Fail"),
 		TEXT("WBP_ReturnToBaseButton")
 	};
 
@@ -124,4 +132,18 @@ void UFTEscapedRaidWidget::UnbindReturnToBaseButton()
 	{
 		CachedReturnToBaseButton->OnClicked.RemoveAll(this);
 	}
+}
+
+void UFTEscapedRaidWidget::ApplyResultText()
+{
+	UTextBlock* ResultTextWidget = EscapedText ? EscapedText.Get() : SettlementText.Get();
+	if (!ResultTextWidget)
+	{
+		return;
+	}
+
+	const FText& ResultText = ResultType == EFTRaidResultType::Escaped
+		? EscapedResultText
+		: FailedResultText;
+	ResultTextWidget->SetText(ResultText);
 }

@@ -57,7 +57,7 @@ AFTNPCAIController::AFTNPCAIController()
 	NPCPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("NPCPerceptionComponent"));
 	
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
-	ConfigureSight(NPCPerceptionComponent, SightConfig, 1500.0f, 40.0f, 2.0f);
+	ConfigureSight(NPCPerceptionComponent, SightConfig, 1000.0f, 90.0f, 2.0f);
 
 	NPCReportComponent = CreateDefaultSubobject<UFTNPCReportComponent>(TEXT("NPCReportComponent"));
 	NPCReactionComponent = CreateDefaultSubobject<UFTNPCReactionComponent>(TEXT("NPCReactionComponent"));

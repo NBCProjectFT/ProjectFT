@@ -279,6 +279,18 @@ float UFTInteractionComponent::GetSkillCheckGreatHalfWidth() const
 	return Channel ? Channel->GetSkillCheckGreatHalfWidth() : 0.0f;
 }
 
+float UFTInteractionComponent::GetLastSkillCheckProgressBonus() const
+{
+	const UFTChanneledInteractionComponent* Channel = ActiveChannel.Get();
+	return Channel ? Channel->GetLastSkillCheckProgressBonus() : 0.0f;
+}
+
+int32 UFTInteractionComponent::GetSkillCheckRewardSerial() const
+{
+	const UFTChanneledInteractionComponent* Channel = ActiveChannel.Get();
+	return Channel ? Channel->GetSkillCheckRewardSerial() : 0;
+}
+
 void UFTInteractionComponent::SetFocusedActor(AActor* NewFocusedActor)
 {
 	// 주의: FocusedActor는 약참조라 대상이 Destroy되면 Get()이 null을 반환한다.

@@ -77,6 +77,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckTarget() const;
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckSuccessHalfWidth() const;
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetSkillCheckGreatHalfWidth() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Interaction") float GetLastSkillCheckProgressBonus() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Interaction") int32 GetSkillCheckRewardSerial() const;
 
 protected:
 	// 시야에서 상호작용 가능한 대상을 라인트레이스로 찾는다(없으면 nullptr).

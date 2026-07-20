@@ -196,6 +196,8 @@ void UFTGA_MeleeAction::HandleMeleeHitEvent(FGameplayEventData Payload)
 		CurrentActivationInfo,
 		&TargetData
 	);
+
+	ApplyDamageToDamageableTarget(HitActor, Payload.ContextHandle.GetHitResult());
 }
 
 void UFTGA_MeleeAction::HandleMeleeEndEvent(FGameplayEventData Payload)
