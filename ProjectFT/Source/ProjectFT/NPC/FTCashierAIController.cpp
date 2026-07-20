@@ -1,16 +1,10 @@
 #include "FTCashierAIController.h"
 
-#include "AbilitySystemComponent.h"
-#include "AbilitySystemInterface.h"
 #include "GameFramework/Pawn.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Components/StateTreeAIComponent.h"
-#include "ProjectFT/AbilitySystem/FTAbilityTags.h"
-#include "ProjectFT/Core/FTLogChannels.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
-#include "ProjectFT/Message/FTReportMessageLibrary.h"
-#include "ProjectFT/Struct/FTCharacterAttackedPayloadStruct.h"
+#include "ProjectFT/Components/FTInstantReportComponent.h"
 
 AFTCashierAIController::AFTCashierAIController()
 {
@@ -19,6 +13,7 @@ AFTCashierAIController::AFTCashierAIController()
 	CashierStateTreeAIComponent = CreateDefaultSubobject<UStateTreeAIComponent>(TEXT("CashierStateTreeAIComponent"));
 	CashierPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("CashierPerceptionComponent"));
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
+	InstantReportComponent = CreateDefaultSubobject<UFTInstantReportComponent>(TEXT("InstantReportComponent"));
 	ConfigureSight(CashierPerceptionComponent, SightConfig, 1200.0f, 60.0f, 2.0f);
 }
 
@@ -33,20 +28,21 @@ void AFTCashierAIController::BeginPlay()
 		CashierPerceptionComponent->OnTargetPerceptionUpdated.AddDynamic(this, &ThisClass::OnTargetPerceptionUpdated);
 	}
 
-	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	CharacterAttackedListenerHandle = MessageSubsystem.RegisterListener(
-		TAG_FT_Event_CharacterAttacked,
-		this,
-		&ThisClass::OnCharacterAttacked
-	);
+	if (InstantReportComponent)
+	{
+		InstantReportComponent->Initialize(this, SightConfig);
+		InstantReportComponent->bReportOnlyOnce = bReportOnlyOnce;
+		InstantReportComponent->bLogInstantReportDebug = bLogCashierDebug;
+		InstantReportComponent->StartListening();
+		SyncInstantReportStateFromComponent();
+	}
 }
 
 void AFTCashierAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (CharacterAttackedListenerHandle.IsValid())
+	if (InstantReportComponent)
 	{
-		UGameplayMessageSubsystem::Get(this).UnregisterListener(CharacterAttackedListenerHandle);
-		CharacterAttackedListenerHandle = FGameplayMessageListenerHandle();
+		InstantReportComponent->StopListening();
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -56,8 +52,13 @@ void AFTCashierAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	UpdateTargetState();
-	TryReportObservedStealing();
+	if (InstantReportComponent)
+	{
+		InstantReportComponent->bReportOnlyOnce = bReportOnlyOnce;
+		InstantReportComponent->bLogInstantReportDebug = bLogCashierDebug;
+		InstantReportComponent->TickInstantReport();
+		SyncInstantReportStateFromComponent();
+	}
 	DrawFlatSightDebug(SightConfig, FColor::Yellow, 1.5f);
 }
 
@@ -68,121 +69,26 @@ void AFTCashierAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulu
 		return;
 	}
 
-	TargetActor = Actor;
-	UpdateTargetState();
-	TryReportObservedStealing();
-}
-
-void AFTCashierAIController::OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload)
-{
-	AActor* SuspectActor = ResolvePlayerActor(Payload.InstigatorActor);
-	if (!IsPlayerActor(SuspectActor))
+	if (InstantReportComponent)
 	{
-		return;
-	}
-
-	if (Payload.TargetActor == GetPawn())
-	{
-		RequestInstantReport(SuspectActor, SuspectActor->GetActorLocation());
-		return;
-	}
-
-	if (!CanWitnessActor(SuspectActor) || !CanWitnessActor(Payload.TargetActor))
-	{
-		return;
-	}
-
-	const FVector ReportLocation = Payload.TargetActor
-		? Payload.TargetActor->GetActorLocation()
-		: SuspectActor->GetActorLocation();
-	RequestInstantReport(SuspectActor, ReportLocation);
-}
-
-void AFTCashierAIController::UpdateTargetState()
-{
-	bHasSeenTarget = IsActorVisibleBySight(TargetActor, SightConfig);
-}
-
-void AFTCashierAIController::TryReportObservedStealing()
-{
-	if (!TargetActor || !bHasSeenTarget || !IsTargetStealing(TargetActor))
-	{
-		return;
-	}
-
-	RequestInstantReport(TargetActor, TargetActor->GetActorLocation());
-}
-
-void AFTCashierAIController::RequestInstantReport(AActor* SuspectActor, const FVector& ReportLocation)
-{
-	if (!SuspectActor || bReportRequested || (bReportOnlyOnce && bHasReported))
-	{
-		return;
-	}
-
-	TargetActor = SuspectActor;
-	PendingReportLocation = ReportLocation;
-	bReportRequested = true;
-
-	if (bLogCashierDebug)
-	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("[Cashier] Report requested: Cashier=%s Target=%s Location=%s"),
-			*GetNameSafe(GetPawn()),
-			*GetNameSafe(SuspectActor),
-			*ReportLocation.ToString()
-		);
+		InstantReportComponent->HandleTargetPerceptionUpdated(Actor);
+		SyncInstantReportStateFromComponent();
 	}
 }
 
 bool AFTCashierAIController::BroadcastRequestedReport()
 {
-	if (!bReportRequested || !TargetActor || (bReportOnlyOnce && bHasReported))
+	if (!InstantReportComponent)
 	{
 		return false;
 	}
 
-	bReportRequested = false;
-	bHasReported = true;
+	InstantReportComponent->bReportOnlyOnce = bReportOnlyOnce;
+	InstantReportComponent->bLogInstantReportDebug = bLogCashierDebug;
+	const bool bBroadcasted = InstantReportComponent->BroadcastRequestedReport();
+	SyncInstantReportStateFromComponent();
 
-	UFTReportMessageLibrary::BroadcastNPCReportCompleted(this, GetPawn(), TargetActor, PendingReportLocation, 100.0f);
-
-	if (bLogCashierDebug)
-	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("[Cashier] Instant report broadcast: Cashier=%s Target=%s Location=%s"),
-			*GetNameSafe(GetPawn()),
-			*GetNameSafe(TargetActor),
-			*PendingReportLocation.ToString()
-		);
-	}
-
-	return true;
-}
-
-AActor* AFTCashierAIController::ResolvePlayerActor(AActor* DamageCauser) const
-{
-	AActor* CurrentActor = DamageCauser;
-	for (int32 OwnerDepth = 0; CurrentActor && OwnerDepth < 4; ++OwnerDepth)
-	{
-		if (IsPlayerActor(CurrentActor))
-		{
-			return CurrentActor;
-		}
-
-		if (APawn* InstigatorPawn = CurrentActor->GetInstigator(); IsPlayerActor(InstigatorPawn))
-		{
-			return InstigatorPawn;
-		}
-
-		CurrentActor = CurrentActor->GetOwner();
-	}
-
-	return nullptr;
+	return bBroadcasted;
 }
 
 bool AFTCashierAIController::IsPlayerActor(const AActor* Actor) const
@@ -191,20 +97,15 @@ bool AFTCashierAIController::IsPlayerActor(const AActor* Actor) const
 	return TargetPawn && TargetPawn->IsPlayerControlled();
 }
 
-bool AFTCashierAIController::IsTargetStealing(const AActor* Actor) const
+void AFTCashierAIController::SyncInstantReportStateFromComponent()
 {
-	if (!Actor)
+	if (!InstantReportComponent)
 	{
-		return false;
+		return;
 	}
 
-	AActor* MutableActor = const_cast<AActor*>(Actor);
-	const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(MutableActor);
-	const UAbilitySystemComponent* ASC = AbilitySystemActor ? AbilitySystemActor->GetAbilitySystemComponent() : nullptr;
-	return ASC && ASC->HasMatchingGameplayTag(TAG_FT_State_Stealing);
-}
-
-bool AFTCashierAIController::CanWitnessActor(AActor* Actor) const
-{
-	return IsActorVisibleBySight(Actor, SightConfig);
+	TargetActor = InstantReportComponent->TargetActor;
+	bHasSeenTarget = InstantReportComponent->bHasSeenTarget;
+	bHasReported = InstantReportComponent->bHasReported;
+	bReportRequested = InstantReportComponent->bReportRequested;
 }

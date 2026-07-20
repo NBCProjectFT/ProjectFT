@@ -9,7 +9,7 @@
 
 float UFTGA_DamageItemAbility::ResolveActiveDamageAmount() const
 {
-	const float* DamageMagnitude = ActiveUseData.EffectMagnitudes.Find(TAG_FT_Data_Damage);
+	const float* DamageMagnitude = ActiveUseData.EffectMagnitudes.Find(TAG_FT_Data_Damage_Object);
 	if (!DamageMagnitude || *DamageMagnitude >= 0.0f)
 	{
 		return 0.0f;
