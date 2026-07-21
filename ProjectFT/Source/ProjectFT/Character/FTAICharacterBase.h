@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "ProjectFT/Character/FTCharacterBase.h"
+#include "TimerManager.h"
 #include "FTAICharacterBase.generated.h"
 
 
@@ -39,4 +40,13 @@ protected:
 	/** AI의 기본 이동 속도 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|AI|Movement", meta = (ClampMin = "0.0"))
 	float InitialMoveSpeed = 200.0f;
+
+	/** HP가 0이 된 뒤 디스폰되기까지 기다리는 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|AI|Death", meta = (ClampMin = "0.0"))
+	float DeathDespawnDelay = 20.0f;
+
+private:
+	FTimerHandle DeathDespawnTimerHandle;
+
+	void DespawnAfterDeath();
 };

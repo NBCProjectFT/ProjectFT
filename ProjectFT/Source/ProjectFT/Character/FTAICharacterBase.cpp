@@ -9,6 +9,11 @@ AFTAICharacterBase::AFTAICharacterBase()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
+void AFTAICharacterBase::DespawnAfterDeath()
+{
+	Destroy();
+}
+
 void AFTAICharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
@@ -38,5 +43,21 @@ void AFTAICharacterBase::SetMoveSpeed(float NewSpeed)
 void AFTAICharacterBase::OnDeath()
 {
 	UE_LOG(LogFTNPC, Log, TEXT("AI character '%s' died."), *GetNameSafe(this));
+	if (DeathDespawnDelay <= 0.0f)
+	{
+		DespawnAfterDeath();
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		// HP가 0이 된 AI는 잠시 남겨둔 뒤 월드에서 제거한다.
+		World->GetTimerManager().SetTimer(
+			DeathDespawnTimerHandle,
+			this,
+			&AFTAICharacterBase::DespawnAfterDeath,
+			DeathDespawnDelay,
+			false);
+	}
 	// 이동 정지는 베이스(HandleDeath)가 처리한다. 래그돌/루트 드롭/디스폰 등 AI 전용 후처리는 여기에 추가.
 }
