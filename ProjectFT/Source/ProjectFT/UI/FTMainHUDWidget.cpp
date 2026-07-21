@@ -9,14 +9,13 @@
 #include "Components/ProgressBar.h"
 #include "FTItemSlotEntryWidget.h"
 #include "FTItemSlotListView.h"
-#include "FTInteractionPromptWidget.h"
+#include "FTInteractionStatusWidget.h"
 #include "FTShelfHealthBarWidget.h"
 #include "FTUIManagerSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
 #include "ProjectFT/Interactables/FTLootShelf.h"
-#include "ProjectFT/Interface/FTInteractable.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 
 void UFTMainHUDWidget::NativeConstruct()
@@ -25,7 +24,7 @@ void UFTMainHUDWidget::NativeConstruct()
 
 	ResolveHUDBarWidgets();
 	ResolveHUDViewModel();
-	CreateInteractionPromptWidget();
+	CreateInteractionStatusWidget();
 	CreateShelfHealthBarWidget();
 	ResolveInteractionPromptBinding();
 	if (HUDViewModel)
@@ -46,7 +45,7 @@ void UFTMainHUDWidget::NativeConstruct()
 void UFTMainHUDWidget::NativeDestruct()
 {
 	ClearInteractionPromptBinding();
-	RemoveInteractionPromptWidget();
+	RemoveInteractionStatusWidget();
 	RemoveShelfHealthBarWidget();
 
 	Super::NativeDestruct();
@@ -163,10 +162,6 @@ void UFTMainHUDWidget::HandleFocusedInteractableChanged(AActor* FocusedActor)
 	{
 		FocusedShelf.Reset();
 		HideShelfHealthBar();
-		if (InteractionPromptWidget)
-		{
-			InteractionPromptWidget->HidePrompt();
-		}
 		return;
 	}
 
@@ -180,25 +175,6 @@ void UFTMainHUDWidget::HandleFocusedInteractableChanged(AActor* FocusedActor)
 		UpdateShelfHealthBar();
 	}
 
-	FText PromptText = FText::FromString(TEXT("상호작용"));
-	if (FocusedActor->Implements<UFTInteractable>())
-	{
-		PromptText = IFTInteractable::Execute_GetInteractionPrompt(FocusedActor);
-	}
-
-	if (PromptText.IsEmpty())
-	{
-		if (InteractionPromptWidget)
-		{
-			InteractionPromptWidget->HidePrompt();
-		}
-		return;
-	}
-
-	if (InteractionPromptWidget)
-	{
-		InteractionPromptWidget->ShowPrompt(PromptText);
-	}
 }
 
 void UFTMainHUDWidget::UpdateHPBars(float DeltaTime)
@@ -323,11 +299,6 @@ void UFTMainHUDWidget::ResolveHUDViewModel()
 
 void UFTMainHUDWidget::ResolveInteractionPromptBinding()
 {
-	if (!InteractionPromptWidget)
-	{
-		CreateInteractionPromptWidget();
-	}
-
 	if (InteractionComponent)
 	{
 		return;
@@ -358,9 +329,9 @@ void UFTMainHUDWidget::ClearInteractionPromptBinding()
 	}
 }
 
-void UFTMainHUDWidget::CreateInteractionPromptWidget()
+void UFTMainHUDWidget::CreateInteractionStatusWidget()
 {
-	if (InteractionPromptWidget || !InteractionPromptWidgetClass)
+	if (InteractionStatusWidget || !InteractionStatusWidgetClass)
 	{
 		return;
 	}
@@ -371,20 +342,19 @@ void UFTMainHUDWidget::CreateInteractionPromptWidget()
 		return;
 	}
 
-	InteractionPromptWidget = CreateWidget<UFTInteractionPromptWidget>(OwningPlayer, InteractionPromptWidgetClass);
-	if (InteractionPromptWidget)
+	InteractionStatusWidget = CreateWidget<UFTInteractionStatusWidget>(OwningPlayer, InteractionStatusWidgetClass);
+	if (InteractionStatusWidget)
 	{
-		InteractionPromptWidget->AddToViewport(15);
-		InteractionPromptWidget->HidePrompt();
+		InteractionStatusWidget->AddToViewport(15);
 	}
 }
 
-void UFTMainHUDWidget::RemoveInteractionPromptWidget()
+void UFTMainHUDWidget::RemoveInteractionStatusWidget()
 {
-	if (InteractionPromptWidget)
+	if (InteractionStatusWidget)
 	{
-		InteractionPromptWidget->RemoveFromParent();
-		InteractionPromptWidget = nullptr;
+		InteractionStatusWidget->RemoveFromParent();
+		InteractionStatusWidget = nullptr;
 	}
 }
 

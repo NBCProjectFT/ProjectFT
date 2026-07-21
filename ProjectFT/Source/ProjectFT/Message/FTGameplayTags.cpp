@@ -6,6 +6,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_RaidEscaped, "Event.Raid.Escaped");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_FlowStateChanged, "Event.Flow.StateChanged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_UI_MainMenu_StartGame, "Event.UI.MainMenu.StartGame");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_StartGame, "Request.Flow.StartGame");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_ContinueGame, "Request.Flow.ContinueGame");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_StartRaid, "Request.Flow.StartRaid");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_StartEscape, "Request.Flow.StartEscape");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_CancelEscape, "Request.Flow.CancelEscape");
@@ -35,6 +36,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityDeployed, "Event.Security.Deployed")
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityReturnedToRoom, "Event.Security.ReturnedToRoom");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDamaged, "Event.Shelf.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfDestroyed, "Event.Shelf.Destroyed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfRestockRequested, "Event.Shelf.RestockRequested");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShelfRestocked, "Event.Shelf.Restocked");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_StealCompleted, "Event.Steal.Completed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterDamaged, "Event.Character.Damaged");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CharacterAttacked, "Event.Character.Attacked");

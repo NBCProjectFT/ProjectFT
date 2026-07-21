@@ -1,5 +1,8 @@
 #include "FTNPCReactionComponent.h"
 
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
 #include "NavigationSystem.h"
@@ -44,6 +47,7 @@ void UFTNPCReactionComponent::EnterPanic()
 	Controller->bPanicRequested = true;
 	Controller->bFleeRequested = false;
 	Controller->ClearReactionFocusState();
+	PlaySurprisedMontage();
 
 	// 공포 상태에서는 도망치기 전 자신을 위협한 플레이어를 잠깐 바라본다.
 	Controller->SetFocus(PanicTargetActor, EAIFocusPriority::Gameplay);
@@ -188,6 +192,16 @@ void UFTNPCReactionComponent::TickReaction()
 	}
 }
 
+bool UFTNPCReactionComponent::PlaySurprisedMontage()
+{
+	return PlayRandomReactionAnimation(SurprisedAnimations);
+}
+
+bool UFTNPCReactionComponent::PlayReactingMontage()
+{
+	return PlayRandomReactionAnimation(ReactingAnimations);
+}
+
 AFTNPCAIController* UFTNPCReactionComponent::GetNPCAIController() const
 {
 	return Cast<AFTNPCAIController>(GetOwner());
@@ -247,4 +261,45 @@ void UFTNPCReactionComponent::StopFleeMovement()
 
 	bHasPreFleeMoveSpeed = false;
 	PreFleeMoveSpeed = 0.0f;
+}
+
+bool UFTNPCReactionComponent::PlayRandomReactionAnimation(const TArray<TObjectPtr<UAnimSequenceBase>>& Animations)
+{
+	if (Animations.IsEmpty())
+	{
+		return false;
+	}
+
+	const AFTNPCAIController* Controller = GetNPCAIController();
+	ACharacter* Character = Controller ? Cast<ACharacter>(Controller->GetPawn()) : nullptr;
+	USkeletalMeshComponent* Mesh = Character ? Character->GetMesh() : nullptr;
+	UAnimInstance* AnimInstance = Mesh ? Mesh->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		return false;
+	}
+
+	TArray<UAnimSequenceBase*> ValidAnimations;
+	ValidAnimations.Reserve(Animations.Num());
+	for (UAnimSequenceBase* Animation : Animations)
+	{
+		if (Animation)
+		{
+			ValidAnimations.Add(Animation);
+		}
+	}
+
+	if (ValidAnimations.IsEmpty())
+	{
+		return false;
+	}
+
+	UAnimSequenceBase* SelectedAnimation = ValidAnimations[FMath::RandRange(0, ValidAnimations.Num() - 1)];
+	return AnimInstance->PlaySlotAnimationAsDynamicMontage(
+		SelectedAnimation,
+		ReactionSlotName,
+		0.1f,
+		0.1f,
+		ReactionAnimationPlayRate
+	) != nullptr;
 }

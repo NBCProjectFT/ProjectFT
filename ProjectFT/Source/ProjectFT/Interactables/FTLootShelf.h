@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Interface/FTInteractable.h"
 #include "ProjectFT/Interface/FTDamageable.h"
 #include "FTLootShelf.generated.h"
@@ -36,6 +37,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/* @brief : 채널형 상호작용(훔치기)이 완료되었을 때 호출되는 메서드입니다. */
 	UFUNCTION()
@@ -52,12 +54,14 @@ protected:
 
 	/*
 	 * @brief : 매대를 상호작용 쿨다운 상태로 전환합니다.
-	 * @Param CooldownDuration : 대기할 쿨다운 시간(초)
 	 */
-	void StartInteractionCooldown(float CooldownDuration);
+	void StartInteractionCooldown();
 
 	/* @brief : 매대의 상호작용 쿨다운 상태를 해제하고 초기 상태로 복구합니다. */
 	void EndInteractionCooldown();
+
+	/* @brief : 재입고 요청 메시지를 처리하는 콜백입니다. */
+	void HandleRestockRequested(FGameplayTag Channel, const struct FFTMessagePayloadStruct& Payload);
 
 	/*
 	 * @brief : 매대에 할당된 아이템 데이터 풀에서 랜덤하게 아이템 및 수량을 선정합니다.
@@ -103,4 +107,7 @@ protected:
 
 	/* @brief : 쿨다운 해제를 위한 타이머 핸들 */
 	FTimerHandle CooldownTimerHandle;
+
+	/* @brief : 재입고 요청 감지를 위한 메시지 리스너 핸들 */
+	FGameplayMessageListenerHandle RestockRequestListenerHandle;
 };
