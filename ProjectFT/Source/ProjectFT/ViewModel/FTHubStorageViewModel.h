@@ -58,13 +58,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Storage|Items")
 	TArray<UObject*> GetStorageItemObjects() const;
 
-	/** @brief 현재 선택 상태를 UI 텍스트로 반환한다. */
-	/** @brief 플레이어 현재 무게와 최대 무게를 UI 텍스트로 반환한다. */
-	UFUNCTION(BlueprintPure, Category = "FT|Storage|Presentation")
-	FText GetPlayerWeightText() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Data")
+	float GetPlayerCurrentWeight() const;
 
-	UFUNCTION(BlueprintPure, Category = "FT|Storage|Presentation")
-	FText GetMoveQuantityText() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Data")
+	float GetPlayerMaxWeight() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Data")
+	int32 GetMoveQuantity() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Selection")
+	int32 GetSelectedEntryCount() const;
 
 	/** @brief 선택 보관 버튼을 누를 수 있는지 반환한다. */
 	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
@@ -153,7 +157,6 @@ private:
 	void RefreshAll();
 
 	void ClearSelection();
-	int32 GetSelectedEntryCount() const;
 	int32 GetPlayerSelectedEntryCount() const;
 	int32 GetStorageSelectedEntryCount() const;
 

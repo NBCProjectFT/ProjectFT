@@ -63,6 +63,9 @@ public:
 	FText GetCategoryText() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
+	EFTItemCategoryType GetCategoryType() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	TSoftObjectPtr<UTexture2D> GetItemIcon() const;
 
 private:

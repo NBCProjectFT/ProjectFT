@@ -35,9 +35,9 @@ FText UFTCraftRecipeListObject::GetRecipeNameText() const
 	return ResolveCraftItemName(this, Recipe.ResultItemID);
 }
 
-FText UFTCraftRecipeListObject::GetResultCountText() const
+int32 UFTCraftRecipeListObject::GetResultCount() const
 {
-	return FText::FromString(FString::Printf(TEXT("x%d"), Recipe.ResultCount));
+	return Recipe.ResultCount;
 }
 
 TSoftObjectPtr<UTexture2D> UFTCraftRecipeListObject::GetResultItemIcon() const

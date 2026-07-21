@@ -6,6 +6,7 @@
 #include "FTCraftingViewModel.generated.h"
 
 class UFTCraftingSubsystem;
+class UFTCraftRecipeListObject;
 class UFTInventoryComponent;
 class UTexture2D;
 
@@ -27,6 +28,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Items")
 	TArray<UObject*> GetRequiredItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Selection")
+	UFTCraftRecipeListObject* GetSelectedRecipeObject() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Presentation")
 	FText GetSelectedRecipeNameText() const;

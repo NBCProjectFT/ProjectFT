@@ -117,6 +117,11 @@ FText UFTItemTileListObject::GetCategoryText() const
 	}
 }
 
+EFTItemCategoryType UFTItemTileListObject::GetCategoryType() const
+{
+	return CategoryType;
+}
+
 void UFTItemTileListObject::LoadItemData()
 {
 	if (ItemID.IsNone())

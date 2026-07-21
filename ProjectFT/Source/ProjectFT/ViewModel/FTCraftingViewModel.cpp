@@ -48,6 +48,11 @@ TArray<UObject*> UFTCraftingViewModel::GetRequiredItemObjects() const
 	return Result;
 }
 
+UFTCraftRecipeListObject* UFTCraftingViewModel::GetSelectedRecipeObject() const
+{
+	return SelectedRecipeObject;
+}
+
 FText UFTCraftingViewModel::GetSelectedRecipeNameText() const
 {
 	return SelectedRecipeNameText;
@@ -241,6 +246,6 @@ void UFTCraftingViewModel::ClearSelectedRecipeDetails()
 {
 	RequiredItemObjects.Reset();
 	ResultItemIcon.Reset();
-	SelectedRecipeNameText = FText::FromString(TEXT("Select Recipe"));
+	SelectedRecipeNameText = FText::GetEmpty();
 	SelectedRecipeDescriptionText = FText::GetEmpty();
 }

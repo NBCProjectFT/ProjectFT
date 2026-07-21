@@ -22,8 +22,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Presentation")
 	FText GetRecipeNameText() const;
 
-	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Presentation")
-	FText GetResultCountText() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Data")
+	int32 GetResultCount() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Presentation")
 	TSoftObjectPtr<UTexture2D> GetResultItemIcon() const;

@@ -41,18 +41,19 @@ TArray<UObject*> UFTHubStorageViewModel::GetStorageItemObjects() const
 	return Result;
 }
 
-FText UFTHubStorageViewModel::GetPlayerWeightText() const
+float UFTHubStorageViewModel::GetPlayerCurrentWeight() const
 {
-	const float CurrentWeight = PlayerInventory ? PlayerInventory->GetCurrentWeight() : 0.0f;
-	const float MaxWeight = PlayerInventory ? PlayerInventory->GetMaxWeight() : 0.0f;
-	return FText::FromString(FString::Printf(TEXT("%.1f / %.1f kg"), CurrentWeight, MaxWeight));
+	return PlayerInventory ? PlayerInventory->GetCurrentWeight() : 0.0f;
 }
 
-FText UFTHubStorageViewModel::GetMoveQuantityText() const
+float UFTHubStorageViewModel::GetPlayerMaxWeight() const
 {
-	return GetSelectedEntryCount() == 1
-		? FText::AsNumber(MoveQuantity)
-		: FText::FromString(TEXT("-"));
+	return PlayerInventory ? PlayerInventory->GetMaxWeight() : 0.0f;
+}
+
+int32 UFTHubStorageViewModel::GetMoveQuantity() const
+{
+	return MoveQuantity;
 }
 
 int32 UFTHubStorageViewModel::GetSelectedEntryCount() const

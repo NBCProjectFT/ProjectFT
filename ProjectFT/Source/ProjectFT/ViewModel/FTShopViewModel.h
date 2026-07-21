@@ -52,35 +52,26 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Shop|Selection")
 	UFTItemTileListObject* GetSelectedCurrentItemObject() const;
 
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Data")
+	bool HasSelectedItem() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Data")
+	int32 GetSelectedItemUnitPrice() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Data")
+	int32 GetSelectedItemOwnedCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Data")
+	int32 GetTradeQuantity() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Data")
+	int32 GetTradeTotalPrice() const;
+
 	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemNameText() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetSelectedItemTagText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemDescriptionText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetSelectedItemPriceText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetSelectedItemCountText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetSelectedItemOwnedCountText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetTradeQuantityText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetTradeTotalPriceText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetTradeActionText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
-	FText GetSelectedItemStateText() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	TSoftObjectPtr<UTexture2D> GetSelectedItemIcon() const;

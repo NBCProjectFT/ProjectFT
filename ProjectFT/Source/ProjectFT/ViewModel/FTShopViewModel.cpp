@@ -59,81 +59,42 @@ UFTItemTileListObject* UFTShopViewModel::GetSelectedCurrentItemObject() const
 	return CurrentMode == EFTShopPanelMode::Buy ? SelectedShopItem : SelectedPlayerItem;
 }
 
+bool UFTShopViewModel::HasSelectedItem() const
+{
+	return GetSelectedItem() != nullptr;
+}
+
+int32 UFTShopViewModel::GetSelectedItemUnitPrice() const
+{
+	return HasSelectedItem() ? GetUnitPrice() : 0;
+}
+
+int32 UFTShopViewModel::GetSelectedItemOwnedCount() const
+{
+	const FName ItemID = GetSelectedItemID();
+	return !ItemID.IsNone() && PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0;
+}
+
+int32 UFTShopViewModel::GetTradeQuantity() const
+{
+	return TradeQuantity;
+}
+
+int32 UFTShopViewModel::GetTradeTotalPrice() const
+{
+	return HasSelectedItem() ? GetUnitPrice() * TradeQuantity : 0;
+}
+
 FText UFTShopViewModel::GetSelectedItemNameText() const
 {
 	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
 	return SelectedItem ? SelectedItem->GetDisplayName() : FText::FromString(TEXT("Select Item"));
 }
 
-FText UFTShopViewModel::GetSelectedItemTagText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem ? SelectedItem->GetCategoryText() : FText::GetEmpty();
-}
-
 FText UFTShopViewModel::GetSelectedItemDescriptionText() const
 {
 	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
 	return SelectedItem ? SelectedItem->GetDescription() : FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetSelectedItemPriceText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem
-		? FText::FromString(FString::Printf(TEXT("개당 가격: %d"), GetUnitPrice()))
-		: FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetSelectedItemCountText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem
-		? FText::FromString(FString::Printf(TEXT("수량: %d"), SelectedItem->GetCount()))
-		: FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetSelectedItemOwnedCountText() const
-{
-	const FName ItemID = GetSelectedItemID();
-	if (ItemID.IsNone() || !PlayerInventory)
-	{
-		return FText::GetEmpty();
-	}
-
-	return FText::FromString(FString::Printf(TEXT("보유: %d"), PlayerInventory->GetItemQuantity(ItemID)));
-}
-
-FText UFTShopViewModel::GetTradeQuantityText() const
-{
-	return FText::AsNumber(TradeQuantity);
-}
-
-FText UFTShopViewModel::GetTradeTotalPriceText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem
-		? FText::FromString(FString::Printf(TEXT("총 가격: %d"), GetUnitPrice() * TradeQuantity))
-		: FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetTradeActionText() const
-{
-	return CurrentMode == EFTShopPanelMode::Buy
-		? FText::FromString(TEXT("구매하기"))
-		: FText::FromString(TEXT("판매하기"));
-}
-
-FText UFTShopViewModel::GetSelectedItemStateText() const
-{
-	if (!GetSelectedItem())
-	{
-		return FText::GetEmpty();
-	}
-
-	return CanExecuteTradeAction()
-		? FText::FromString(TEXT("거래 가능"))
-		: FText::FromString(TEXT("거래 불가"));
 }
 
 TSoftObjectPtr<UTexture2D> UFTShopViewModel::GetSelectedItemIcon() const
