@@ -8,6 +8,7 @@
 
 AFTAttackSecurityAIController::AFTAttackSecurityAIController()
 {
+	bCanBeCaptureLeader = false;
 	DamageEffectClass = UFTGE_Damage::StaticClass();
 }
 

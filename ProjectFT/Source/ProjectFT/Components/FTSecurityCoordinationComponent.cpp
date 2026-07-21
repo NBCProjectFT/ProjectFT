@@ -68,6 +68,7 @@ bool UFTSecurityCoordinationComponent::IsEligibleAttackLeader(
 		&& IsValid(SecurityController->TargetActor)
 		&& SecurityController->bSecurityChaseActive
 		&& SecurityController->bHasSeenTarget
+		&& SecurityController->bCanBeCaptureLeader
 		&& SecurityController->bParticipatingInChase
 		&& !SecurityController->bReturning
 		&& !SecurityController->bReturnRequested

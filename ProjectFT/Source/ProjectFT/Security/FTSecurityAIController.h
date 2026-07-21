@@ -178,6 +178,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bIsAttackLeader = false;
 
+	/** 플레이어를 붙잡는 Approach 리더 후보가 될 수 있는지 나타낸다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Security|Coordination")
+	bool bCanBeCaptureLeader = true;
+
 	/** 현재 보안요원이 추격 상태에 참여하고 있는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|Coordination")
 	bool bParticipatingInChase = false;
