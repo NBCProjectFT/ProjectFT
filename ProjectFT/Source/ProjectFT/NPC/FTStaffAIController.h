@@ -7,6 +7,7 @@
 
 struct FFTMessagePayloadStruct;
 class AFTShoppingPoint;
+class AFTStaffRestockManager;
 
 UCLASS()
 class PROJECTFT_API AFTStaffAIController : public AFTCashierAIController
@@ -60,6 +61,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Staff|Restock")
 	bool BroadcastRestockRequested();
 
+	/** 배치된 RestockManager에서 아직 예약되지 않은 빈 매대를 하나 할당받습니다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Staff|Restock")
+	bool RequestRestockTarget();
+
 	/** 현재 재보충 타겟을 비운다. */
 	UFUNCTION(BlueprintCallable, Category = "FT|Staff|Restock")
 	void ClearRestockTarget();
@@ -73,12 +78,11 @@ public:
 	void ClearStaffWanderTarget();
 
 private:
-	FGameplayMessageListenerHandle StealCompletedListenerHandle;
 	FGameplayMessageListenerHandle ShelfRestockedListenerHandle;
 
 	UPROPERTY()
 	TObjectPtr<AFTShoppingPoint> CurrentStaffWanderPoint;
 
-	void OnStealCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void OnShelfRestocked(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	AFTStaffRestockManager* FindRestockManager() const;
 };

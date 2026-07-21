@@ -3,6 +3,7 @@
 #include "EngineUtils.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/NPC/FTStaffRestockManager.h"
 #include "ProjectFT/NPC/FTShoppingPoint.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
@@ -15,11 +16,6 @@ void AFTStaffAIController::BeginPlay()
 	Super::BeginPlay();
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	StealCompletedListenerHandle = MessageSubsystem.RegisterListener(
-		TAG_FT_Event_StealCompleted,
-		this,
-		&ThisClass::OnStealCompleted
-	);
 	ShelfRestockedListenerHandle = MessageSubsystem.RegisterListener(
 		TAG_FT_Event_ShelfRestocked,
 		this,
@@ -31,11 +27,6 @@ void AFTStaffAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClearStaffWanderTarget();
 
-	if (StealCompletedListenerHandle.IsValid())
-	{
-		UGameplayMessageSubsystem::Get(this).UnregisterListener(StealCompletedListenerHandle);
-		StealCompletedListenerHandle = FGameplayMessageListenerHandle();
-	}
 	if (ShelfRestockedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfRestockedListenerHandle);
@@ -68,6 +59,47 @@ bool AFTStaffAIController::BroadcastRestockRequested()
 			TEXT("[Staff] Restock requested: Staff=%s Shelf=%s"),
 			*GetNameSafe(GetPawn()),
 			*GetNameSafe(TargetShelfActor)
+		);
+	}
+
+	return true;
+}
+
+bool AFTStaffAIController::RequestRestockTarget()
+{
+	if (bHasRestockTarget)
+	{
+		return true;
+	}
+
+	AFTStaffRestockManager* RestockManager = FindRestockManager();
+	AActor* AssignedShelfActor = nullptr;
+	if (!RestockManager || !RestockManager->TryAssignShelf(GetPawn(), AssignedShelfActor) || !AssignedShelfActor)
+	{
+		if (bLogStaffDebug && !RestockManager)
+		{
+			UE_LOG(LogFTNPC, Warning, TEXT("[Staff] RestockManager not found. Place BP_FTStaffRestockManager in the level."));
+		}
+		return false;
+	}
+
+	ClearStaffWanderTarget();
+
+	TargetShelfActor = AssignedShelfActor;
+	RestockLocation = AssignedShelfActor->GetActorLocation();
+	bHasRestockTarget = true;
+	bRestockRequested = false;
+	bRestockCompleted = false;
+
+	if (bLogStaffDebug)
+	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[Staff] Restock target assigned: Staff=%s Shelf=%s Location=%s"),
+			*GetNameSafe(GetPawn()),
+			*GetNameSafe(TargetShelfActor),
+			*RestockLocation.ToString()
 		);
 	}
 
@@ -182,34 +214,6 @@ void AFTStaffAIController::ClearStaffWanderTarget()
 	bHasStaffWanderTarget = false;
 }
 
-void AFTStaffAIController::OnStealCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
-{
-	if (!Payload.TargetActor || bHasRestockTarget)
-	{
-		return;
-	}
-
-	ClearStaffWanderTarget();
-
-	TargetShelfActor = Payload.TargetActor;
-	RestockLocation = Payload.TargetActor->GetActorLocation();
-	bHasRestockTarget = true;
-	bRestockRequested = false;
-	bRestockCompleted = false;
-
-	if (bLogStaffDebug)
-	{
-		UE_LOG(
-			LogFTNPC,
-			Log,
-			TEXT("[Staff] Restock target assigned: Staff=%s Shelf=%s Location=%s"),
-			*GetNameSafe(GetPawn()),
-			*GetNameSafe(TargetShelfActor),
-			*RestockLocation.ToString()
-		);
-	}
-}
-
 void AFTStaffAIController::OnShelfRestocked(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
 {
 	if (!TargetShelfActor || Payload.TargetActor != TargetShelfActor)
@@ -218,6 +222,10 @@ void AFTStaffAIController::OnShelfRestocked(FGameplayTag Channel, const FFTMessa
 	}
 
 	bRestockCompleted = true;
+	if (AFTStaffRestockManager* RestockManager = FindRestockManager())
+	{
+		RestockManager->CompleteShelf(TargetShelfActor);
+	}
 
 	if (bLogStaffDebug)
 	{
@@ -229,4 +237,20 @@ void AFTStaffAIController::OnShelfRestocked(FGameplayTag Channel, const FFTMessa
 			*GetNameSafe(TargetShelfActor)
 		);
 	}
+}
+
+AFTStaffRestockManager* AFTStaffAIController::FindRestockManager() const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	for (TActorIterator<AFTStaffRestockManager> It(World); It; ++It)
+	{
+		return *It;
+	}
+
+	return nullptr;
 }
