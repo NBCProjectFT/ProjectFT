@@ -187,6 +187,12 @@ bool UFTShopSubsystem::SellItemToShop(FName ItemID, int32 Count, UFTInventoryCom
 		return false;
 	}
 
+	// 아이템 차감과 판매 대금 지급이 모두 끝난 판매만 퀘스트에 기록한다.
+	FFTMessagePayloadStruct Payload;
+	Payload.ItemId = ItemID;
+	Payload.Value = static_cast<float>(Count);
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(TAG_FT_Event_ShopSold, Payload);
+
 	UE_LOG(LogTemp, Warning, TEXT("Shop Sell Success: %s x%d / Price %d"), *ItemID.ToString(), Count, RewardAmount);
 	return true;
 }
@@ -296,6 +302,12 @@ bool UFTShopSubsystem::SellMarketItem(FName PostID, UFTInventoryComponent* Playe
 		UE_LOG(LogTemp, Warning, TEXT("Market Sell Currency Reward Failed: %s / Price %d"), *PostID.ToString(), RewardAmount);
 		return false;
 	}
+
+	// 중고거래 구매 요청에 판매한 경우도 같은 판매 퀘스트로 집계한다.
+	FFTMessagePayloadStruct Payload;
+	Payload.ItemId = ResolvedItemID;
+	Payload.Value = static_cast<float>(Post->Count);
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(TAG_FT_Event_ShopSold, Payload);
 
 	UE_LOG(LogTemp, Warning, TEXT("Market Sell Success: %s x%d / Price %d"), *ResolvedItemID.ToString(), Post->Count, RewardAmount);
 	ConsumedMarketPostIDs.Add(PostID);

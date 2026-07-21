@@ -28,6 +28,7 @@ void UFTObjectiveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	// 제작·구매는 한 번의 요청에서 여러 개를 얻을 수 있으므로 Payload.Value를 진행 수량으로 사용한다.
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_CraftCompleted, this, &ThisClass::HandleCountedItemQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShopPurchased, this, &ThisClass::HandleCountedItemQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShopSold, this, &ThisClass::HandleCountedItemQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_HubComputerAccessed, this, &ThisClass::HandleQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShelfDamaged, this, &ThisClass::HandleQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShelfDestroyed, this, &ThisClass::HandleQuestMessage));

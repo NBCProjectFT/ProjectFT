@@ -18,6 +18,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemPickedUp, "Event.Item.PickedUp");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemConsumed, "Event.Item.Consumed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CraftCompleted, "Event.Craft.Completed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShopPurchased, "Event.Shop.Purchased");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShopSold, "Event.Shop.Sold");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_HubComputerAccessed, "Event.Hub.ComputerAccessed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ReportGaugeChanged, "Event.ReportGauge.Changed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityCalled, "Event.Security.Called");
