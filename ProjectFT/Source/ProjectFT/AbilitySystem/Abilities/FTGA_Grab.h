@@ -10,6 +10,7 @@
 
 class UGameplayEffect;
 class UAbilitySystemComponent;
+class UAnimSequenceBase;
 class USceneComponent;
 class UFTCaptureEscapeComponent;
 class AAIController;
@@ -97,6 +98,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
 	TSubclassOf<UGameplayEffect> StunEffectClass;
 
+	// 잡기가 확정된 순간 재생할 애니메이션. Ability 수명은 이 애니메이션 종료와 묶지 않는다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation")
+	TObjectPtr<UAnimSequenceBase> GrabAnimation = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation")
+	FName GrabAnimationSlotName = TEXT("DefaultSlot");
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation", meta = (ClampMin = "0.0"))
+	float GrabAnimationPlayRate = 1.0f;
+
 private:
 	// 대상이 탈출 게이지를 다 채움 → 성공.
 	UFUNCTION()
@@ -126,6 +137,7 @@ private:
 	// 대상을 붙일 지점을 정한다. CaptureAttachSocketName이 경비 스켈레톤에 있으면 (메시, 소켓명),
 	// 없거나 비어 있으면 (CapturePoint, NAME_None)을 돌려준다 — 어느 쪽이든 부착 지점은 non-null이다.
 	USceneComponent* ResolveCaptureAttachPoint(AFTSecurityCharacter* Security, FName& OutAttachSocketName) const;
+	void PlayGrabAnimation() const;
 
 	AFTCaptureDestination* FindNearestCaptureDestination(const FVector& From) const;
 
