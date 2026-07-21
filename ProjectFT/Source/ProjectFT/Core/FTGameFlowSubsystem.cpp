@@ -12,7 +12,6 @@
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTFlowLevelRouteStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
-#include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 
 void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -29,7 +28,6 @@ void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_FailRaid, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ReturnToBase, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ReturnToMainMenu, this, &ThisClass::HandleFlowRequestMessage));
-	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_SecurityTargetCaptured, this, &ThisClass::HandleSecurityTargetCapturedMessage));
 }
 
 void UFTGameFlowSubsystem::Deinitialize()
@@ -94,16 +92,6 @@ void UFTGameFlowSubsystem::HandleFlowRequestMessage(FGameplayTag Channel, const 
 	{
 		ReturnToMainMenu();
 	}
-}
-
-void UFTGameFlowSubsystem::HandleSecurityTargetCapturedMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
-{
-	UE_LOG(LogFTFlow, Log, TEXT("Security capture event received. Channel=%s Reporter=%s Target=%s"),
-		*Channel.ToString(),
-		*GetNameSafe(Payload.ReporterActor),
-		*GetNameSafe(Payload.TargetActor));
-
-	RequestFailRaid();
 }
 
 void UFTGameFlowSubsystem::RequestStartGame()

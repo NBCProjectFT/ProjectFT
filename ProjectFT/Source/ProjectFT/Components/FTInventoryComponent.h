@@ -174,6 +174,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Inventory|QuickSlot")
 	bool GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& OutItem) const;
 
+	/** @brief 퀵슬롯 전체 목록을 반환합니다. */
+	const TArray<FName>& GetQuickSlots() const { return QuickSlots; }
+
 	void ExportSaveState(FFTSavedInventoryStateStruct& OutSaveState) const;
 	void ImportSaveState(const FFTSavedInventoryStateStruct& SaveState);
 

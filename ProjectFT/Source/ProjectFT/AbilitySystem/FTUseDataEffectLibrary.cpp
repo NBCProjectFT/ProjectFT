@@ -196,6 +196,44 @@ bool UFTUseDataEffectLibrary::ApplyCooldownFromASC(
 	return SourceASC->ApplyGameplayEffectSpecToSelf(*CooldownSpec.Data.Get()).IsValid();
 }
 
+bool UFTUseDataEffectLibrary::GetItemCooldownProgress(
+	const AActor* OwnerActor,
+	const FTItemUseStruct& UseData,
+	float& OutTimeRemaining,
+	float& OutDuration)
+{
+	OutTimeRemaining = 0.0f;
+	OutDuration = 0.0f;
+
+	if (!OwnerActor || UseData.CooldownSeconds <= 0.0f)
+	{
+		return false;
+	}
+
+	UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(const_cast<AActor*>(OwnerActor));
+	if (!ASC)
+	{
+		return false;
+	}
+
+	FGameplayTag CooldownTag = ResolveCooldownTag(UseData);
+	if (!CooldownTag.IsValid())
+	{
+		return false;
+	}
+
+	FGameplayEffectQuery Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(FGameplayTagContainer(CooldownTag));
+	TArray<TPair<float, float>> ActiveCooldowns = ASC->GetActiveEffectsTimeRemainingAndDuration(Query);
+	if (ActiveCooldowns.Num() > 0)
+	{
+		OutTimeRemaining = ActiveCooldowns[0].Key;
+		OutDuration = ActiveCooldowns[0].Value;
+		return OutTimeRemaining > 0.0f;
+	}
+
+	return false;
+}
+
 void UFTUseDataEffectLibrary::ApplySetByCallerMagnitudes(
 	const FGameplayEffectSpecHandle EffectSpec,
 	const FTItemUseStruct& UseData)
