@@ -16,6 +16,56 @@ class PROJECTFT_API AFTSecurityCharacter : public AFTAICharacterBase
 
 public:
 	AFTSecurityCharacter();
+
+	/** 보안요원이 배치된 자리에서 대기하는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsIdle = false;
+
+	/** 보안요원이 주변을 둘러보는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsObserving = false;
+	
+	/** 보안요원이 프레이어를 붙잡기 위해 플레이어에게 접근하는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsApproachingTarget = false;
+
+	/** 보안요원이 붙잡은 플레이어를 데리고 이동하는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsExpelling = false;
+
+	/** 보안요원이 추격 종료 후 복귀하기 전에 무전하는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsWaitingBeforeReturn = false;
+
+	/** 공격형 보안요원이 공격을 시도하는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsTryingAttack = false;
+
+	/** 공격형 보안요원이 공격 후 자세를 다시 잡는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsAttackCooldown = false;
+
+	/** 보안요원이 무력화 상태 애니메이션을 재생해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsKnockedOut = false;
+	
+	/*------------------------------------------------------*/
+	
+	/** 보안요원이 플레이어를 붙잡은 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsGrabbing = false;
+	
+	/** 보안요원이 공격 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsAttacking = false;
+	
+	/** 보안요원이 공격 사이 대기 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsAttackDelay = false;
+	
+	/** 보안요원이 지원요청 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsRequestingSupport = false;
 	
 	virtual void SetMoveSpeed(float NewSpeed) override;
 	void IgnorePawnCollisionForDuration(float Duration);
@@ -32,6 +82,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void OnDeath() override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

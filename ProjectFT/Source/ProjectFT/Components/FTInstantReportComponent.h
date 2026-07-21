@@ -43,7 +43,11 @@ public:
 	bool bReportRequested = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|InstantReport|Report")
-	bool bReportOnlyOnce = true;
+	bool bReportOnlyOnce = false;
+
+	/** 즉시 신고 완료 후 같은 AI가 다시 신고할 수 있기까지 기다리는 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|InstantReport|Report", meta = (ClampMin = "0.0"))
+	float ReportCooldown = 10.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|InstantReport|Debug")
 	bool bLogInstantReportDebug = false;
@@ -57,6 +61,7 @@ private:
 
 	FGameplayMessageListenerHandle CharacterAttackedListenerHandle;
 	FVector PendingReportLocation = FVector::ZeroVector;
+	float LastReportCompletedTime = -FLT_MAX;
 
 	void OnCharacterAttacked(FGameplayTag Channel, const FFTCharacterAttackedPayloadStruct& Payload);
 	void UpdateTargetState();
@@ -67,4 +72,5 @@ private:
 	bool IsTargetStealing(const AActor* Actor) const;
 	bool CanWitnessActor(AActor* Actor) const;
 	bool IsActorVisibleBySight(AActor* Actor) const;
+	bool IsReportCooldownReady() const;
 };
