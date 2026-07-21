@@ -201,15 +201,42 @@ void AFTSecurityRoomDoor::SetDoorOpen(bool bOpen)
 
 void AFTSecurityRoomDoor::SpawnMissingSecurity()
 {
-	if (!bResponseActive || !SecurityClass || !SpawnPoint || !ReturnPoint)
+	if (!bResponseActive || !SpawnPoint || !ReturnPoint)
 	{
 		return;
 	}
 
 	CompactSpawnedSecurityActors();
-	const int32 MissingSecurityCount = FMath::Max(SpawnCount - SpawnedSecurityActors.Num(), 0);
-	for (int32 SpawnIndex = 0; SpawnIndex < MissingSecurityCount; ++SpawnIndex)
+
+	int32 CurrentSecurityCount = 0;
+	int32 CurrentAttackSecurityCount = 0;
+	for (const TWeakObjectPtr<AFTSecurityCharacter>& SpawnedSecurity : SpawnedSecurityActors)
 	{
+		const AFTSecurityCharacter* SecurityCharacter = SpawnedSecurity.Get();
+		if (!SecurityCharacter)
+		{
+			continue;
+		}
+
+		if (AttackSecurityClass && SecurityCharacter->IsA(AttackSecurityClass))
+		{
+			++CurrentAttackSecurityCount;
+			continue;
+		}
+
+		if (SecurityClass && SecurityCharacter->IsA(SecurityClass))
+		{
+			++CurrentSecurityCount;
+		}
+	}
+
+	auto SpawnSecurityOfClass = [this](TSubclassOf<AFTSecurityCharacter> SpawnClass)
+	{
+		if (!SpawnClass)
+		{
+			return;
+		}
+
 		const int32 SecurityIndex = SpawnedSecurityActors.Num();
 		const FVector SpawnLocation = ProjectLocationToNavigation(GetSecuritySlotLocation(SpawnPoint, SecurityIndex));
 		const FRotator SpawnRotation = SpawnPoint->GetComponentRotation();
@@ -219,7 +246,7 @@ void AFTSecurityRoomDoor::SpawnMissingSecurity()
 		SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 		AFTSecurityCharacter* SecurityCharacter = GetWorld()->SpawnActor<AFTSecurityCharacter>(
-			SecurityClass,
+			SpawnClass,
 			SpawnLocation,
 			SpawnRotation,
 			SpawnParameters
@@ -227,7 +254,7 @@ void AFTSecurityRoomDoor::SpawnMissingSecurity()
 		if (!SecurityCharacter)
 		{
 			UE_LOG(LogFTSecurity, Warning, TEXT("Security room '%s' failed to spawn security"), *GetName());
-			continue;
+			return;
 		}
 
 		SecurityCharacter->IgnorePawnCollisionForDuration(SpawnCollisionIgnoreDuration);
@@ -235,6 +262,18 @@ void AFTSecurityRoomDoor::SpawnMissingSecurity()
 		FTimerDelegate DeploymentDelegate;
 		DeploymentDelegate.BindUObject(this, &ThisClass::BroadcastDeployment, SecurityCharacter);
 		GetWorldTimerManager().SetTimerForNextTick(DeploymentDelegate);
+	};
+
+	const int32 MissingSecurityCount = FMath::Max(SpawnCount - CurrentSecurityCount, 0);
+	for (int32 SpawnIndex = 0; SpawnIndex < MissingSecurityCount; ++SpawnIndex)
+	{
+		SpawnSecurityOfClass(SecurityClass);
+	}
+
+	const int32 MissingAttackSecurityCount = FMath::Max(AttackSecuritySpawnCount - CurrentAttackSecurityCount, 0);
+	for (int32 SpawnIndex = 0; SpawnIndex < MissingAttackSecurityCount; ++SpawnIndex)
+	{
+		SpawnSecurityOfClass(AttackSecurityClass);
 	}
 }
 
@@ -294,8 +333,9 @@ FVector AFTSecurityRoomDoor::GetSecuritySlotLocation(const USceneComponent* Poin
 		return GetActorLocation();
 	}
 
+	const int32 TotalSpawnCount = FMath::Max(SpawnCount + AttackSecuritySpawnCount, 1);
 	const float CenteredSecurityIndex = static_cast<float>(SecurityIndex)
-		- static_cast<float>(FMath::Max(SpawnCount, 1) - 1) * 0.5f;
+		- static_cast<float>(TotalSpawnCount - 1) * 0.5f;
 	return PointComponent->GetComponentLocation()
 		+ PointComponent->GetRightVector() * SpawnSpacing * CenteredSecurityIndex;
 }
