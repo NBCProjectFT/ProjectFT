@@ -320,14 +320,12 @@ bool UFTInventoryComponent::GetQuickSlotItem(int32 SlotIndex, FFTInventoryItem& 
 {
 	if (!QuickSlots.IsValidIndex(SlotIndex))
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("GetQuickSlotItem 호출 실패: 유효하지 않은 슬롯 인덱스 %d"), SlotIndex);
 		return false;
 	}
 
 	FName ItemId = QuickSlots[SlotIndex];
 	if (ItemId.IsNone())
 	{
-		UE_LOG(LogFTItem, Warning, TEXT("GetQuickSlotItem 호출 실패: 퀵슬롯 %d번이 비어 있습니다."), SlotIndex);
 		return false;
 	}
 

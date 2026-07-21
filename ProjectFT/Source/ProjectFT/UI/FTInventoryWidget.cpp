@@ -5,20 +5,23 @@
 
 void UFTInventoryWidget::NativeConstruct()
 {
+	UGameInstance* GI = GetGameInstance();
+	if (GI)
+	{
+		UFTUIManagerSubsystem* UIManager = GI->GetSubsystem<UFTUIManagerSubsystem>();
+		if (UIManager)
+		{
+			ViewModel = UIManager->InventoryViewModel;
+			if (ViewModel)
+			{
+				ViewModel->OnViewModelChanged.AddUniqueDynamic(this, &UFTInventoryWidget::HandleViewModelChanged);
+			}
+		}
+	}
+
 	Super::NativeConstruct();
 
 	bHasConstructed = true;
-
-	UGameInstance* GI = GetGameInstance();
-	if (!GI) return;
-
-	UFTUIManagerSubsystem* UIManager = GI->GetSubsystem<UFTUIManagerSubsystem>();
-	if (!UIManager) return;
-
-	ViewModel = UIManager->InventoryViewModel;
-	if (!ViewModel) return;
-
-	ViewModel->OnViewModelChanged.AddUniqueDynamic(this, &UFTInventoryWidget::HandleViewModelChanged);
 	
 	// 이미 뷰모델이 초기화되어 있다면 즉시 동기화
 	HandleViewModelChanged();
