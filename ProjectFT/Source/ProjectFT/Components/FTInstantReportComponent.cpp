@@ -108,7 +108,7 @@ void UFTInstantReportComponent::TryReportObservedStealing()
 
 void UFTInstantReportComponent::RequestInstantReport(AActor* SuspectActor, const FVector& ReportLocation)
 {
-	if (!SuspectActor || bReportRequested || (bReportOnlyOnce && bHasReported))
+	if (!SuspectActor || bReportRequested || (bReportOnlyOnce && bHasReported) || !IsReportCooldownReady())
 	{
 		return;
 	}
@@ -132,13 +132,23 @@ void UFTInstantReportComponent::RequestInstantReport(AActor* SuspectActor, const
 
 bool UFTInstantReportComponent::BroadcastRequestedReport()
 {
-	if (!OwnerController || !bReportRequested || !TargetActor || (bReportOnlyOnce && bHasReported))
+	if (!OwnerController || !bReportRequested || !TargetActor || (bReportOnlyOnce && bHasReported) || !IsReportCooldownReady())
 	{
 		return false;
 	}
 
 	bReportRequested = false;
 	bHasReported = true;
+	LastReportCompletedTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+
+	UFTReportMessageLibrary::BroadcastNPCReportMessage(
+		OwnerController,
+		TAG_FT_Event_NPCReportStarted,
+		OwnerController->GetPawn(),
+		TargetActor,
+		PendingReportLocation,
+		0.0f,
+		0.0f);
 
 	UFTReportMessageLibrary::BroadcastNPCReportCompleted(
 		OwnerController,
@@ -231,4 +241,16 @@ bool UFTInstantReportComponent::IsActorVisibleBySight(AActor* Actor) const
 	}
 
 	return OwnerController->LineOfSightTo(Actor);
+}
+
+bool UFTInstantReportComponent::IsReportCooldownReady() const
+{
+	if (LastReportCompletedTime <= -FLT_MAX * 0.5f)
+	{
+		return true;
+	}
+
+	const UWorld* World = GetWorld();
+	const float CurrentTime = World ? World->GetTimeSeconds() : 0.0f;
+	return CurrentTime - LastReportCompletedTime >= ReportCooldown;
 }

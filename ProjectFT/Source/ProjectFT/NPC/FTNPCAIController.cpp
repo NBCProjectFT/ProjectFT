@@ -14,7 +14,9 @@
 #include "ProjectFT/Components/FTNPCShoppingComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/NPC/FTNPCCharacter.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
@@ -118,6 +120,11 @@ void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AFTNPCAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bKnockedOut)
+	{
+		return;
+	}
 
 	UpdateTargetState();
 	if (NPCReactionComponent)
@@ -227,6 +234,53 @@ void AFTNPCAIController::ClearReactionFocusState()
 bool AFTNPCAIController::IsUsingReportFocus() const
 {
 	return bUsingReportFocus;
+}
+
+void AFTNPCAIController::HandleControlledPawnDeath()
+{
+	StopMovement();
+	ClearFocus(EAIFocusPriority::Gameplay);
+	ReleaseShoppingTarget();
+	ClearReactionFocusState();
+
+	if (NPCReportComponent && NPCReportComponent->CurrentReportProgress > 0.0f && !NPCReportComponent->bReportCompleted)
+	{
+		CancelReport();
+	}
+
+	TargetActor = nullptr;
+	bHasSeenTarget = false;
+	bIsTargetStealing = false;
+	bIsTargetActivelyStealing = false;
+	bCanStartReportFlow = false;
+	bPanicRequested = false;
+	bFleeRequested = false;
+	bKnockedOut = true;
+
+	if (AFTNPCCharacter* NPCCharacter = Cast<AFTNPCCharacter>(GetPawn()))
+	{
+		NPCCharacter->bIsShopping = false;
+		NPCCharacter->bIsSuspicious = false;
+		NPCCharacter->bIsReporting = false;
+		NPCCharacter->bIsPanicked = false;
+		NPCCharacter->bIsFleeing = false;
+		NPCCharacter->bIsFleeWaiting = false;
+		NPCCharacter->bIsKnockedOut = true;
+	}
+
+	if (NPCPerceptionComponent)
+	{
+		NPCPerceptionComponent->OnTargetPerceptionUpdated.RemoveDynamic(this, &AFTNPCAIController::OnTargetPerceptionUpdated);
+		NPCPerceptionComponent->Deactivate();
+	}
+}
+
+void AFTNPCAIController::FinishKnockedOut()
+{
+	if (AFTAICharacterBase* AICharacter = Cast<AFTAICharacterBase>(GetPawn()))
+	{
+		AICharacter->DespawnAfterDeath();
+	}
 }
 
 void AFTNPCAIController::EnterSuspicious()
@@ -356,7 +410,8 @@ void AFTNPCAIController::UpdateTargetState()
 	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
 	const bool bHasObservedShelfDamaged = NPCReportComponent && NPCReportComponent->bObservedShelfDamaged;
 	const bool bHasObservedAssault = NPCReportComponent && NPCReportComponent->bObservedAssault;
-	bCanStartReportFlow = !bIsStunned && TargetActor &&
+	const bool bCanStartReportByCooldown = !NPCReportComponent || NPCReportComponent->CanStartReport();
+	bCanStartReportFlow = !bIsStunned && bCanStartReportByCooldown && TargetActor &&
 		((bHasSeenTarget && bIsTargetStealing) || bHasObservedShelfDamaged || bHasObservedAssault);
 
 	if (NPCReportComponent)
