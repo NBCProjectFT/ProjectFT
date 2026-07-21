@@ -46,10 +46,10 @@ public:
 	// 크라우치 입력에서 손을 뗀 순간(일어서기).
 	virtual void HandleCrouchReleased() = 0;
 
-	// 상호작용 입력이 눌린 순간.
+	// 상호작용 입력이 눌린 순간. 채널형은 토글(다시 누르면 중단)이라 꾹 누르고 있을 필요가 없다.
 	virtual void HandleInteractPressed() = 0;
 
-	// 상호작용 입력에서 손을 뗀 순간(채널형 상호작용 중단).
+	// 상호작용 입력에서 손을 뗀 순간.
 	virtual void HandleInteractReleased() = 0;
 
 	// 스킬체크 입력이 눌린 순간.
