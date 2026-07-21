@@ -98,7 +98,7 @@ public:
 	EFTWeaponStanceType GetHeldWeaponStance() const;
 
 	// 채널형 상호작용(LootShelf 게이지 채우기 등)을 진행 중이면 true. AnimBP 모션 전환 분기용.
-	// (꾹 누르고 있는 동안만 true — 키를 떼면 채널이 멈춰 false. 진행도/대상은 InteractionComponent에서 폴링.)
+	// (한 번 누르면 유지되는 토글 — 이동/재입력/범위 이탈로 끊길 때 false. 진행도/대상은 InteractionComponent에서 폴링.)
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction")
 	bool IsChannelingInteraction() const;
 
@@ -275,6 +275,11 @@ private:
 
 	UFUNCTION()
 	void OnInventoryChangedCallback();
+
+	// 채널형 상호작용 시작(대상 액터)/종료(nullptr) 시 호출된다. 채널 중엔 몸을 그 자리에 고정하고 시점만 돌게 한다.
+	// 채널이 어떤 경로로 끝나든(완료·재입력·이동·범위 이탈·대상 파괴) 이 델리게이트가 종료를 알리므로 원복이 새지 않는다.
+	UFUNCTION()
+	void HandleActiveChannelChanged(AActor* ChannelTarget);
 
 	// 아이템 타입별 데이터 에셋의 AttachSocketName을 우선 사용하고, 없으면 폴백 소켓을 돌려준다.
 	FName ResolveHeldItemAttachSocket(const UFTItemDataAsset* ItemData) const;
