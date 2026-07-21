@@ -34,45 +34,118 @@ class PROJECTFT_API UFTShopViewModel : public UObject
 public:
 	void Initialize(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
-	const TArray<TObjectPtr<UObject>>& GetShopItemObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetPlayerItemObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetCurrentItemObjects() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Items")
+	TArray<UObject*> GetShopItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Items")
+	TArray<UObject*> GetPlayerItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Items")
+	TArray<UObject*> GetCurrentItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Selection")
 	UFTItemTileListObject* GetSelectedShopItemObject() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Selection")
 	UFTItemTileListObject* GetSelectedPlayerItemObject() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Selection")
 	UFTItemTileListObject* GetSelectedCurrentItemObject() const;
 
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemNameText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemTagText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemDescriptionText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemPriceText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemCountText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemOwnedCountText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetTradeQuantityText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetTradeTotalPriceText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetTradeActionText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	FText GetSelectedItemStateText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Presentation")
 	TSoftObjectPtr<UTexture2D> GetSelectedItemIcon() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|State")
 	bool IsBuyMode() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|State")
 	bool IsSellMode() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Rules")
 	bool CanBuySelectedItem() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Rules")
 	bool CanSellSelectedItem() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Rules")
 	bool CanExecuteTradeAction() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Rules")
 	bool CanSetTradeQuantityToHalf() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Shop|Rules")
 	bool CanSetTradeQuantityToMax() const;
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
 	void RefreshAll();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Mode")
 	void SetBuyMode();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Mode")
 	void SetSellMode();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Selection")
 	void SelectShopItemObject(UObject* ItemObject);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Selection")
 	void SelectPlayerItemObject(UObject* ItemObject);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Selection")
 	void SelectCurrentItemObject(UObject* ItemObject);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Quantity")
 	void IncreaseTradeQuantity();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Quantity")
 	void DecreaseTradeQuantity();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Quantity")
 	void SetTradeQuantityToHalf();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Quantity")
 	void SetTradeQuantityToMax();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Trade")
 	bool BuySelectedItem();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Trade")
 	bool SellSelectedItem();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop|Trade")
 	bool ExecuteTradeAction();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Shop")
 	void RefreshShop();
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Shop")
@@ -117,4 +190,5 @@ private:
 	EFTShopSelectionSource SelectedSource = EFTShopSelectionSource::None;
 	EFTShopPanelMode CurrentMode = EFTShopPanelMode::Buy;
 	int32 TradeQuantity = 1;
+	bool bTransactionInProgress = false;
 };

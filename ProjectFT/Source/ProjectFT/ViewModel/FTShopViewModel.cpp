@@ -17,19 +17,31 @@ void UFTShopViewModel::Initialize(UFTShopSubsystem* InShopSubsystem, UFTInventor
 	RefreshAll();
 }
 
-const TArray<TObjectPtr<UObject>>& UFTShopViewModel::GetShopItemObjects() const
+TArray<UObject*> UFTShopViewModel::GetShopItemObjects() const
 {
-	return ShopItemObjects;
+	TArray<UObject*> Result;
+	Result.Reserve(ShopItemObjects.Num());
+	for (UObject* Item : ShopItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
-const TArray<TObjectPtr<UObject>>& UFTShopViewModel::GetPlayerItemObjects() const
+TArray<UObject*> UFTShopViewModel::GetPlayerItemObjects() const
 {
-	return PlayerItemObjects;
+	TArray<UObject*> Result;
+	Result.Reserve(PlayerItemObjects.Num());
+	for (UObject* Item : PlayerItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
-const TArray<TObjectPtr<UObject>>& UFTShopViewModel::GetCurrentItemObjects() const
+TArray<UObject*> UFTShopViewModel::GetCurrentItemObjects() const
 {
-	return CurrentMode == EFTShopPanelMode::Buy ? ShopItemObjects : PlayerItemObjects;
+	return CurrentMode == EFTShopPanelMode::Buy ? GetShopItemObjects() : GetPlayerItemObjects();
 }
 
 UFTItemTileListObject* UFTShopViewModel::GetSelectedShopItemObject() const
@@ -289,7 +301,9 @@ bool UFTShopViewModel::BuySelectedItem()
 		return false;
 	}
 
+	bTransactionInProgress = true;
 	const bool bPurchased = ShopSubsystem->BuyItemCount(SelectedShopItem->GetItemID(), TradeQuantity, PlayerInventory);
+	bTransactionInProgress = false;
 	RefreshAll();
 	return bPurchased;
 }
@@ -301,14 +315,16 @@ bool UFTShopViewModel::SellSelectedItem()
 		return false;
 	}
 
-	if (!ShopSubsystem->SellItemToShop(SelectedPlayerItem->GetItemID(), TradeQuantity, PlayerInventory))
+	bTransactionInProgress = true;
+	const bool bSold = ShopSubsystem->SellItemToShop(SelectedPlayerItem->GetItemID(), TradeQuantity, PlayerInventory);
+	bTransactionInProgress = false;
+	if (bSold)
 	{
-		return false;
+		ClearSelection();
 	}
 
-	ClearSelection();
 	RefreshAll();
-	return true;
+	return bSold;
 }
 
 bool UFTShopViewModel::ExecuteTradeAction()
@@ -324,7 +340,10 @@ void UFTShopViewModel::RefreshShop()
 
 void UFTShopViewModel::HandleInventoryChanged()
 {
-	RefreshAll();
+	if (!bTransactionInProgress)
+	{
+		RefreshAll();
+	}
 }
 
 void UFTShopViewModel::RefreshShopItems()

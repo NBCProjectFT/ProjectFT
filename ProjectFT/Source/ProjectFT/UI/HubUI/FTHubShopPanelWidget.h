@@ -21,125 +21,80 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hub|Shop")
 	void InitializeShopPanel(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
+	UFUNCTION(BlueprintPure, Category = "Hub|Shop")
+	UFTShopViewModel* GetShopViewModel() const { return ViewModel; }
+
+	/**
+	 * Blueprint presentation hook. Implement this in WBP_FTHubShopPanelWidget and
+	 * read every visible value from the supplied ViewModel.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Shop", meta = (DisplayName = "On Shop ViewModel Changed"))
+	void BP_OnShopViewModelChanged(UFTShopViewModel* ShopViewModel);
+
 protected:
 	virtual void NativeConstruct() override;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTileView* TV_Items;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTileView* TV_ShopItems;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTileView* TV_PlayerItems;
-
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UImage* IMG_SelectedItemIcon;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemName;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTextBlock* TXT_ItemName;
-
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemTag;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTextBlock* TXT_Tag;
-
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemDescription;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemOwnedCount;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTextBlock* TXT_ItemCount;
-
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemPrice;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemCount;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_SelectedItemState;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_TradeQuantity;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_TotalPrice;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_TradeAction;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_BuyMode;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_SellMode;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* BTN_Buy;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* BTN_Sell;
-
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_QuantityMinus;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_QuantityPlus;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_QuantityHalf;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_QuantityMax;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UButton* BTN_TradeAction;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* BTN_Refresh;
 
 private:
 	UFUNCTION()
 	void RefreshFromViewModel();
 
-	UTileView* GetPrimaryTileView() const;
-	void PopulateTileItems(UTileView* TileView, const TArray<TObjectPtr<UObject>>& Items, UObject* SelectedItem);
-	void HandleItemClicked(UObject* Item);
-	void HandleItemSelectionChanged(UObject* Item);
-
-	UFUNCTION()
-	void HandleBuyModeClicked();
-
-	UFUNCTION()
-	void HandleSellModeClicked();
-
-	UFUNCTION()
-	void HandleQuantityMinusClicked();
-
-	UFUNCTION()
-	void HandleQuantityPlusClicked();
-
-	UFUNCTION()
-	void HandleQuantityHalfClicked();
-
-	UFUNCTION()
-	void HandleQuantityMaxClicked();
-
-	UFUNCTION()
-	void HandleTradeActionClicked();
-
-	UFUNCTION()
-	void HandleRefreshClicked();
-
 	UPROPERTY(Transient)
 	TObjectPtr<UFTShopViewModel> ViewModel;
-
-	bool bRefreshingFromViewModel = false;
 };

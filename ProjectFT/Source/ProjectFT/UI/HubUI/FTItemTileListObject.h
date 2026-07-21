@@ -9,7 +9,7 @@
 
 class UTexture2D;
 
-UCLASS()
+UCLASS(BlueprintType)
 class PROJECTFT_API UFTItemTileListObject : public UObject
 {
 	GENERATED_BODY()
@@ -19,21 +19,52 @@ public:
 	void InitializeIngredient(const FTCraftIngredientStruct& Ingredient, int32 InOwnedCount = INDEX_NONE);
 	void InitializeShopItem(const FTShopItemStruct& ShopItem, bool bInLocked);
 
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	FName GetItemID() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	int32 GetCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	int32 GetOwnedCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	int32 GetPrice() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	float GetUnitWeight() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	float GetTotalWeight() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	bool IsLocked() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	bool HasOwnedCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	bool IsChecked() const;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Item Tile")
 	void SetChecked(bool bInChecked);
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	bool ShouldShowSelectionCheckBox() const;
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Item Tile")
 	void SetShowSelectionCheckBox(bool bInShowSelectionCheckBox);
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	const FText& GetDisplayName() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	const FText& GetDescription() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	FText GetCategoryText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	TSoftObjectPtr<UTexture2D> GetItemIcon() const;
 
 private:
