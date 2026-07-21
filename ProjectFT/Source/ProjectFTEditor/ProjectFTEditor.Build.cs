@@ -12,6 +12,7 @@ public class ProjectFTEditor : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"GameplayTags",
+			"GameplayAbilities",
 			"GoogleSheetLoader",
 			"ProjectFT"
 		});

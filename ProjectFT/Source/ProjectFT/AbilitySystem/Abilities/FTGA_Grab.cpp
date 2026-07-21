@@ -5,6 +5,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AIController.h"
+#include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -116,6 +117,7 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 
 	CapturedTarget = Target;
 	TargetEscapeComp = EscapeComp;
+	PlayGrabAnimation();
 
 	// 탈출 성공 통지 바인딩 후 붙잡기 시작.
 	EscapeComp->OnEscaped.AddDynamic(this, &UFTGA_Grab::OnTargetEscaped);
@@ -292,6 +294,27 @@ USceneComponent* UFTGA_Grab::ResolveCaptureAttachPoint(AFTSecurityCharacter* Sec
 
 	// 소켓 미지정/부재 → 루트 기준 CapturePoint(소켓 도입 전 동작).
 	return Security->GetCapturePointComponent();
+}
+
+void UFTGA_Grab::PlayGrabAnimation() const
+{
+	if (!GrabAnimation)
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = CurrentActorInfo ? CurrentActorInfo->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		return;
+	}
+
+	AnimInstance->PlaySlotAnimationAsDynamicMontage(
+		GrabAnimation,
+		GrabAnimationSlotName,
+		0.1f,
+		0.1f,
+		GrabAnimationPlayRate);
 }
 
 void UFTGA_Grab::FinishGrab(bool bEscaped)

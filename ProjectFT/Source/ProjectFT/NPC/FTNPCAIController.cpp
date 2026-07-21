@@ -486,6 +486,10 @@ void AFTNPCAIController::OnShelfDamaged(
 {
 	if (NPCReportComponent && NPCReportComponent->HandleShelfDamaged(Payload))
 	{
+		if (NPCReactionComponent)
+		{
+			NPCReactionComponent->PlaySurprisedMontage();
+		}
 		SyncReportStateFromComponent();
 		bCanStartReportFlow = true;
 	}
@@ -543,6 +547,7 @@ void AFTNPCAIController::OnCharacterAttacked(FGameplayTag Channel, const FFTChar
 		if (NPCReactionComponent)
 		{
 			NPCReactionComponent->SetLastThreatActor(SuspectActor);
+			NPCReactionComponent->PlayReactingMontage();
 		}
 
 		if (NPCReportComponent && NPCReportComponent->CurrentReportProgress > 0.0f && !NPCReportComponent->bReportCompleted)
@@ -579,6 +584,10 @@ void AFTNPCAIController::OnCharacterAttacked(FGameplayTag Channel, const FFTChar
 
 	if (NPCReportComponent && NPCReportComponent->HandleObservedAssault(Payload))
 	{
+		if (NPCReactionComponent)
+		{
+			NPCReactionComponent->PlaySurprisedMontage();
+		}
 		SyncReportStateFromComponent();
 		bCanStartReportFlow = true;
 	}
