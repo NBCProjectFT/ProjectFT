@@ -12,7 +12,7 @@ class PROJECTFT_API AFTStaffCharacter : public AFTCashierCharacter
 public:
 	AFTStaffCharacter();
 
-	/** 직원이 매대나 대기 지점을 확인하는 애니메이션 상태다. */
+	/** 직원이 쇼핑포인트를 돌아다니다 멈춰서 확인하는 애니메이션 상태다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Staff|State")
 	bool bIsCheckingShelf = false;
 

@@ -14,7 +14,9 @@
 #include "ProjectFT/Components/FTNPCShoppingComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Components/FTInteractionComponent.h"
+#include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/NPC/FTNPCCharacter.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTCharacterDamagePayloadStruct.h"
@@ -118,6 +120,11 @@ void AFTNPCAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AFTNPCAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bKnockedOut)
+	{
+		return;
+	}
 
 	UpdateTargetState();
 	if (NPCReactionComponent)
@@ -250,18 +257,30 @@ void AFTNPCAIController::HandleControlledPawnDeath()
 	bFleeRequested = false;
 	bKnockedOut = true;
 
+	if (AFTNPCCharacter* NPCCharacter = Cast<AFTNPCCharacter>(GetPawn()))
+	{
+		NPCCharacter->bIsShopping = false;
+		NPCCharacter->bIsSuspicious = false;
+		NPCCharacter->bIsReporting = false;
+		NPCCharacter->bIsPanicked = false;
+		NPCCharacter->bIsFleeing = false;
+		NPCCharacter->bIsFleeWaiting = false;
+		NPCCharacter->bIsKnockedOut = true;
+	}
+
 	if (NPCPerceptionComponent)
 	{
 		NPCPerceptionComponent->OnTargetPerceptionUpdated.RemoveDynamic(this, &AFTNPCAIController::OnTargetPerceptionUpdated);
 		NPCPerceptionComponent->Deactivate();
 	}
+}
 
-	if (NPCStateTreeAIComponent && NPCStateTreeAIComponent->IsComponentTickEnabled())
+void AFTNPCAIController::FinishKnockedOut()
+{
+	if (AFTAICharacterBase* AICharacter = Cast<AFTAICharacterBase>(GetPawn()))
 	{
-		NPCStateTreeAIComponent->StopLogic(TEXT("NPCDeath"));
+		AICharacter->DespawnAfterDeath();
 	}
-
-	SetActorTickEnabled(false);
 }
 
 void AFTNPCAIController::EnterSuspicious()

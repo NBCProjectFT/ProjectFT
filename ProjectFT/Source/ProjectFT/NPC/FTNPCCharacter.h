@@ -16,7 +16,7 @@ public:
 	
 	/** 손님이 쇼핑 상태 애니메이션을 재생해야 하는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|NPC|State")
-	bool bIsFShopping = false;
+	bool bIsShopping = false;
 	
 	/** 손님이 의심 상태 애니메이션을 재생해야 하는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|NPC|State")

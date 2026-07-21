@@ -25,7 +25,7 @@ void AFTAICharacterBase::BeginPlay()
 		AttributeSet->SetHealth(InitialHealth);
 		AttributeSet->SetMoveSpeed(InitialMoveSpeed);
 		
-		// 변경된 이동속도를 CharacterMovementComponent에 반영한다.
+		// 변경된 이동 속도를 CharacterMovementComponent에 반영한다.
 		ApplyMovementSpeed();
 	}
 }
@@ -34,7 +34,7 @@ void AFTAICharacterBase::SetMoveSpeed(float NewSpeed)
 {
 	if (AttributeSet)
 	{
-		// 이동 속성 값을 갱신한 뒤 실제 이동 컴포넌트에도 적용한다.
+		// 이동 속성 값을 갱신하고 실제 이동 컴포넌트에도 적용한다.
 		AttributeSet->SetMoveSpeed(NewSpeed);
 		ApplyMovementSpeed();
 	}
@@ -43,21 +43,6 @@ void AFTAICharacterBase::SetMoveSpeed(float NewSpeed)
 void AFTAICharacterBase::OnDeath()
 {
 	UE_LOG(LogFTNPC, Log, TEXT("AI character '%s' died."), *GetNameSafe(this));
-	if (DeathDespawnDelay <= 0.0f)
-	{
-		DespawnAfterDeath();
-		return;
-	}
-
-	if (UWorld* World = GetWorld())
-	{
-		// HP가 0이 된 AI는 잠시 남겨둔 뒤 월드에서 제거한다.
-		World->GetTimerManager().SetTimer(
-			DeathDespawnTimerHandle,
-			this,
-			&AFTAICharacterBase::DespawnAfterDeath,
-			DeathDespawnDelay,
-			false);
-	}
-	// 이동 정지는 베이스(HandleDeath)가 처리한다. 래그돌/루트 드롭/디스폰 등 AI 전용 후처리는 여기에 추가.
+	// 이동 정지는 공통 HandleDeath에서 처리한다.
+	// 쓰러짐 연출과 제거 타이밍은 StateTree의 KnockedOut 상태가 담당한다.
 }
