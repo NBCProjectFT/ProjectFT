@@ -19,22 +19,26 @@ void UFTHubStorageViewModel::Initialize(AFTHubStorage* InHubStorage, UFTInventor
 	RefreshAll();
 }
 
-const TArray<TObjectPtr<UObject>>& UFTHubStorageViewModel::GetPlayerItemObjects() const
+TArray<UObject*> UFTHubStorageViewModel::GetPlayerItemObjects() const
 {
-	return PlayerItemObjects;
+	TArray<UObject*> Result;
+	Result.Reserve(PlayerItemObjects.Num());
+	for (UObject* Item : PlayerItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
-const TArray<TObjectPtr<UObject>>& UFTHubStorageViewModel::GetStorageItemObjects() const
+TArray<UObject*> UFTHubStorageViewModel::GetStorageItemObjects() const
 {
-	return StorageItemObjects;
-}
-
-FText UFTHubStorageViewModel::GetSelectedItemText() const
-{
-	const int32 SelectedCount = GetSelectedEntryCount();
-	return SelectedCount > 0
-		? FText::FromString(FString::Printf(TEXT("Selected Items: %d"), SelectedCount))
-		: FText::FromString(TEXT("Select Item"));
+	TArray<UObject*> Result;
+	Result.Reserve(StorageItemObjects.Num());
+	for (UObject* Item : StorageItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
 FText UFTHubStorageViewModel::GetPlayerWeightText() const
@@ -117,23 +121,39 @@ void UFTHubStorageViewModel::RefreshAll()
 	OnChanged.Broadcast();
 }
 
-void UFTHubStorageViewModel::SetSelectedItems(const EFTHubStorageTransferSource SourceType, const TArray<UObject*>& Items)
+void UFTHubStorageViewModel::ToggleSelectedItem(const EFTHubStorageTransferSource SourceType, UObject* ItemObject)
 {
-	SelectedItems.Reset();
-	SelectedSource = SourceType;
-
-	for (UObject* ItemObject : Items)
+	FTStorageItemStruct Item;
+	if (SourceType == EFTHubStorageTransferSource::None || !TryReadItemObject(ItemObject, Item))
 	{
-		FTStorageItemStruct StorageItem;
-		if (TryReadItemObject(ItemObject, StorageItem))
-		{
-			SelectedItems.Add(StorageItem);
-		}
+		return;
+	}
+
+	if (SelectedSource != SourceType)
+	{
+		SelectedItems.Reset();
+		SelectedSource = SourceType;
+		MoveQuantity = 1;
+	}
+
+	const int32 ExistingIndex = SelectedItems.IndexOfByPredicate([&Item](const FTStorageItemStruct& SelectedItem)
+	{
+		return SelectedItem.ItemID == Item.ItemID;
+	});
+
+	if (ExistingIndex != INDEX_NONE)
+	{
+		SelectedItems.RemoveAt(ExistingIndex);
+	}
+	else
+	{
+		SelectedItems.Add(Item);
 	}
 
 	if (SelectedItems.IsEmpty())
 	{
 		SelectedSource = EFTHubStorageTransferSource::None;
+		MoveQuantity = 1;
 	}
 
 	ClampMoveQuantity();
@@ -210,7 +230,10 @@ bool UFTHubStorageViewModel::TakeAllItems()
 
 void UFTHubStorageViewModel::HandleInventoryChanged()
 {
-	RefreshAll();
+	if (!bTransactionInProgress)
+	{
+		RefreshAll();
+	}
 }
 
 void UFTHubStorageViewModel::RefreshPlayerItems()
@@ -398,6 +421,7 @@ bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSo
 	}
 
 	bool bMovedAnyItem = false;
+	bTransactionInProgress = true;
 	for (FTStorageItemStruct SelectedItem : SelectedItems)
 	{
 		if (SelectedItem.ItemID.IsNone() || SelectedItem.Count <= 0)
@@ -416,6 +440,7 @@ bool UFTHubStorageViewModel::TransferSelectedItems(const EFTHubStorageTransferSo
 
 		bMovedAnyItem = bMovedAnyItem || bMoved;
 	}
+	bTransactionInProgress = false;
 
 	if (bMovedAnyItem)
 	{
@@ -449,6 +474,7 @@ bool UFTHubStorageViewModel::TransferAllItems(const EFTHubStorageTransferSource 
 	}
 
 	bool bMovedAnyItem = false;
+	bTransactionInProgress = true;
 	for (const FTStorageItemStruct& Item : ItemsToMove)
 	{
 		if (Item.ItemID.IsNone() || Item.Count <= 0)
@@ -462,6 +488,7 @@ bool UFTHubStorageViewModel::TransferAllItems(const EFTHubStorageTransferSource 
 
 		bMovedAnyItem = bMovedAnyItem || bMoved;
 	}
+	bTransactionInProgress = false;
 
 	if (bMovedAnyItem)
 	{

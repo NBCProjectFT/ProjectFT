@@ -46,13 +46,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	bool IsChecked() const;
 
-	UFUNCTION(BlueprintCallable, Category = "FT|Item Tile")
 	void SetChecked(bool bInChecked);
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")
 	bool ShouldShowSelectionCheckBox() const;
 
-	UFUNCTION(BlueprintCallable, Category = "FT|Item Tile")
 	void SetShowSelectionCheckBox(bool bInShowSelectionCheckBox);
 
 	UFUNCTION(BlueprintPure, Category = "FT|Item Tile")

@@ -51,77 +51,93 @@ public:
 	void Initialize(AFTHubStorage* InHubStorage, UFTInventoryComponent* InPlayerInventory);
 
 	/** @brief 플레이어 아이템 TileView/ListView에 넣을 UObject 목록. */
-	const TArray<TObjectPtr<UObject>>& GetPlayerItemObjects() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Items")
+	TArray<UObject*> GetPlayerItemObjects() const;
 
 	/** @brief 창고 아이템 TileView/ListView에 넣을 UObject 목록. */
-	const TArray<TObjectPtr<UObject>>& GetStorageItemObjects() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Items")
+	TArray<UObject*> GetStorageItemObjects() const;
 
 	/** @brief 현재 선택 상태를 UI 텍스트로 반환한다. */
-	FText GetSelectedItemText() const;
-
 	/** @brief 플레이어 현재 무게와 최대 무게를 UI 텍스트로 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Presentation")
 	FText GetPlayerWeightText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Presentation")
 	FText GetMoveQuantityText() const;
 
-	/** @brief 현재 선택된 아이템 엔트리 개수. */
-	int32 GetSelectedEntryCount() const;
-
-	/** @brief 플레이어 목록에서 선택된 엔트리 개수. */
-	int32 GetPlayerSelectedEntryCount() const;
-
-	/** @brief 창고 목록에서 선택된 엔트리 개수. */
-	int32 GetStorageSelectedEntryCount() const;
-
 	/** @brief 선택 보관 버튼을 누를 수 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanStoreSelected() const;
 
 	/** @brief 선택 꺼내기 버튼을 누를 수 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanTakeSelected() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanDecreaseMoveQuantity() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanIncreaseMoveQuantity() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanSetMoveQuantityToHalf() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanSetMoveQuantityToMax() const;
 
 	/** @brief 모두 보관 버튼을 누를 수 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanStoreAll() const;
 
 	/** @brief 모두 꺼내기 버튼을 누를 수 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Rules")
 	bool CanTakeAll() const;
 
-	/** @brief 플레이어/창고 목록을 다시 만들고 OnChanged를 방송한다. */
-	void RefreshAll();
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Filter")
+	EFTItemCategoryType GetPlayerFilter() const { return PlayerFilterCategory; }
 
-	/**
-	 * @brief View가 전달한 선택 UObject 목록을 창고 이동용 데이터로 변환한다.
-	 *
-	 * @param SourceType 선택이 발생한 목록. Player면 플레이어 목록, Storage면 창고 목록.
-	 * @param Items ListView/TileView에서 선택된 UObject 목록.
-	 */
-	void SetSelectedItems(EFTHubStorageTransferSource SourceType, const TArray<UObject*>& Items);
+	UFUNCTION(BlueprintPure, Category = "FT|Storage|Filter")
+	EFTItemCategoryType GetStorageFilter() const { return StorageFilterCategory; }
 
-	/** @brief 현재 선택 상태를 비운다. */
-	void ClearSelection();
+	/** Toggle one tile selection. Switching sides clears the opposite-side selection. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Selection")
+	void ToggleSelectedItem(EFTHubStorageTransferSource SourceType, UObject* ItemObject);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Quantity")
 	void IncreaseMoveQuantity();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Quantity")
 	void DecreaseMoveQuantity();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Quantity")
 	void SetMoveQuantityToHalf();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Quantity")
 	void SetMoveQuantityToMax();
 
 	/** @brief 플레이어 목록의 카테고리 필터를 변경한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Filter")
 	void SetPlayerFilter(EFTItemCategoryType FilterCategory);
 
 	/** @brief 창고 목록의 카테고리 필터를 변경한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Filter")
 	void SetStorageFilter(EFTItemCategoryType FilterCategory);
 
 	/** @brief 선택된 플레이어 아이템을 창고로 보낸다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Transfer")
 	bool StoreSelectedItems();
 
 	/** @brief 선택된 창고 아이템을 플레이어에게 보낸다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Transfer")
 	bool TakeSelectedItems();
 
 	/** @brief 플레이어가 가진 모든 아이템을 창고로 보낸다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Transfer")
 	bool StoreAllItems();
 
 	/** @brief 창고가 가진 모든 아이템을 플레이어에게 보낸다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Storage|Transfer")
 	bool TakeAllItems();
 
 	/**
@@ -133,6 +149,14 @@ public:
 	FFTHubStorageViewModelChanged OnChanged;
 
 private:
+	/** Rebuilds both item arrays and broadcasts the resulting state once. */
+	void RefreshAll();
+
+	void ClearSelection();
+	int32 GetSelectedEntryCount() const;
+	int32 GetPlayerSelectedEntryCount() const;
+	int32 GetStorageSelectedEntryCount() const;
+
 	/** @brief 플레이어 또는 창고 인벤토리가 바뀌면 UI 데이터 전체를 다시 만든다. */
 	UFUNCTION()
 	void HandleInventoryChanged();
@@ -206,4 +230,5 @@ private:
 
 	/** @brief 창고 목록 필터. None이면 전체 표시. */
 	EFTItemCategoryType StorageFilterCategory = EFTItemCategoryType::None;
+	bool bTransactionInProgress = false;
 };
