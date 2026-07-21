@@ -107,6 +107,11 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bKnockedOut)
+	{
+		return;
+	}
+
 	UpdateAbilityState();
 	UpdateTargetState();
 	UpdateTargetFocus();
@@ -343,6 +348,70 @@ void AFTSecurityAIController::ReadyDespawn()
 	}
 
 	SetActorTickEnabled(false);
+}
+
+void AFTSecurityAIController::HandleControlledPawnDeath()
+{
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
+
+	StopMovement();
+	ClearFocus(EAIFocusPriority::Gameplay);
+
+	TargetActor = nullptr;
+	bSecurityCalled = false;
+	bHasSeenTarget = false;
+	bIsTargetInAttackRange = false;
+	TargetDistance = 0.0f;
+	bReturning = false;
+	SecurityChaseGauge = 0.0f;
+	bSecurityChaseActive = false;
+	bTargetCaptured = false;
+	bIsCaptor = false;
+	bIsTargetCapturedByOtherSecurity = false;
+	bReturnRequested = false;
+	bInvestigateRequested = false;
+	bStunRequested = false;
+	bIsGrabbing = false;
+	bIsStunned = false;
+	bKnockedOut = true;
+	bIsAttackLeader = false;
+	bParticipatingInChase = false;
+	EncircleSlotLocation = FVector::ZeroVector;
+	bHasEncircleSlot = false;
+	bCanRequestSecuritySupport = false;
+
+	if (AFTSecurityCharacter* SecurityCharacter = Cast<AFTSecurityCharacter>(GetPawn()))
+	{
+		SecurityCharacter->bIsIdle = false;
+		SecurityCharacter->bIsObserving = false;
+		SecurityCharacter->bIsRequestingSupport = false;
+		SecurityCharacter->bIsApproachingTarget = false;
+		SecurityCharacter->bIsGrabbing = false;
+		SecurityCharacter->bIsExpelling = false;
+		SecurityCharacter->bIsWaitingBeforeReturn = false;
+		SecurityCharacter->bIsAttacking = false;
+		SecurityCharacter->bIsTryingAttack = false;
+		SecurityCharacter->bIsAttackDelay = false;
+		SecurityCharacter->bIsAttackCooldown = false;
+		SecurityCharacter->bIsKnockedOut = true;
+	}
+
+	if (SecurityPerceptionComponent)
+	{
+		SecurityPerceptionComponent->OnTargetPerceptionUpdated.RemoveDynamic(this, &AFTSecurityAIController::OnTargetPerceptionUpdated);
+		SecurityPerceptionComponent->Deactivate();
+	}
+}
+
+void AFTSecurityAIController::FinishKnockedOut()
+{
+	if (AFTAICharacterBase* AICharacter = Cast<AFTAICharacterBase>(GetPawn()))
+	{
+		AICharacter->DespawnAfterDeath();
+	}
 }
 
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)

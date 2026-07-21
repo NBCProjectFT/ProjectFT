@@ -190,6 +190,12 @@ public:
 
 	bool IsUsingReportFocus() const;
 
+	void HandleControlledPawnDeath();
+
+	/** KnockedOut 상태 연출이 끝난 뒤 Pawn을 제거한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|NPC|Death")
+	void FinishKnockedOut();
+
 private:
 	float LastObservedStealingTime = -FLT_MAX;
 	bool bLastLoggedHasSeenTarget = false;

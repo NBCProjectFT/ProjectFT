@@ -30,6 +30,16 @@ void AFTNPCCharacter::BeginPlay()
 	}
 }
 
+void AFTNPCCharacter::OnDeath()
+{
+	if (AFTNPCAIController* NPCAIController = Cast<AFTNPCAIController>(GetController()))
+	{
+		NPCAIController->HandleControlledPawnDeath();
+	}
+
+	Super::OnDeath();
+}
+
 void AFTNPCCharacter::OnImmobilizedStateChanged(bool bImmobilized)
 {
 	Super::OnImmobilizedStateChanged(bImmobilized);

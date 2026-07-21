@@ -1,7 +1,10 @@
 #include "FTStaffAIController.h"
 
+#include "EngineUtils.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/NPC/FTStaffRestockManager.h"
+#include "ProjectFT/NPC/FTShoppingPoint.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
 AFTStaffAIController::AFTStaffAIController()
@@ -13,11 +16,6 @@ void AFTStaffAIController::BeginPlay()
 	Super::BeginPlay();
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	StealCompletedListenerHandle = MessageSubsystem.RegisterListener(
-		TAG_FT_Event_StealCompleted,
-		this,
-		&ThisClass::OnStealCompleted
-	);
 	ShelfRestockedListenerHandle = MessageSubsystem.RegisterListener(
 		TAG_FT_Event_ShelfRestocked,
 		this,
@@ -27,11 +25,8 @@ void AFTStaffAIController::BeginPlay()
 
 void AFTStaffAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (StealCompletedListenerHandle.IsValid())
-	{
-		UGameplayMessageSubsystem::Get(this).UnregisterListener(StealCompletedListenerHandle);
-		StealCompletedListenerHandle = FGameplayMessageListenerHandle();
-	}
+	ClearStaffWanderTarget();
+
 	if (ShelfRestockedListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(ShelfRestockedListenerHandle);
@@ -70,24 +65,28 @@ bool AFTStaffAIController::BroadcastRestockRequested()
 	return true;
 }
 
-void AFTStaffAIController::ClearRestockTarget()
+bool AFTStaffAIController::RequestRestockTarget()
 {
-	TargetShelfActor = nullptr;
-	RestockLocation = FVector::ZeroVector;
-	bHasRestockTarget = false;
-	bRestockRequested = false;
-	bRestockCompleted = false;
-}
-
-void AFTStaffAIController::OnStealCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
-{
-	if (!Payload.TargetActor || bHasRestockTarget)
+	if (bHasRestockTarget)
 	{
-		return;
+		return true;
 	}
 
-	TargetShelfActor = Payload.TargetActor;
-	RestockLocation = Payload.TargetActor->GetActorLocation();
+	AFTStaffRestockManager* RestockManager = FindRestockManager();
+	AActor* AssignedShelfActor = nullptr;
+	if (!RestockManager || !RestockManager->TryAssignShelf(GetPawn(), AssignedShelfActor) || !AssignedShelfActor)
+	{
+		if (bLogStaffDebug && !RestockManager)
+		{
+			UE_LOG(LogFTNPC, Warning, TEXT("[Staff] RestockManager not found. Place BP_FTStaffRestockManager in the level."));
+		}
+		return false;
+	}
+
+	ClearStaffWanderTarget();
+
+	TargetShelfActor = AssignedShelfActor;
+	RestockLocation = AssignedShelfActor->GetActorLocation();
 	bHasRestockTarget = true;
 	bRestockRequested = false;
 	bRestockCompleted = false;
@@ -103,6 +102,116 @@ void AFTStaffAIController::OnStealCompleted(FGameplayTag Channel, const FFTMessa
 			*RestockLocation.ToString()
 		);
 	}
+
+	return true;
+}
+
+void AFTStaffAIController::ClearRestockTarget()
+{
+	TargetShelfActor = nullptr;
+	RestockLocation = FVector::ZeroVector;
+	bHasRestockTarget = false;
+	bRestockRequested = false;
+	bRestockCompleted = false;
+}
+
+bool AFTStaffAIController::PickRandomStaffWanderTarget()
+{
+	if (bHasRestockTarget)
+	{
+		return false;
+	}
+
+	ClearStaffWanderTarget();
+
+	TArray<AFTShoppingPoint*> PreferredShoppingPoints;
+	TArray<AFTShoppingPoint*> FallbackShoppingPoints;
+	float PreferredTotalWeight = 0.0f;
+	float FallbackTotalWeight = 0.0f;
+
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AFTShoppingPoint> It(World); It; ++It)
+		{
+			AFTShoppingPoint* ShoppingPoint = *It;
+			if (!ShoppingPoint || ShoppingPoint->SelectionWeight <= 0.0f)
+			{
+				continue;
+			}
+
+			FallbackShoppingPoints.Add(ShoppingPoint);
+			FallbackTotalWeight += ShoppingPoint->SelectionWeight;
+
+			if (ShoppingPoint->CanSelectPreferred())
+			{
+				PreferredShoppingPoints.Add(ShoppingPoint);
+				PreferredTotalWeight += ShoppingPoint->SelectionWeight;
+			}
+		}
+	}
+
+	const bool bUsePreferredPoints = !PreferredShoppingPoints.IsEmpty();
+	const TArray<AFTShoppingPoint*>& ShoppingPoints = bUsePreferredPoints ? PreferredShoppingPoints : FallbackShoppingPoints;
+	const float TotalWeight = bUsePreferredPoints ? PreferredTotalWeight : FallbackTotalWeight;
+
+	if (ShoppingPoints.IsEmpty() || TotalWeight <= 0.0f)
+	{
+		StaffWanderLocation = FVector::ZeroVector;
+		StaffWanderAcceptanceRadius = 100.0f;
+		bHasStaffWanderTarget = false;
+		return false;
+	}
+
+	// 여유가 있는 쇼핑 포인트를 우선 선택하고, 없으면 전체 포인트 중 가중치로 선택합니다.
+	AFTShoppingPoint* SelectedShoppingPoint = nullptr;
+	float RandomWeight = FMath::FRandRange(0.0f, TotalWeight);
+	for (AFTShoppingPoint* ShoppingPoint : ShoppingPoints)
+	{
+		RandomWeight -= ShoppingPoint->SelectionWeight;
+		if (RandomWeight <= 0.0f)
+		{
+			SelectedShoppingPoint = ShoppingPoint;
+			break;
+		}
+	}
+
+	if (!SelectedShoppingPoint)
+	{
+		SelectedShoppingPoint = ShoppingPoints.Last();
+	}
+
+	CurrentStaffWanderPoint = SelectedShoppingPoint;
+	SelectedShoppingPoint->Reserve();
+	SelectedShoppingPoint->GetRandomShoppingLocation(this, StaffWanderLocation);
+	StaffWanderAcceptanceRadius = SelectedShoppingPoint->AcceptanceRadius;
+	bHasStaffWanderTarget = true;
+
+	if (bLogStaffDebug)
+	{
+		UE_LOG(
+			LogFTNPC,
+			Log,
+			TEXT("[Staff] Wander target picked: Staff=%s Point=%s Location=%s"),
+			*GetNameSafe(GetPawn()),
+			*GetNameSafe(SelectedShoppingPoint),
+			*StaffWanderLocation.ToString()
+		);
+	}
+
+	return true;
+}
+
+void AFTStaffAIController::ClearStaffWanderTarget()
+{
+	if (CurrentStaffWanderPoint)
+	{
+		CurrentStaffWanderPoint->Release();
+		CurrentStaffWanderPoint = nullptr;
+	}
+
+	StaffWanderLocation = FVector::ZeroVector;
+	StaffWanderAcceptanceRadius = 100.0f;
+	bHasStaffWanderTarget = false;
 }
 
 void AFTStaffAIController::OnShelfRestocked(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
@@ -113,6 +222,10 @@ void AFTStaffAIController::OnShelfRestocked(FGameplayTag Channel, const FFTMessa
 	}
 
 	bRestockCompleted = true;
+	if (AFTStaffRestockManager* RestockManager = FindRestockManager())
+	{
+		RestockManager->CompleteShelf(TargetShelfActor);
+	}
 
 	if (bLogStaffDebug)
 	{
@@ -124,4 +237,20 @@ void AFTStaffAIController::OnShelfRestocked(FGameplayTag Channel, const FFTMessa
 			*GetNameSafe(TargetShelfActor)
 		);
 	}
+}
+
+AFTStaffRestockManager* AFTStaffAIController::FindRestockManager() const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	for (TActorIterator<AFTStaffRestockManager> It(World); It; ++It)
+	{
+		return *It;
+	}
+
+	return nullptr;
 }
