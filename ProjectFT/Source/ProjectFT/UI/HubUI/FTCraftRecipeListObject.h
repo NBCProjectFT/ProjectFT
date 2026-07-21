@@ -5,7 +5,9 @@
 #include "ProjectFT/Struct/FTCraftRecipeStruct.h"
 #include "FTCraftRecipeListObject.generated.h"
 
-UCLASS()
+class UTexture2D;
+
+UCLASS(BlueprintType)
 class PROJECTFT_API UFTCraftRecipeListObject : public UObject
 {
 	GENERATED_BODY()
@@ -13,7 +15,18 @@ class PROJECTFT_API UFTCraftRecipeListObject : public UObject
 public:
 	void Initialize(const FTCraftRecipeStruct& InRecipe, bool bInCanCraft);
 	const FTCraftRecipeStruct& GetRecipe() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe")
 	bool CanCraft() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Presentation")
+	FText GetRecipeNameText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Presentation")
+	FText GetResultCountText() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Craft Recipe|Presentation")
+	TSoftObjectPtr<UTexture2D> GetResultItemIcon() const;
 
 private:
 	FTCraftRecipeStruct Recipe;

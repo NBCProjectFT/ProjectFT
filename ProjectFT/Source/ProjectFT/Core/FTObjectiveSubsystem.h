@@ -92,6 +92,8 @@ public:
 
 private:
 	void HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	/** Value에 담긴 아이템 수량만큼 제작·구매 조건을 진행한다. */
+	void HandleCountedItemQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleNPCQuestMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void HandleSecurityChaseQuestMessage(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void HandleSecurityResponseQuestMessage(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);

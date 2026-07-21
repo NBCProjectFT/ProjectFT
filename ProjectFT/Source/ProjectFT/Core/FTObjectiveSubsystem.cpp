@@ -25,6 +25,10 @@ void UFTObjectiveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	// FFTMessagePayloadStruct 기반의 횟수형 마트 사건.
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ItemConsumed, this, &ThisClass::HandleQuestMessage));
+	// 제작·구매는 한 번의 요청에서 여러 개를 얻을 수 있으므로 Payload.Value를 진행 수량으로 사용한다.
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_CraftCompleted, this, &ThisClass::HandleCountedItemQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShopPurchased, this, &ThisClass::HandleCountedItemQuestMessage));
+	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_HubComputerAccessed, this, &ThisClass::HandleQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShelfDamaged, this, &ThisClass::HandleQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_ShelfDestroyed, this, &ThisClass::HandleQuestMessage));
 	ObjectiveListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_StealCompleted, this, &ThisClass::HandleQuestMessage));
@@ -668,6 +672,15 @@ void UFTObjectiveSubsystem::UnlockQuest(FName QuestID)
 void UFTObjectiveSubsystem::HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
 {
 	ApplyQuestEvent(Channel, Payload.ItemId);
+}
+
+void UFTObjectiveSubsystem::HandleCountedItemQuestMessage(
+	FGameplayTag Channel,
+	const FFTMessagePayloadStruct& Payload)
+{
+	// 성공 이벤트의 Value는 항상 양수 정수 수량으로 발행한다. 잘못된 외부 메시지는 최소 1회로 보정한다.
+	const int32 ItemCount = FMath::Max(1, FMath::RoundToInt(Payload.Value));
+	ApplyQuestEvent(Channel, Payload.ItemId, ItemCount);
 }
 
 void UFTObjectiveSubsystem::HandleNPCQuestMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)

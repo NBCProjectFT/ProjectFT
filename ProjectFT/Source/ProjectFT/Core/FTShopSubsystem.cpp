@@ -152,6 +152,12 @@ bool UFTShopSubsystem::BuyItemCount(FName ItemID, const int32 PurchaseCount, UFT
 		return false;
 	}
 
+	// 결제와 아이템 지급까지 끝난 구매만 퀘스트에 기록한다.
+	FFTMessagePayloadStruct Payload;
+	Payload.ItemId = ResolvedItemID;
+	Payload.Value = static_cast<float>(RewardCount);
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(TAG_FT_Event_ShopPurchased, Payload);
+
 	UE_LOG(LogTemp, Warning, TEXT("Shop Buy Success: %s x%d / Price %d"), *ResolvedItemID.ToString(), RewardCount, Price);
 	return true;
 }

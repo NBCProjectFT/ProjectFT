@@ -20,32 +20,32 @@ void UFTCraftingViewModel::Initialize(
 	PlayerInventory = InPlayerInventory;
 	StorageInventory = InStorageInventory;
 	SelectedRecipeObject = nullptr;
-	SelectedRecipe = NAME_None;
-	bCanCraft = false;
 	ClearSelectedRecipeDetails();
 
 	BindInventoryDelegates();
 	RefreshAll();
 }
 
-const TArray<TObjectPtr<UObject>>& UFTCraftingViewModel::GetStorageItemObjects() const
+TArray<UObject*> UFTCraftingViewModel::GetRecipeObjects() const
 {
-	return StorageItemObjects;
+	TArray<UObject*> Result;
+	Result.Reserve(RecipeObjects.Num());
+	for (UObject* Item : RecipeObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
-const TArray<TObjectPtr<UObject>>& UFTCraftingViewModel::GetRecipeObjects() const
+TArray<UObject*> UFTCraftingViewModel::GetRequiredItemObjects() const
 {
-	return RecipeObjects;
-}
-
-const TArray<TObjectPtr<UObject>>& UFTCraftingViewModel::GetRequiredItemObjects() const
-{
-	return RequiredItemObjects;
-}
-
-FText UFTCraftingViewModel::GetRecipeCountText() const
-{
-	return RecipeCountText;
+	TArray<UObject*> Result;
+	Result.Reserve(RequiredItemObjects.Num());
+	for (UObject* Item : RequiredItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
 FText UFTCraftingViewModel::GetSelectedRecipeNameText() const
@@ -53,37 +53,12 @@ FText UFTCraftingViewModel::GetSelectedRecipeNameText() const
 	return SelectedRecipeNameText;
 }
 
-FText UFTCraftingViewModel::GetSelectedRecipeTierText() const
-{
-	return SelectedRecipeTierText;
-}
-
 FText UFTCraftingViewModel::GetSelectedRecipeDescriptionText() const
 {
 	return SelectedRecipeDescriptionText;
 }
 
-FText UFTCraftingViewModel::GetCraftTimeText() const
-{
-	return CraftTimeText;
-}
-
-FText UFTCraftingViewModel::GetCraftAmountText() const
-{
-	return CraftAmountText;
-}
-
-FText UFTCraftingViewModel::GetRequiredItemsText() const
-{
-	return RequiredItemsText;
-}
-
-FText UFTCraftingViewModel::GetResultItemText() const
-{
-	return ResultItemText;
-}
-
-UTexture2D* UFTCraftingViewModel::GetResultItemIcon() const
+TSoftObjectPtr<UTexture2D> UFTCraftingViewModel::GetResultItemIcon() const
 {
 	return ResultItemIcon;
 }
@@ -95,7 +70,6 @@ bool UFTCraftingViewModel::CanCraftSelectedRecipe() const
 
 void UFTCraftingViewModel::RefreshAll()
 {
-	RefreshStorageItems();
 	RefreshRecipes();
 	NotifyChanged();
 }
@@ -107,17 +81,9 @@ void UFTCraftingViewModel::SetCraftableOnly(const bool bInCraftableOnly)
 	NotifyChanged();
 }
 
-void UFTCraftingViewModel::SetSearchText(const FText& InSearchText)
-{
-	SearchText = InSearchText;
-	RefreshRecipes();
-	NotifyChanged();
-}
-
 void UFTCraftingViewModel::SelectRecipeObject(UObject* RecipeObject)
 {
 	SelectedRecipeObject = Cast<UFTCraftRecipeListObject>(RecipeObject);
-	SelectedRecipe = SelectedRecipeObject ? SelectedRecipeObject->GetRecipe().RecipeID : NAME_None;
 	RefreshSelectedRecipeDetails();
 	NotifyChanged();
 }
@@ -130,10 +96,13 @@ bool UFTCraftingViewModel::CraftSelectedRecipe()
 	}
 
 	const FName RecipeID = SelectedRecipeObject->GetRecipe().RecipeID;
+	bTransactionInProgress = true;
 	if (!CraftingSubsystem->TryCraftRecipe(RecipeID, PlayerInventory, StorageInventory))
 	{
+		bTransactionInProgress = false;
 		return false;
 	}
+	bTransactionInProgress = false;
 
 	RefreshAll();
 	return true;
@@ -146,23 +115,9 @@ void UFTCraftingViewModel::NotifyChanged()
 
 void UFTCraftingViewModel::HandleInventoryChanged()
 {
-	RefreshAll();
-}
-
-void UFTCraftingViewModel::RefreshStorageItems()
-{
-	StorageItemObjects.Reset();
-
-	if (!StorageInventory)
+	if (!bTransactionInProgress)
 	{
-		return;
-	}
-
-	for (const FFTInventoryItem& StorageItem : StorageInventory->GetItems())
-	{
-		UFTItemTileListObject* ItemObject = NewObject<UFTItemTileListObject>(this);
-		ItemObject->InitializeItem(StorageItem.ItemId, StorageItem.Quantity);
-		StorageItemObjects.Add(ItemObject);
+		RefreshAll();
 	}
 }
 
@@ -174,7 +129,6 @@ void UFTCraftingViewModel::RefreshRecipes()
 
 	SelectedRecipeObject = nullptr;
 	RecipeObjects.Reset();
-	RecipeList.Reset();
 
 	if (!CraftingSubsystem)
 	{
@@ -185,11 +139,10 @@ void UFTCraftingViewModel::RefreshRecipes()
 	TArray<FTCraftRecipeStruct> Recipes;
 	CraftingSubsystem->GetCraftRecipes(Recipes);
 
-	int32 VisibleRecipeCount = 0;
 	for (const FTCraftRecipeStruct& Recipe : Recipes)
 	{
 		const bool bRecipeCanCraft = CraftingSubsystem->CanCraftRecipe(Recipe, PlayerInventory, StorageInventory);
-		if (!ShouldShowRecipe(Recipe, bRecipeCanCraft))
+		if (!ShouldShowRecipe(bRecipeCanCraft))
 		{
 			continue;
 		}
@@ -197,8 +150,6 @@ void UFTCraftingViewModel::RefreshRecipes()
 		UFTCraftRecipeListObject* RecipeObject = NewObject<UFTCraftRecipeListObject>(this);
 		RecipeObject->Initialize(Recipe, bRecipeCanCraft);
 		RecipeObjects.Add(RecipeObject);
-		RecipeList.Add(Recipe.RecipeID);
-		++VisibleRecipeCount;
 
 		if (Recipe.RecipeID == SelectedRecipeID)
 		{
@@ -206,7 +157,6 @@ void UFTCraftingViewModel::RefreshRecipes()
 		}
 	}
 
-	RecipeCountText = FText::FromString(FString::Printf(TEXT("%d / %d"), VisibleRecipeCount, Recipes.Num()));
 	RefreshSelectedRecipeDetails();
 }
 
@@ -220,39 +170,11 @@ void UFTCraftingViewModel::RefreshSelectedRecipeDetails()
 
 	const FTCraftRecipeStruct& Recipe = SelectedRecipeObject->GetRecipe();
 	const UFTItemDataAsset* ResultItemData = UFTItemFunctionLibrary::FindItemData(this, Recipe.ResultItemID);
-	FString RequiredItems;
-
-	for (const FTCraftIngredientStruct& Ingredient : Recipe.RequiredItems)
-	{
-		if (!RequiredItems.IsEmpty())
-		{
-			RequiredItems += TEXT("\n");
-		}
-
-		const UFTItemDataAsset* IngredientItemData = UFTItemFunctionLibrary::FindItemData(this, Ingredient.ItemID);
-		const FText IngredientName = IngredientItemData && !IngredientItemData->ItemData.ItemName.IsEmpty()
-			? IngredientItemData->ItemData.ItemName
-			: FText::FromName(Ingredient.ItemID);
-
-		RequiredItems += FString::Printf(
-			TEXT("%s %d / %d"),
-			*IngredientName.ToString(),
-			GetOwnedIngredientCount(Ingredient.ItemID),
-			Ingredient.Count);
-	}
-
-	SelectedRecipe = Recipe.RecipeID;
-	bCanCraft = SelectedRecipeObject->CanCraft();
 	SelectedRecipeNameText = ResultItemData && !ResultItemData->ItemData.ItemName.IsEmpty()
 		? ResultItemData->ItemData.ItemName
 		: FText::FromName(Recipe.ResultItemID);
-	RequiredItemsText = FText::FromString(RequiredItems);
-	ResultItemText = FText::FromString(FString::Printf(TEXT("Result: %s x%d"), *Recipe.ResultItemID.ToString(), Recipe.ResultCount));
-	SelectedRecipeTierText = FText::FromString(TEXT("Tier 1"));
 	SelectedRecipeDescriptionText = ResultItemData ? ResultItemData->ItemData.ItemDescription : FText::GetEmpty();
-	CraftTimeText = FText::FromString(TEXT("1 sec"));
-	CraftAmountText = FText::FromString(FString::Printf(TEXT("x%d"), Recipe.ResultCount));
-	ResultItemIcon = ResultItemData ? ResultItemData->ItemData.ItemIcon.LoadSynchronous() : nullptr;
+	ResultItemIcon = ResultItemData ? ResultItemData->ItemData.ItemIcon : nullptr;
 
 	RefreshRequiredItemObjects();
 }
@@ -303,21 +225,9 @@ void UFTCraftingViewModel::UnbindInventoryDelegates()
 	}
 }
 
-bool UFTCraftingViewModel::ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, const bool bRecipeCanCraft) const
+bool UFTCraftingViewModel::ShouldShowRecipe(const bool bRecipeCanCraft) const
 {
-	if (bCraftableOnly && !bRecipeCanCraft)
-	{
-		return false;
-	}
-
-	const FString SearchString = SearchText.ToString().TrimStartAndEnd();
-	if (SearchString.IsEmpty())
-	{
-		return true;
-	}
-
-	return Recipe.RecipeID.ToString().Contains(SearchString, ESearchCase::IgnoreCase)
-		|| Recipe.ResultItemID.ToString().Contains(SearchString, ESearchCase::IgnoreCase);
+	return !bCraftableOnly || bRecipeCanCraft;
 }
 
 int32 UFTCraftingViewModel::GetOwnedIngredientCount(const FName ItemID) const
@@ -330,14 +240,7 @@ int32 UFTCraftingViewModel::GetOwnedIngredientCount(const FName ItemID) const
 void UFTCraftingViewModel::ClearSelectedRecipeDetails()
 {
 	RequiredItemObjects.Reset();
-	ResultItemIcon = nullptr;
-	SelectedRecipe = NAME_None;
-	bCanCraft = false;
+	ResultItemIcon.Reset();
 	SelectedRecipeNameText = FText::FromString(TEXT("Select Recipe"));
-	SelectedRecipeTierText = FText::GetEmpty();
 	SelectedRecipeDescriptionText = FText::GetEmpty();
-	CraftTimeText = FText::GetEmpty();
-	CraftAmountText = FText::GetEmpty();
-	RequiredItemsText = FText::GetEmpty();
-	ResultItemText = FText::GetEmpty();
 }

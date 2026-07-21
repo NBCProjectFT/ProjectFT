@@ -17,58 +17,49 @@ class PROJECTFT_API UFTCraftingViewModel : public UObject
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintReadWrite, Category = "FT|Crafting")
-	TArray<FName> RecipeList;
-
-	UPROPERTY(BlueprintReadWrite, Category = "FT|Crafting")
-	FName SelectedRecipe = NAME_None;
-
-	UPROPERTY(BlueprintReadWrite, Category = "FT|Crafting")
-	bool bCanCraft = false;
-
 	void Initialize(
 		UFTCraftingSubsystem* InCraftingSubsystem,
 		UFTInventoryComponent* InPlayerInventory,
 		UFTInventoryComponent* InStorageInventory);
 
-	const TArray<TObjectPtr<UObject>>& GetStorageItemObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetRecipeObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetRequiredItemObjects() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Items")
+	TArray<UObject*> GetRecipeObjects() const;
 
-	FText GetRecipeCountText() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Items")
+	TArray<UObject*> GetRequiredItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Presentation")
 	FText GetSelectedRecipeNameText() const;
-	FText GetSelectedRecipeTierText() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Presentation")
 	FText GetSelectedRecipeDescriptionText() const;
-	FText GetCraftTimeText() const;
-	FText GetCraftAmountText() const;
-	FText GetRequiredItemsText() const;
-	FText GetResultItemText() const;
-	UTexture2D* GetResultItemIcon() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Presentation")
+	TSoftObjectPtr<UTexture2D> GetResultItemIcon() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Crafting|Rules")
 	bool CanCraftSelectedRecipe() const;
 
-	void RefreshAll();
+	UFUNCTION(BlueprintCallable, Category = "FT|Crafting|Filter")
 	void SetCraftableOnly(bool bInCraftableOnly);
-	void SetSearchText(const FText& InSearchText);
+	UFUNCTION(BlueprintCallable, Category = "FT|Crafting|Selection")
 	void SelectRecipeObject(UObject* RecipeObject);
+	UFUNCTION(BlueprintCallable, Category = "FT|Crafting|Craft")
 	bool CraftSelectedRecipe();
-
-	UFUNCTION(BlueprintCallable, Category = "FT|Crafting")
-	void NotifyChanged();
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Crafting")
 	FFTCraftingViewModelChanged OnChanged;
 
 private:
+	void RefreshAll();
+	void NotifyChanged();
+
 	UFUNCTION()
 	void HandleInventoryChanged();
 
-	void RefreshStorageItems();
 	void RefreshRecipes();
 	void RefreshSelectedRecipeDetails();
 	void RefreshRequiredItemObjects();
 	void BindInventoryDelegates();
 	void UnbindInventoryDelegates();
-	bool ShouldShowRecipe(const FTCraftRecipeStruct& Recipe, bool bRecipeCanCraft) const;
+	bool ShouldShowRecipe(bool bRecipeCanCraft) const;
 	int32 GetOwnedIngredientCount(FName ItemID) const;
 	void ClearSelectedRecipeDetails();
 
@@ -82,9 +73,6 @@ private:
 	TObjectPtr<UFTInventoryComponent> StorageInventory;
 
 	UPROPERTY(Transient)
-	TArray<TObjectPtr<UObject>> StorageItemObjects;
-
-	UPROPERTY(Transient)
 	TArray<TObjectPtr<UObject>> RecipeObjects;
 
 	UPROPERTY(Transient)
@@ -93,17 +81,10 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<class UFTCraftRecipeListObject> SelectedRecipeObject;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UTexture2D> ResultItemIcon;
+	TSoftObjectPtr<UTexture2D> ResultItemIcon;
 
-	FText RecipeCountText;
 	FText SelectedRecipeNameText;
-	FText SelectedRecipeTierText;
 	FText SelectedRecipeDescriptionText;
-	FText CraftTimeText;
-	FText CraftAmountText;
-	FText RequiredItemsText;
-	FText ResultItemText;
-	FText SearchText;
 	bool bCraftableOnly = false;
+	bool bTransactionInProgress = false;
 };

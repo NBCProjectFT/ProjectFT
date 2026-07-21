@@ -16,6 +16,9 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_ReturnToBase, "Request.Flow.ReturnToB
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Request_Flow_ReturnToMainMenu, "Request.Flow.ReturnToMainMenu");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemPickedUp, "Event.Item.PickedUp");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ItemConsumed, "Event.Item.Consumed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_CraftCompleted, "Event.Craft.Completed");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ShopPurchased, "Event.Shop.Purchased");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_HubComputerAccessed, "Event.Hub.ComputerAccessed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ReportGaugeChanged, "Event.ReportGauge.Changed");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_SecurityCalled, "Event.Security.Called");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ObjectiveCompleted, "Event.Objective.Completed");
