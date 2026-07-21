@@ -154,7 +154,7 @@ void UFTNPCReportComponent::CancelReport()
 
 void UFTNPCReportComponent::HandleReportFlowAvailability(bool bCanStartReportFlow, bool bLogReportDebug)
 {
-	if (bReportCompleted && !bCanStartReportFlow)
+	if (bReportCompleted && IsReportCooldownReady())
 	{
 		ResetReportState();
 		if (bLogReportDebug)
@@ -329,6 +329,11 @@ void UFTNPCReportComponent::HandleStunStateChanged(bool bStunned)
 	}
 }
 
+bool UFTNPCReportComponent::CanStartReport() const
+{
+	return !bReportCompleted || IsReportCooldownReady();
+}
+
 AFTNPCAIController* UFTNPCReportComponent::GetNPCAIController() const
 {
 	return Cast<AFTNPCAIController>(GetOwner());
@@ -398,6 +403,7 @@ void UFTNPCReportComponent::CompleteReport()
 	bObservedShelfDamaged = false;
 	bObservedAssault = false;
 	CurrentReportProgress = 1.0f;
+	LastReportCompletedTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 
 	BroadcastReportMessage(TAG_FT_Event_NPCReportCompleted, Controller->TargetActor, ReportAmount, 1.0f);
 	if (Controller->bLogReportDebug)
@@ -430,7 +436,18 @@ void UFTNPCReportComponent::ResetReportState()
 	CurrentReportProgress = 0.0f;
 	bReportCompleted = false;
 	bReportCancelled = false;
-	bObservedAssault = false;
 	LastLoggedReportPercent = -1;
 	LastLoggedReportDecayPercent = 101;
+}
+
+bool UFTNPCReportComponent::IsReportCooldownReady() const
+{
+	if (LastReportCompletedTime <= -FLT_MAX * 0.5f)
+	{
+		return true;
+	}
+
+	const UWorld* World = GetWorld();
+	const float CurrentTime = World ? World->GetTimeSeconds() : 0.0f;
+	return CurrentTime - LastReportCompletedTime >= ReportCooldown;
 }
