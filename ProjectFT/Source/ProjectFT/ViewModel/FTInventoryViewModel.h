@@ -87,6 +87,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory|QuickSlot")
 	bool RegisterSelectedToQuickSlot(int32 SlotIndex);
 
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory|QuickSlot")
+	bool IsItemInQuickSlot(FName ItemId) const;
+
+	/**
+	 * @brief 특정 아이템이 등록된 퀵슬롯 인덱스를 반환합니다.
+	 * @param ItemId : 확인할 아이템 ID
+	 * @return 등록된 퀵슬롯 인덱스 (0 ~ 5), 등록되지 않았으면 INDEX_NONE (-1)
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|Inventory|QuickSlot")
+	int32 GetItemQuickSlotIndex(FName ItemId) const;
+
 	/**
 	 * @brief 특정 슬롯 체크박스의 클릭 상태(체크 여부) 기록
 	 * @param SlotIndex : 선택 상태를 설정할 아이템의 카테고리 내 인덱스
