@@ -76,6 +76,7 @@ public:
 	void SetTargetActor(AActor* NewTargetActor);
 	void StartChase();
 	void ReadyDespawn();
+	void HandleControlledPawnDeath();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FT|Security")
 	TObjectPtr<AActor> TargetActor;

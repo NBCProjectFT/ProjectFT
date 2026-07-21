@@ -17,6 +17,26 @@ class PROJECTFT_API AFTSecurityCharacter : public AFTAICharacterBase
 public:
 	AFTSecurityCharacter();
 	
+	/** 보안요원이 지원요청 애니메이션을 재생해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsRequestingSupport = false;
+	
+	/** 보안요원이 플레이어에게 접근하는 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsApproachingTarget = false;
+	
+	/** 보안요원이 플레이어를 붙잡은 애니메이션 상태다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsGrabbing = false;
+	
+	/** 보안요원이 공격 애니메이션을 재생해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsAttacking = false;
+	
+	/** 보안요원이 공격 사이 대기 애니메이션을 재생해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|State")
+	bool bIsAttackDelay = false;
+	
 	virtual void SetMoveSpeed(float NewSpeed) override;
 	void IgnorePawnCollisionForDuration(float Duration);
 	void SetPawnCollisionIgnored(bool bIgnored);
@@ -32,6 +52,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void OnDeath() override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

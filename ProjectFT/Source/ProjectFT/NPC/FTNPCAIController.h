@@ -190,6 +190,8 @@ public:
 
 	bool IsUsingReportFocus() const;
 
+	void HandleControlledPawnDeath();
+
 private:
 	float LastObservedStealingTime = -FLT_MAX;
 	bool bLastLoggedHasSeenTarget = false;

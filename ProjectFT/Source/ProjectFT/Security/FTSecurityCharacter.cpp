@@ -7,6 +7,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ProjectFT/Security/FTSecurityAIController.h"
 #include "ProjectFT/UI/FTSecurityCallGaugeWidget.h"
 #include "TimerManager.h"
 
@@ -52,6 +53,16 @@ void AFTSecurityCharacter::BeginPlay()
 			}
 		}
 	}
+}
+
+void AFTSecurityCharacter::OnDeath()
+{
+	if (AFTSecurityAIController* SecurityAIController = Cast<AFTSecurityAIController>(GetController()))
+	{
+		SecurityAIController->HandleControlledPawnDeath();
+	}
+
+	Super::OnDeath();
 }
 
 void AFTSecurityCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

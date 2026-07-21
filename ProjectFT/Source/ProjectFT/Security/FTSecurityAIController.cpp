@@ -345,6 +345,38 @@ void AFTSecurityAIController::ReadyDespawn()
 	SetActorTickEnabled(false);
 }
 
+void AFTSecurityAIController::HandleControlledPawnDeath()
+{
+	ReadyDespawn();
+
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StopSecurityCall();
+	}
+
+	TargetActor = nullptr;
+	bSecurityCalled = false;
+	bHasSeenTarget = false;
+	bIsTargetInAttackRange = false;
+	TargetDistance = 0.0f;
+	bReturning = false;
+	SecurityChaseGauge = 0.0f;
+	bSecurityChaseActive = false;
+	bTargetCaptured = false;
+	bIsCaptor = false;
+	bIsTargetCapturedByOtherSecurity = false;
+	bReturnRequested = false;
+	bInvestigateRequested = false;
+	bStunRequested = false;
+	bIsGrabbing = false;
+	bIsStunned = false;
+	bIsAttackLeader = false;
+	bParticipatingInChase = false;
+	EncircleSlotLocation = FVector::ZeroVector;
+	bHasEncircleSlot = false;
+	bCanRequestSecuritySupport = false;
+}
+
 void AFTSecurityAIController::OnSecurityCalled(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload)
 {
 	if (SecurityResponseComponent)

@@ -229,6 +229,41 @@ bool AFTNPCAIController::IsUsingReportFocus() const
 	return bUsingReportFocus;
 }
 
+void AFTNPCAIController::HandleControlledPawnDeath()
+{
+	StopMovement();
+	ClearFocus(EAIFocusPriority::Gameplay);
+	ReleaseShoppingTarget();
+	ClearReactionFocusState();
+
+	if (NPCReportComponent && NPCReportComponent->CurrentReportProgress > 0.0f && !NPCReportComponent->bReportCompleted)
+	{
+		CancelReport();
+	}
+
+	TargetActor = nullptr;
+	bHasSeenTarget = false;
+	bIsTargetStealing = false;
+	bIsTargetActivelyStealing = false;
+	bCanStartReportFlow = false;
+	bPanicRequested = false;
+	bFleeRequested = false;
+	bKnockedOut = true;
+
+	if (NPCPerceptionComponent)
+	{
+		NPCPerceptionComponent->OnTargetPerceptionUpdated.RemoveDynamic(this, &AFTNPCAIController::OnTargetPerceptionUpdated);
+		NPCPerceptionComponent->Deactivate();
+	}
+
+	if (NPCStateTreeAIComponent && NPCStateTreeAIComponent->IsComponentTickEnabled())
+	{
+		NPCStateTreeAIComponent->StopLogic(TEXT("NPCDeath"));
+	}
+
+	SetActorTickEnabled(false);
+}
+
 void AFTNPCAIController::EnterSuspicious()
 {
 	ReleaseShoppingTarget();
@@ -356,7 +391,8 @@ void AFTNPCAIController::UpdateTargetState()
 	bIsTargetStealing = bIsTargetActivelyStealing || bRecentlyObservedStealing;
 	const bool bHasObservedShelfDamaged = NPCReportComponent && NPCReportComponent->bObservedShelfDamaged;
 	const bool bHasObservedAssault = NPCReportComponent && NPCReportComponent->bObservedAssault;
-	bCanStartReportFlow = !bIsStunned && TargetActor &&
+	const bool bCanStartReportByCooldown = !NPCReportComponent || NPCReportComponent->CanStartReport();
+	bCanStartReportFlow = !bIsStunned && bCanStartReportByCooldown && TargetActor &&
 		((bHasSeenTarget && bIsTargetStealing) || bHasObservedShelfDamaged || bHasObservedAssault);
 
 	if (NPCReportComponent)
