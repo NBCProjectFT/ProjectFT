@@ -76,6 +76,11 @@ public:
 	void SetTargetActor(AActor* NewTargetActor);
 	void StartChase();
 	void ReadyDespawn();
+	void HandleControlledPawnDeath();
+
+	/** KnockedOut 상태 연출이 끝난 뒤 Pawn을 제거한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Security|Death")
+	void FinishKnockedOut();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="FT|Security")
 	TObjectPtr<AActor> TargetActor;
@@ -165,9 +170,17 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	bool bIsStunned = false;
 
+	/** HP가 0이 되어 무력화 상태로 진입했는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|State")
+	bool bKnockedOut = false;
+
 	/** True only for the security selected to approach and capture the current target. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bIsAttackLeader = false;
+
+	/** 플레이어를 붙잡는 Approach 리더 후보가 될 수 있는지 나타낸다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Security|Coordination")
+	bool bCanBeCaptureLeader = true;
 
 	/** 현재 보안요원이 추격 상태에 참여하고 있는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FT|Security|Coordination")

@@ -109,6 +109,11 @@ void AFTPlayerCharacter::BeginPlay()
 		Inventory->OnInventoryChanged.AddDynamic(this, &AFTPlayerCharacter::OnInventoryChangedCallback);
 	}
 
+	if (InteractionComponent)
+	{
+		InteractionComponent->OnActiveChannelChanged.AddDynamic(this, &AFTPlayerCharacter::HandleActiveChannelChanged);
+	}
+
 	if (AbilitySystemComponent)
 	{
 		// InitAbilityActorInfo와 MoveSpeed→MaxWalkSpeed 기본 파생은 베이스(AFTCharacterBase)가 Super에서 처리한다.
@@ -219,6 +224,13 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 	if (!MoveValue.IsNearlyZero())
 	{
 		CancelItemUseAbilities(TAG_FT_Ability_ItemUse_Channeled);
+
+		// 채널형 상호작용(진열대 털기 등)도 같은 규칙으로 이동에 끊긴다.
+		// 키를 떼도 유지되는 토글 방식이므로, 그 자리를 떠나는 순간 작업이 풀리는 게 유일하게 자연스러운 해제다.
+		if (InteractionComponent)
+		{
+			InteractionComponent->StopInteract();
+		}
 	}
 
 	// UE 표준 컨벤션: MoveValue.Y = 전방, MoveValue.X = 우측. 축 구성은 IMC에서 맞춘다.
@@ -238,8 +250,8 @@ void AFTPlayerCharacter::HandleMoveInput(const FVector2D& MoveValue)
 
 void AFTPlayerCharacter::HandleLookInput(const FVector2D& LookValue)
 {
-	// 붙잡힘 중에도 시점은 자유롭게 돌릴 수 있다(DBD식 이송 시점). 몸(캡슐)은 캡처 중 bUseControllerRotationYaw를
-	// 꺼둬 경비 캡처 포즈를 따르므로, 시점만 스프링암(bUsePawnControlRotation)으로 컨트롤 회전을 따라 돈다.
+	// 붙잡힘/채널링 중에도 시점은 자유롭게 돌릴 수 있다(DBD식). 몸(캡슐)은 그동안 bUseControllerRotationYaw를
+	// 꺼둬 제자리에 고정되므로, 시점만 스프링암(bUsePawnControlRotation)으로 컨트롤 회전을 따라 돈다.
 	AddControllerYawInput(LookValue.X);
 	AddControllerPitchInput(LookValue.Y);
 }
@@ -310,10 +322,8 @@ void AFTPlayerCharacter::HandleInteractPressed()
 
 void AFTPlayerCharacter::HandleInteractReleased()
 {
-	if (InteractionComponent)
-	{
-		InteractionComponent->StopInteract();
-	}
+	// 채널형 상호작용은 토글이라 키를 떼는 것으로는 끊기지 않는다(꾹 누르기 불필요).
+	// 중단은 이동(HandleMoveInput) · 재입력(TryInteract) · 범위 이탈(UFTInteractionComponent::TickComponent)이 담당한다.
 }
 
 void AFTPlayerCharacter::HandleSkillCheckPressed()
@@ -657,6 +667,17 @@ void AFTPlayerCharacter::OnInventoryChangedCallback()
 	{
 		SetCurrentHeldInventoryItem(FFTInventoryItem());
 	}
+}
+
+void AFTPlayerCharacter::HandleActiveChannelChanged(AActor* ChannelTarget)
+{
+	// 채널 중엔 몸(캡슐 yaw)이 컨트롤 회전을 따라 돌지 않게 끈다. 카메라 붐은 bUsePawnControlRotation으로
+	// 계속 컨트롤 회전을 따르므로, 작업하던 방향에 몸을 둔 채 시점만 주위를 둘러보는 그림이 된다.
+	// 채널이 끝나면 즉시 다시 따라 돌게 해 그 프레임부터 조준형 조작이 원래대로 복구된다.
+	// 저장/복원 대신 상태에서 다시 계산하는 이유: 캡처(UFTCaptureEscapeComponent)도 같은 플래그를 저장/복원하는데,
+	// 그쪽 스냅샷 시점에 이 값이 false로 눌려 있으면 캡처가 끝나며 false가 영구히 굳는다.
+	// 그래서 캡처 시작이 진행 중인 채널을 먼저 끊어 두 소유자가 겹치지 않게 한다(TryBeginCapture 참조).
+	bUseControllerRotationYaw = (ChannelTarget == nullptr);
 }
 
 void AFTPlayerCharacter::ApplyMovementSpeed()

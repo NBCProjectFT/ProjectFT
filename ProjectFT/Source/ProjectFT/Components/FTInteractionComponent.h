@@ -35,11 +35,12 @@ public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	// 상호작용 키를 누른 순간. 채널형 대상이면 채널링 시작, 아니면 즉시 상호작용.
+	// 상호작용 키를 누른 순간. 채널링 중이면 중단(토글), 채널형 대상이면 채널링 시작, 아니면 즉시 상호작용.
+	// 채널형은 키를 계속 누르고 있을 필요가 없다 — 한 번 누르면 유지되고, 이동/재입력/범위 이탈로 끊긴다.
 	UFUNCTION(BlueprintCallable, Category = "FT|Interaction")
 	void TryInteract();
 
-	// 상호작용 키를 뗀 순간. 채널링 중이면 중단(진행도는 유지).
+	// 채널링 중단(진행도는 유지). 재입력·이동·범위 이탈 등 모든 중단 경로가 여기로 모인다.
 	UFUNCTION(BlueprintCallable, Category = "FT|Interaction")
 	void StopInteract();
 

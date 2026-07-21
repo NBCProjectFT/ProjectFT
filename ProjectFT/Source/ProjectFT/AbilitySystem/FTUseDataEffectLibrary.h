@@ -53,6 +53,21 @@ public:
 		TSubclassOf<UGameplayEffect> CooldownEffectClass,
 		float Level = 1.0f);
 
+	/**
+	 * @brief 대상 캐릭터의 ASC에서 해당 UseData의 쿨다운 진행 상태(남은 시간 및 총 지속시간)를 조회합니다.
+	 * @param OwnerActor : 대상 캐릭터 (플레이어)
+	 * @param UseData : 조회할 아이템 사용 데이터
+	 * @param OutTimeRemaining : 남은 쿨다운 시간 (초)
+	 * @param OutDuration : 전체 쿨다운 시간 (초)
+	 * @return 쿨다운이 진행 중이면 true
+	 */
+	UFUNCTION(BlueprintPure, Category = "FT|UseData", meta = (DefaultToSelf = "OwnerActor"))
+	static bool GetItemCooldownProgress(
+		const AActor* OwnerActor,
+		const FTItemUseStruct& UseData,
+		float& OutTimeRemaining,
+		float& OutDuration);
+
 private:
 	static void ApplySetByCallerMagnitudes(FGameplayEffectSpecHandle EffectSpec, const FTItemUseStruct& UseData);
 };

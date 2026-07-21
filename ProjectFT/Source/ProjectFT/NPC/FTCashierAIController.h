@@ -52,7 +52,7 @@ public:
 	bool bReportRequested = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Report")
-	bool bReportOnlyOnce = true;
+	bool bReportOnlyOnce = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Cashier|Debug")
 	bool bLogCashierDebug = false;

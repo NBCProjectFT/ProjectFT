@@ -125,6 +125,28 @@ bool UFTInventoryViewModel::RegisterSelectedToQuickSlot(int32 SlotIndex)
 	return Inventory->SetQuickSlot(SlotIndex, SelectedItem);
 }
 
+bool UFTInventoryViewModel::IsItemInQuickSlot(FName ItemId) const
+{
+	UFTInventoryComponent* Inventory = LinkedInventory.Get();
+	if (!Inventory || ItemId.IsNone())
+	{
+		return false;
+	}
+
+	return Inventory->GetQuickSlots().Contains(ItemId);
+}
+
+int32 UFTInventoryViewModel::GetItemQuickSlotIndex(FName ItemId) const
+{
+	UFTInventoryComponent* Inventory = LinkedInventory.Get();
+	if (!Inventory || ItemId.IsNone())
+	{
+		return INDEX_NONE;
+	}
+
+	return Inventory->GetQuickSlots().IndexOfByKey(ItemId);
+}
+
 void UFTInventoryViewModel::SetItemSelection(int32 SlotIndex, bool bIsSelected)
 {
 	UFTInventoryComponent* Inventory = LinkedInventory.Get();

@@ -12,6 +12,7 @@
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Character/FTCharacterBase.h"
+#include "ProjectFT/Components/FTInteractionComponent.h"
 
 UFTCaptureEscapeComponent::UFTCaptureEscapeComponent()
 {
@@ -53,6 +54,15 @@ bool UFTCaptureEscapeComponent::TryBeginCapture(AActor* InCaptor, USceneComponen
 	if (bCaptured || !IsValid(InCaptor))
 	{
 		return false;
+	}
+
+	// 붙잡히면 진행 중이던 채널형 상호작용(진열대 털기 등)을 먼저 끊는다.
+	// 순서가 중요하다 — 채널도 소유자의 bUseControllerRotationYaw를 눌러두는데, 아래에서 그 값을 스냅샷하기 전에
+	// 풀어놓지 않으면 캡처가 "false"를 원본으로 기억해 EndCapture 후 몸이 영영 시점을 따라 돌지 않는다.
+	// (상호작용 컴포넌트가 없는 소유자 — NPC 등 — 에서는 그냥 no-op이다.)
+	if (UFTInteractionComponent* Interaction = GetOwner()->FindComponentByClass<UFTInteractionComponent>())
+	{
+		Interaction->StopInteract();
 	}
 
 	bCaptured = true;

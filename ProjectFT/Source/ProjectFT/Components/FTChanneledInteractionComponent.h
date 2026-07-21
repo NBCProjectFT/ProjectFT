@@ -18,7 +18,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTOnSkillCheckStarted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FFTOnSkillCheckEnded, EFTSkillCheckResultType, Result);
 
 /**
- * 데드 바이 데이라이트의 발전기처럼 "꾹 눌러 게이지를 채우는" 채널형 상호작용 대상에 부착한다.
+ * 데드 바이 데이라이트의 발전기처럼 "붙어서 게이지를 채우는" 채널형 상호작용 대상에 부착한다.
  * 진행도(Progress)를 대상이 보유하고, 채널링 중 주기적으로 스킬체크를 띄운다.
  * 플레이어 입력 자체는 받지 않는다 — 플레이어의 UFTInteractionComponent가 Start/Stop/NotifySkillCheckInput을 호출한다.
  * 연속값(진행도·커서)은 getter로 폴링하고(UMG 바인딩 권장), 이산 이벤트는 델리게이트로 받는다.
@@ -36,11 +36,11 @@ public:
 	// 소유 액터(대상)가 채널 도중 파괴되면 StopChannel/CompleteChannel을 못 거치므로, 시전자 ASC에 남은 상태 태그를 여기서 회수한다.
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// 플레이어가 상호작용 키를 누르기 시작 → 채널링 시작(이미 진행 중이면 무시).
+	// 플레이어가 상호작용 키를 누름 → 채널링 시작(이미 진행 중이면 무시).
 	// InWorkSpeedMultiplier: 진행 속도 배수(예: 플레이어 손재주). 1.0 = 기본. 채널 시작 시점에 캡처된다.
 	void StartChannel(AActor* InInteractor, float InWorkSpeedMultiplier = 1.0f);
 
-	// 키를 떼거나 범위를 벗어남 → 채널링 중단(진행도는 유지된다).
+	// 이동하거나 키를 다시 누르거나 범위를 벗어남 → 채널링 중단(진행도는 유지된다).
 	void StopChannel();
 
 	// 스킬체크 입력. 활성 스킬체크가 있으면 현재 커서 위치로 판정한다.
