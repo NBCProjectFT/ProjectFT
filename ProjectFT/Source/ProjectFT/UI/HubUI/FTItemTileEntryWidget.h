@@ -18,36 +18,23 @@ class PROJECTFT_API UFTItemTileEntryWidget : public UUserWidget, public IUserObj
 protected:
 	virtual void NativeOnListItemObjectSet(UObject* ListItemObject) override;
 	virtual void NativeOnItemSelectionChanged(bool bIsSelected) override;
-	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UImage* IMG_ItemIcon;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_ItemName;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_ItemCount;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTextBlock* TXT_ItemOwnedCount;
-
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UTextBlock* TXT_ItemWeight;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UCheckBox* CHK_ItemSelected;
 
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTextBlock* TXT_ItemPrice;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	UTextBlock* TXT_Locked;
-
 private:
-	UFUNCTION()
-	void HandleItemCheckStateChanged(bool bIsChecked);
-
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TObjectPtr<UFTItemTileListObject> CurrentTileObject;
 };

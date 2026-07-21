@@ -5,7 +5,6 @@
 #include "Components/TextBlock.h"
 #include "Engine/Texture2D.h"
 #include "FTItemTileListObject.h"
-#include "Input/Events.h"
 
 void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
@@ -33,13 +32,6 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 			: FText::FromString(FString::Printf(TEXT("x%d"), TileObject->GetCount())));
 	}
 
-	if (TXT_ItemOwnedCount)
-	{
-		TXT_ItemOwnedCount->SetText(TileObject->HasOwnedCount()
-			? FText::FromString(FString::Printf(TEXT("%d / %d"), TileObject->GetOwnedCount(), TileObject->GetCount()))
-			: FText::GetEmpty());
-	}
-
 	if (TXT_ItemWeight)
 	{
 		TXT_ItemWeight->SetText(FText::FromString(FString::Printf(TEXT("%.1fkg"), TileObject->GetUnitWeight())));
@@ -53,20 +45,6 @@ void UFTItemTileEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 		CHK_ItemSelected->SetVisibility(TileObject->ShouldShowSelectionCheckBox()
 			? ESlateVisibility::HitTestInvisible
 			: ESlateVisibility::Collapsed);
-	}
-
-	if (TXT_ItemPrice)
-	{
-		TXT_ItemPrice->SetText(TileObject->GetPrice() > 0
-			? FText::FromString(FString::Printf(TEXT("%d"), TileObject->GetPrice()))
-			: FText::GetEmpty());
-	}
-
-	if (TXT_Locked)
-	{
-		TXT_Locked->SetText(bLocked
-			? FText::FromString(TEXT("잠김"))
-			: FText::GetEmpty());
 	}
 
 	if (IMG_ItemIcon)
@@ -95,13 +73,4 @@ void UFTItemTileEntryWidget::NativeOnItemSelectionChanged(const bool bIsSelected
 		CHK_ItemSelected->OnCheckStateChanged.RemoveAll(this);
 		CHK_ItemSelected->SetIsChecked(bIsSelected);
 	}
-}
-
-FReply UFTItemTileEntryWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
-{
-	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
-}
-
-void UFTItemTileEntryWidget::HandleItemCheckStateChanged(const bool bIsChecked)
-{
 }
