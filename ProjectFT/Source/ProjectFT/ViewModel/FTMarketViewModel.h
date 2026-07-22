@@ -7,7 +7,6 @@
 class UFTInventoryComponent;
 class UFTShopSubsystem;
 class UFTTradePostListObject;
-class UTexture2D;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFTMarketViewModelChanged);
 
@@ -19,26 +18,31 @@ class PROJECTFT_API UFTMarketViewModel : public UObject
 public:
 	void Initialize(UFTShopSubsystem* InShopSubsystem, UFTInventoryComponent* InPlayerInventory);
 
-	const TArray<TObjectPtr<UObject>>& GetTradePostObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetSelectedPostItemObjects() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Market|Items")
+	TArray<UObject*> GetTradePostObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Market|Selection")
 	UFTTradePostListObject* GetSelectedPostObject() const;
 
-	FText GetSelectedPostTitleText() const;
-	FText GetSelectedPostDescriptionText() const;
-	FText GetSelectedPostItemText() const;
-	FText GetSelectedPostPriceText() const;
-	FText GetSelectedItemNameText() const;
-	FText GetSelectedItemTagText() const;
-	FText GetSelectedItemDescriptionText() const;
-	FText GetSelectedItemOwnedCountText() const;
-	FText GetTradeActionText() const;
-	TSoftObjectPtr<UTexture2D> GetSelectedItemIcon() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Market|Data")
+	int32 GetSelectedItemOwnedCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Market|Rules")
 	bool CanTradeSelectedPost() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Market|State")
 	bool IsBuyRequestMode() const;
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Market")
 	void RefreshAll();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Market|Mode")
 	void SetBuyRequestMode(bool bInBuyRequestMode);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Market|Selection")
 	void SelectTradePostObject(UObject* ItemObject);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Market|Trade")
 	bool TradeSelectedPost();
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Market")
@@ -49,13 +53,11 @@ private:
 	void HandleInventoryChanged();
 
 	void RefreshTradePosts();
-	void RefreshSelectedPostItems();
 	void RestoreSelection(FName PreviousPostID);
 	void ClearSelection();
 	void BindInventoryDelegate();
 	void UnbindInventoryDelegate();
 	const struct FTTradePostStruct* GetSelectedPost() const;
-	const class UFTItemTileListObject* GetSelectedPostItem() const;
 	void NotifyChanged();
 
 	UPROPERTY(Transient)
@@ -68,10 +70,8 @@ private:
 	TArray<TObjectPtr<UObject>> TradePostObjects;
 
 	UPROPERTY(Transient)
-	TArray<TObjectPtr<UObject>> SelectedPostItemObjects;
-
-	UPROPERTY(Transient)
 	TObjectPtr<UFTTradePostListObject> SelectedPostObject;
 
 	bool bBuyRequestMode = true;
+	bool bTransactionInProgress = false;
 };

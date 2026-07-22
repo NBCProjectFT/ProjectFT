@@ -17,6 +17,8 @@ struct FFTNPCReportPayloadStruct;
 struct FFTSecurityChaseGaugePayloadStruct;
 struct FFTSecurityResponsePayloadStruct;
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FFTQuestStateChanged, FName);
+
 UCLASS()
 class PROJECTFT_API UFTObjectiveSubsystem : public UGameInstanceSubsystem
 {
@@ -25,6 +27,8 @@ class PROJECTFT_API UFTObjectiveSubsystem : public UGameInstanceSubsystem
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
+
+	FFTQuestStateChanged OnQuestStateChanged;
 
 	UPROPERTY(BlueprintReadOnly, Category = "FT|Objective")
 	FName CurrentQuestId = NAME_None;
@@ -92,13 +96,15 @@ public:
 
 private:
 	void HandleQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	/** Value에 담긴 아이템 수량만큼 제작·구매 조건을 진행한다. */
+	void HandleCountedItemQuestMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleNPCQuestMessage(FGameplayTag Channel, const FFTNPCReportPayloadStruct& Payload);
 	void HandleSecurityChaseQuestMessage(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void HandleSecurityResponseQuestMessage(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
 	void HandleRaidEscapedMessage(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void ApplyQuestEvent(FGameplayTag EventTag, FName ItemID = NAME_None, int32 Count = 1);
 	void ActivateQuestProgress(const FTQuestStruct& Quest);
-	void BroadcastQuestProgressChanged(FName QuestID) const;
+	void BroadcastQuestProgressChanged(FName QuestID);
 	const FTQuestStruct* FindQuestByID(FName QuestID) const;
 	int32 GetQuestRequiredTotal(const FTQuestStruct& Quest) const;
 	int32 GetQuestItemProgressTotal(const FTQuestStruct& Quest, UFTInventoryComponent* PlayerInventory) const;

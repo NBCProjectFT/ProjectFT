@@ -11,6 +11,7 @@
 #include "Components/WidgetSwitcher.h"
 #include "InputCoreTypes.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "ProjectFT/Core/FTObjectiveSubsystem.h"
 #include "ProjectFT/Core/FTShopSubsystem.h"
 #include "ProjectFT/Hub/FTHubStorage.h"
 #include "ProjectFT/Hub/FTHubTerminal.h"
@@ -30,6 +31,16 @@ void UFTHubMainWidget::InitializeHubMain(
 	StorageInventory = InHubStorage ? InHubStorage->GetStorageInventory() : nullptr;
 
 	BindCurrencyInventoryDelegates();
+
+	if (bUseBlueprintTerminalPresentation)
+	{
+		BP_OnHubMainInitialized(
+			GetGameInstance() ? GetGameInstance()->GetSubsystem<UFTObjectiveSubsystem>() : nullptr,
+			ShopSubsystem,
+			PlayerInventory);
+		RefreshCollectionCoinText();
+		return;
+	}
 
 	if (HasDesktopAppWindows())
 	{
@@ -63,6 +74,10 @@ void UFTHubMainWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	SetIsFocusable(true);
+	if (bUseBlueprintTerminalPresentation)
+	{
+		return;
+	}
 
 	if (BTN_MailTab)
 	{
@@ -182,11 +197,34 @@ void UFTHubMainWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+void UFTHubMainWidget::NotifyHubUIOpened()
+{
+	BP_OnHubUIOpened();
+}
+
+void UFTHubMainWidget::NotifyHubUIClosed()
+{
+	BP_OnHubUIClosed();
+}
+
 FReply UFTHubMainWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		if (HasVisibleDesktopAppWindow())
+		{
+			CloseAllApps();
+		}
+		else
+		{
+			CloseTerminal();
+		}
+		return FReply::Handled();
+	}
+
 	if (InKeyEvent.GetKey() == EKeys::E)
 	{
-		HandleCloseClicked();
+		CloseTerminal();
 		return FReply::Handled();
 	}
 
@@ -223,6 +261,13 @@ void UFTHubMainWidget::UnbindCurrencyInventoryDelegates()
 
 void UFTHubMainWidget::RefreshCollectionCoinText()
 {
+	const int32 CoinAmount = GetCollectionCoinAmount();
+	if (bUseBlueprintTerminalPresentation)
+	{
+		BP_OnCollectionCoinChanged(CoinAmount);
+		return;
+	}
+
 	if (!TXT_CollectionCoin)
 	{
 		return;
@@ -235,15 +280,24 @@ void UFTHubMainWidget::RefreshCollectionCoinText()
 		return;
 	}
 
-	const int32 CoinAmount = ShopSubsystem
+	TXT_CollectionCoin->SetText(FText::FromString(FString::Printf(TEXT("보유 코인 %d"), CoinAmount)));
+}
+
+int32 UFTHubMainWidget::GetCollectionCoinAmount() const
+{
+	return ShopSubsystem
 		? ShopSubsystem->GetCurrencyAmount(PlayerInventory)
 		: 0;
-
-	TXT_CollectionCoin->SetText(FText::FromString(FString::Printf(TEXT("보유 코인 %d"), CoinAmount)));
 }
 
 void UFTHubMainWidget::OpenApp(EFTHubTerminalAppType AppType)
 {
+	if (bUseBlueprintTerminalPresentation)
+	{
+		BP_OnAppOpenRequested(AppType);
+		return;
+	}
+
 	if (HasDesktopAppWindows())
 	{
 		SetAppVisible(AppType, true);
@@ -272,6 +326,12 @@ void UFTHubMainWidget::OpenApp(EFTHubTerminalAppType AppType)
 
 void UFTHubMainWidget::CloseApp(EFTHubTerminalAppType AppType)
 {
+	if (bUseBlueprintTerminalPresentation)
+	{
+		BP_OnAppCloseRequested(AppType);
+		return;
+	}
+
 	if (HasDesktopAppWindows())
 	{
 		SetAppVisible(AppType, false);
@@ -281,6 +341,12 @@ void UFTHubMainWidget::CloseApp(EFTHubTerminalAppType AppType)
 
 void UFTHubMainWidget::FocusApp(EFTHubTerminalAppType AppType)
 {
+	if (bUseBlueprintTerminalPresentation)
+	{
+		BP_OnAppFocusRequested(AppType);
+		return;
+	}
+
 	BringAppToFront(AppType);
 }
 
@@ -289,6 +355,11 @@ void UFTHubMainWidget::CloseAllApps()
 	CloseApp(EFTHubTerminalAppType::Quest);
 	CloseApp(EFTHubTerminalAppType::Market);
 	CloseApp(EFTHubTerminalAppType::Shop);
+	if (bUseBlueprintTerminalPresentation)
+	{
+		return;
+	}
+
 	NextWindowZOrder = 10;
 	RefreshCollectionCoinText();
 }
@@ -510,6 +581,11 @@ void UFTHubMainWidget::HandleShopTabClicked()
 }
 
 void UFTHubMainWidget::HandleCloseClicked()
+{
+	CloseTerminal();
+}
+
+void UFTHubMainWidget::CloseTerminal()
 {
 	if (HubTerminal)
 	{

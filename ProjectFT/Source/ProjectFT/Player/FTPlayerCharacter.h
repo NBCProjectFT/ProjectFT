@@ -268,7 +268,12 @@ private:
 	void CancelItemUseAbilities(FGameplayTag MatchTag);
 
 	// 손에 든 아이템 변경의 단일 진입점. 같은 ItemId면 비주얼을 유지하고, 달라질 때만 액터를 교체한다.
-	void SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem);
+	// bPlaySound=false면 꺼내기/집어넣기 효과음을 생략한다 — 마지막 개수를 다 써서 손에서 사라지는 경우처럼
+	// 플레이어가 직접 넣고 뺀 게 아닌 해제에 쓴다(소모는 사용음의 몫이지 장착음의 몫이 아니다).
+	void SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem, bool bPlaySound = true);
+
+	// 꺼내기/집어넣기 효과음을 아이템 데이터에서 골라 사용자에게 붙여 재생한다. 데이터나 사운드가 없으면 no-op.
+	void PlayHeldItemSound(const UFTItemDataAsset* ItemData, bool bEquipped) const;
 
 	// CurrentHeldInventoryItem에 맞춰 손의 아이템 액터를 스폰/어태치하거나(없으면) 제거한다.
 	void RefreshHeldItemActor();

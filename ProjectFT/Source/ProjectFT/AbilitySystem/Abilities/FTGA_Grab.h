@@ -167,7 +167,8 @@ private:
 	void TickCaptureDamage();
 
 	// 대상에게 DamageEffectClass를 SetByCaller(음수 크기)로 적용한다. 초기 1회·지속·실패 피해가 모두 이 경로를 쓴다.
-	void ApplyDamageToTarget(float DamageAmount);
+	// bMarkHostile=true면 피해 직후 HostileMarkerEffectClass를 함께 적용해 "공격당함"으로 표시한다(붙잡힌 순간 1회 전용).
+	void ApplyDamageToTarget(float DamageAmount, bool bMarkHostile = false);
 
 	// 대상을 붙일 지점을 정한다. CaptureAttachSocketName이 경비 스켈레톤에 있으면 (메시, 소켓명),
 	// 없거나 비어 있으면 (CapturePoint, NAME_None)을 돌려준다 — 어느 쪽이든 부착 지점은 non-null이다.
