@@ -2,6 +2,8 @@
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
 #include "ProjectFT/ViewModel/FTInventoryViewModel.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 void UFTInventoryWidget::NativeConstruct()
 {
@@ -25,6 +27,21 @@ void UFTInventoryWidget::NativeConstruct()
 	
 	// 이미 뷰모델이 초기화되어 있다면 즉시 동기화
 	HandleViewModelChanged();
+
+	if (OpenSound)
+	{
+		UGameplayStatics::PlaySound2D(this, OpenSound);
+	}
+}
+
+void UFTInventoryWidget::NativeDestruct()
+{
+	if (CloseSound)
+	{
+		UGameplayStatics::PlaySound2D(this, CloseSound);
+	}
+
+	Super::NativeDestruct();
 }
 
 void UFTInventoryWidget::SetupInventory(UFTInventoryComponent* InInventoryComponent)
