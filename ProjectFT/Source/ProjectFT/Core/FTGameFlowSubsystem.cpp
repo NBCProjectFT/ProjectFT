@@ -7,6 +7,7 @@
 #include "Misc/PackageName.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Data/FTLevelPreloadDataAsset.h"
+#include "ProjectFT/Core/FTSaveGame.h"
 #include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
@@ -21,6 +22,7 @@ void UFTGameFlowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Event_UI_MainMenu_StartGame, this, &ThisClass::HandleStartGameMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_StartGame, this, &ThisClass::HandleFlowRequestMessage));
+	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_ContinueGame, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_StartRaid, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_StartEscape, this, &ThisClass::HandleFlowRequestMessage));
 	FlowRequestListenerHandles.Add(MessageSubsystem.RegisterListener(TAG_FT_Request_Flow_CancelEscape, this, &ThisClass::HandleFlowRequestMessage));
@@ -64,6 +66,10 @@ void UFTGameFlowSubsystem::HandleFlowRequestMessage(FGameplayTag Channel, const 
 	{
 		RequestStartGame();
 	}
+	else if (Channel == TAG_FT_Request_Flow_ContinueGame)
+	{
+		RequestContinueGame();
+	}
 	else if (Channel == TAG_FT_Request_Flow_StartRaid)
 	{
 		RequestStartRaid();
@@ -105,6 +111,43 @@ void UFTGameFlowSubsystem::RequestStartGame()
 	}
 
 	TravelToState(EFTFlowStateType::Base);
+}
+
+void UFTGameFlowSubsystem::RequestContinueGame()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UFTSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UFTSaveSubsystem>()
+		: nullptr;
+	UFTSaveGame* SaveGame = SaveSubsystem ? SaveSubsystem->LoadOrCreateSave() : nullptr;
+	if (!SaveSubsystem || !SaveGame || !SaveSubsystem->HasSaveData())
+	{
+		UE_LOG(LogFTFlow, Warning, TEXT("Continue game ignored because no save data exists."));
+		return;
+	}
+
+	if (UGameInstance* MutableGameInstance = GetGameInstance())
+	{
+		if (UFTUIManagerSubsystem* UIManager = MutableGameInstance->GetSubsystem<UFTUIManagerSubsystem>())
+		{
+			UIManager->HideMainMenu(/*bKeepMouseCursor=*/true);
+		}
+	}
+
+	const EFTFlowStateType SavedFlowState = SaveGame->FlowState == EFTFlowStateType::MainMenu
+		? EFTFlowStateType::Base
+		: SaveGame->FlowState;
+	FName SavedLevelName = SaveGame->LastLevelName;
+	if (SavedLevelName.IsNone() || SavedLevelName == ResolveLevelNameForState(EFTFlowStateType::MainMenu))
+	{
+		SavedLevelName = ResolveLevelNameForState(SavedFlowState);
+	}
+
+	UE_LOG(LogFTFlow, Log, TEXT("Continue game requested. SavedState=%d SavedLevel=%s"),
+		static_cast<uint8>(SavedFlowState),
+		*SavedLevelName.ToString());
+
+	TravelToState(SavedFlowState, SavedLevelName);
 }
 
 void UFTGameFlowSubsystem::RequestStartRaid()
