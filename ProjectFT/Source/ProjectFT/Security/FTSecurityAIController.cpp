@@ -364,6 +364,8 @@ void AFTSecurityAIController::HandleControlledPawnDeath()
 	bSecurityCalled = false;
 	bHasSeenTarget = false;
 	bIsTargetInAttackRange = false;
+	bDetectedTargetByCloseRange = false;
+	bHasObservedCrime = false;
 	TargetDistance = 0.0f;
 	bReturning = false;
 	SecurityChaseGauge = 0.0f;
@@ -452,16 +454,20 @@ void AFTSecurityAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetInAttackRange = false;
+		bDetectedTargetByCloseRange = false;
+		bHasObservedCrime = false;
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
 
 	const APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn || !TargetActor)
+	if (!ControlledPawn)
 	{
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetInAttackRange = false;
+		bDetectedTargetByCloseRange = false;
+		bHasObservedCrime = false;
 		if (SecurityTargetComponent)
 		{
 			SecurityTargetComponent->ResetTargetMemory();
@@ -469,6 +475,36 @@ void AFTSecurityAIController::UpdateTargetState()
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
+
+	if (!TargetActor)
+	{
+		if (AActor* PlayerActor = UGameplayStatics::GetPlayerPawn(this, 0))
+		{
+			if (IsPlayerActor(PlayerActor) && IsActorDetectedByCloseRange(PlayerActor))
+			{
+				SetTargetActor(PlayerActor);
+			}
+		}
+	}
+
+	if (!TargetActor)
+	{
+		TargetDistance = 0.0f;
+		bHasSeenTarget = false;
+		bIsTargetInAttackRange = false;
+		bDetectedTargetByCloseRange = false;
+		bHasObservedCrime = false;
+		if (SecurityTargetComponent)
+		{
+			SecurityTargetComponent->ResetTargetMemory();
+		}
+		UpdateChaseGaugeTargetSeenState();
+		return;
+	}
+
+	bDetectedTargetByCloseRange = IsTargetDetectedByCloseRange();
+	const bool bTargetStealing = IsTargetStealing(TargetActor);
+	bHasObservedCrime = bTargetStealing || bSecurityCalled || bSecurityChaseActive;
 
 	if (SecurityTargetComponent)
 	{
@@ -483,10 +519,11 @@ void AFTSecurityAIController::UpdateTargetState()
 			bIsTargetInAttackRange);
 	}
 
-	if (!bSecurityCalled && bHasSeenTarget && IsTargetStealing(TargetActor))
+	if (!bSecurityCalled && bHasSeenTarget && bTargetStealing)
 	{
 		bReturning = false;
 		bSecurityCalled = true;
+		bHasObservedCrime = true;
 		bCanRequestSecuritySupport = true;
 		if (SecurityCallComponent)
 		{
@@ -499,6 +536,12 @@ void AFTSecurityAIController::UpdateTargetState()
 		}
 	}
 	
+	// 근접 감지는 즉시 추격이 아니라 StateTree의 경계/확인 상태로 넘기기 위한 위치만 갱신한다.
+	if (bDetectedTargetByCloseRange && !bHasSeenTarget)
+	{
+		InvestigateLocation = TargetActor->GetActorLocation();
+	}
+
 	// 현재 보이는 상태라면 마지막 목격 위치 갱신
 	if (bHasSeenTarget)
 	{
@@ -643,6 +686,27 @@ bool AFTSecurityAIController::IsTargetCurrentlyVisible() const
 	return IsActorVisibleBySight(TargetActor, SightConfig);
 }
 
+bool AFTSecurityAIController::IsActorDetectedByCloseRange(AActor* Actor) const
+{
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !Actor || CloseDetectionRadius <= 0.0f)
+	{
+		return false;
+	}
+
+	// 전방 시야 밖이라도 아주 가까운 대상은 벽에 가려지지 않았을 때 기척으로 감지한다.
+	const float DistanceSquared = FVector::DistSquared(
+		ControlledPawn->GetActorLocation(),
+		Actor->GetActorLocation()
+	);
+	return DistanceSquared <= FMath::Square(CloseDetectionRadius) && LineOfSightTo(Actor);
+}
+
+bool AFTSecurityAIController::IsTargetDetectedByCloseRange() const
+{
+	return IsActorDetectedByCloseRange(TargetActor);
+}
+
 bool AFTSecurityAIController::IsPlayerActor(const AActor* Actor) const
 {
 	const APawn* TargetPawn = Cast<APawn>(Actor);
@@ -746,6 +810,8 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AFTSecurityAIController::DrawSightDebug() const
 {
 	DrawFlatSightDebug(SightConfig, FColor::Magenta, 1.5f);
+
+	DrawFlatCircleDebug(CloseDetectionRadius, FColor::Yellow, 1.5f);
 
 	if (bDrawAttackRangeDebug)
 	{
