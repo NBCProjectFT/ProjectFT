@@ -5,6 +5,9 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "ProjectFT/Struct/FTMeleeActionStruct.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Data/FTItemDataAsset.h"
@@ -37,6 +40,7 @@ void UFTGA_MeleeAction::ActivateAbility(
 
 	// 한 번의 몽타주 공격에서 중복 타격을 막기 위한 상태를 초기화한다.
 	HitActors.Reset();
+	bHitSoundPlayed = false;
 	bMeleeTraceActive = false;
 	bTraceActive = false;
 
@@ -148,8 +152,9 @@ void UFTGA_MeleeAction::ActivateAbility(
 
 void UFTGA_MeleeAction::HandleMeleeBeginEvent(FGameplayEventData Payload)
 {
-	// 새 판정 구간이 시작될 때 이전 구간의 타격 기록을 비운다.
+	// 새 판정 구간이 시작될 때 이전 구간의 타격 기록을 비운다(콤보의 다음 스윙은 다시 처음부터).
 	HitActors.Reset();
+	bHitSoundPlayed = false;
 	bMeleeTraceActive = true;
 }
 
@@ -180,6 +185,14 @@ void UFTGA_MeleeAction::HandleMeleeHitEvent(FGameplayEventData Payload)
 	}
 
 	HitActors.Add(HitActor);
+
+	// 타격음은 판정 구간당 한 번만. 한 번 휘둘러 여러 명을 쓸어도 같은 소리가 겹쳐 뭉치지 않게,
+	// '처음 맞힌 대상' 위치에서만 재생한다(대상별 중복은 위 HitActors가 이미 걸렀다).
+	if (!bHitSoundPlayed)
+	{
+		bHitSoundPlayed = true;
+		PlayMeleeHitSound(HitActor);
+	}
 
 	FGameplayAbilityTargetDataHandle TargetData = Payload.TargetData;
 	
@@ -223,6 +236,7 @@ void UFTGA_MeleeAction::EndMeleeAbility(bool bWasCancelled)
 	bMeleeTraceActive = false;
 	bTraceActive = false;
 	HitActors.Reset();
+	bHitSoundPlayed = false;
 
 	EndAbility(
 		CurrentSpecHandle,
@@ -236,4 +250,18 @@ void UFTGA_MeleeAction::EndMeleeAbility(bool bWasCancelled)
 const FFTMeleeActionStruct* UFTGA_MeleeAction::GetMeleeActionData() const
 {
 	return ActiveMeleeData ? &ActiveMeleeData->MeleeActionData : nullptr;
+}
+
+void UFTGA_MeleeAction::PlayMeleeHitSound(const AActor* HitActor) const
+{
+	const FFTMeleeActionStruct* MeleeData = GetMeleeActionData();
+	if (!MeleeData || !MeleeData->HitSound || !HitActor)
+	{
+		return;
+	}
+
+	// 맞은 대상 위치에서 1회 재생하고 잊는다(붙이지 않는다 — 짧은 타격음이라 따라다닐 필요가 없다).
+	// 근접 판정이 OverlapMultiByChannel이라 정확한 임팩트 지점이 없어 대상 위치를 쓴다. 근접 거리에선
+	// 이 정도 오차는 들리지 않는다 — 정밀한 지점이 필요해지면 판정을 스윕으로 바꿔 HitResult를 받아야 한다.
+	UGameplayStatics::PlaySoundAtLocation(HitActor, MeleeData->HitSound, HitActor->GetActorLocation());
 }

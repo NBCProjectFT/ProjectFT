@@ -4,6 +4,8 @@
 
 #include "GameplayEffect.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Cooldown.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
@@ -27,6 +29,33 @@ UFTGA_ItemAbility::UFTGA_ItemAbility()
 		FGameplayTagContainer AssetTags;
 		AssetTags.AddTag(TAG_FT_Ability_ItemUse);
 		SetAssetTags(AssetTags);
+	}
+}
+
+bool UFTGA_ItemAbility::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayTagContainer* OptionalRelevantTags)
+{
+	const bool bCommitted = Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
+
+	// 커밋 실패(비용 부족 등)면 사용 자체가 성립하지 않았으므로 소리도 내지 않는다.
+	if (bCommitted)
+	{
+		PlayUseSound();
+	}
+
+	return bCommitted;
+}
+
+void UFTGA_ItemAbility::PlayUseSound() const
+{
+	if (!ActiveUseData.UseSound)
+	{
+		return;
+	}
+
+	// 사용자(아바타)에 붙여 재생 — 걸어가며 쓰거나 던지는 중에도 소리가 몸을 따라간다(피격음/발소리와 같은 방식).
+	if (const AActor* Avatar = GetAvatarActorFromActorInfo())
+	{
+		UGameplayStatics::SpawnSoundAttached(ActiveUseData.UseSound, Avatar->GetRootComponent());
 	}
 }
 
