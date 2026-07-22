@@ -62,6 +62,46 @@ bool UFTSaveSubsystem::SaveToDisk()
 	return bSaved;
 }
 
+bool UFTSaveSubsystem::HasSaveData() const
+{
+	return (bHasSaveData && CurrentSave)
+		|| UGameplayStatics::DoesSaveGameExist(SlotName, UserIndex);
+}
+
+bool UFTSaveSubsystem::DeleteSaveData()
+{
+	const bool bHadDiskSave = UGameplayStatics::DoesSaveGameExist(SlotName, UserIndex);
+	const bool bDeleted = !bHadDiskSave || UGameplayStatics::DeleteGameInSlot(SlotName, UserIndex);
+
+	if (bDeleted)
+	{
+		CurrentSave = nullptr;
+		bHasSaveData = false;
+		UE_LOG(LogFTSave, Log, TEXT("Save data deleted. Slot=%s UserIndex=%d"), *SlotName, UserIndex);
+	}
+	else
+	{
+		UE_LOG(LogFTSave, Warning, TEXT("Save data delete failed. Slot=%s UserIndex=%d"), *SlotName, UserIndex);
+	}
+
+	return bDeleted;
+}
+
+UFTSaveGame* UFTSaveSubsystem::ResetForNewGame()
+{
+	DeleteSaveData();
+	CurrentSave = Cast<UFTSaveGame>(UGameplayStatics::CreateSaveGameObject(UFTSaveGame::StaticClass()));
+	if (CurrentSave)
+	{
+		CurrentSave->SlotName = SlotName;
+		CurrentSave->FlowState = EFTFlowStateType::MainMenu;
+		CurrentSave->LastLevelName = NAME_None;
+	}
+
+	bHasSaveData = false;
+	return CurrentSave;
+}
+
 void UFTSaveSubsystem::CaptureCurrentWorldState(FName NextLevelName, EFTFlowStateType FlowState)
 {
 	UFTSaveGame* SaveGame = LoadOrCreateSave();
@@ -70,8 +110,11 @@ void UFTSaveSubsystem::CaptureCurrentWorldState(FName NextLevelName, EFTFlowStat
 		return;
 	}
 
-	SaveGame->LastLevelName = NextLevelName;
-	SaveGame->FlowState = FlowState;
+	if (FlowState != EFTFlowStateType::MainMenu)
+	{
+		SaveGame->LastLevelName = NextLevelName;
+		SaveGame->FlowState = FlowState;
+	}
 
 	if (UFTInventoryComponent* PlayerInventory = FindPlayerInventory())
 	{
