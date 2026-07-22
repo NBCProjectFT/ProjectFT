@@ -197,8 +197,31 @@ void UFTHubMainWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+void UFTHubMainWidget::NotifyHubUIOpened()
+{
+	BP_OnHubUIOpened();
+}
+
+void UFTHubMainWidget::NotifyHubUIClosed()
+{
+	BP_OnHubUIClosed();
+}
+
 FReply UFTHubMainWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		if (HasVisibleDesktopAppWindow())
+		{
+			CloseAllApps();
+		}
+		else
+		{
+			CloseTerminal();
+		}
+		return FReply::Handled();
+	}
+
 	if (InKeyEvent.GetKey() == EKeys::E)
 	{
 		CloseTerminal();

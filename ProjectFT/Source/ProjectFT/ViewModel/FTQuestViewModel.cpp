@@ -24,12 +24,14 @@ namespace
 
 void UFTQuestViewModel::Initialize(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
+	UnbindObjectiveDelegate();
 	UnbindInventoryDelegate();
 
 	ObjectiveSubsystem = InObjectiveSubsystem;
 	PlayerInventory = InPlayerInventory;
 	ClearSelection();
 
+	BindObjectiveDelegate();
 	BindInventoryDelegate();
 	RefreshAll();
 }
@@ -164,7 +166,15 @@ void UFTQuestViewModel::SelectQuestObject(UObject* ItemObject)
 bool UFTQuestViewModel::AcceptSelectedQuest()
 {
 	const FTQuestStruct* Quest = GetSelectedQuest();
-	if (!Quest || !ObjectiveSubsystem || !ObjectiveSubsystem->AcceptQuest(Quest->QuestID))
+	if (!Quest || !ObjectiveSubsystem)
+	{
+		return false;
+	}
+
+	bTransactionInProgress = true;
+	const bool bAccepted = ObjectiveSubsystem->AcceptQuest(Quest->QuestID);
+	bTransactionInProgress = false;
+	if (!bAccepted)
 	{
 		return false;
 	}
@@ -211,6 +221,14 @@ bool UFTQuestViewModel::ExecuteSelectedQuestAction()
 }
 
 void UFTQuestViewModel::HandleInventoryChanged()
+{
+	if (!bTransactionInProgress)
+	{
+		RefreshAll();
+	}
+}
+
+void UFTQuestViewModel::HandleQuestStateChanged(const FName)
 {
 	if (!bTransactionInProgress)
 	{
@@ -348,6 +366,25 @@ void UFTQuestViewModel::UnbindInventoryDelegate()
 		BoundStorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
 		BoundStorageInventory = nullptr;
 	}
+}
+
+void UFTQuestViewModel::BindObjectiveDelegate()
+{
+	if (ObjectiveSubsystem && !ObjectiveChangedDelegateHandle.IsValid())
+	{
+		ObjectiveChangedDelegateHandle = ObjectiveSubsystem->OnQuestStateChanged.AddUObject(
+			this,
+			&UFTQuestViewModel::HandleQuestStateChanged);
+	}
+}
+
+void UFTQuestViewModel::UnbindObjectiveDelegate()
+{
+	if (ObjectiveSubsystem && ObjectiveChangedDelegateHandle.IsValid())
+	{
+		ObjectiveSubsystem->OnQuestStateChanged.Remove(ObjectiveChangedDelegateHandle);
+	}
+	ObjectiveChangedDelegateHandle.Reset();
 }
 
 const FTQuestStruct* UFTQuestViewModel::GetSelectedQuest() const

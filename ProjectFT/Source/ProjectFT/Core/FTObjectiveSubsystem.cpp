@@ -777,8 +777,10 @@ void UFTObjectiveSubsystem::ActivateQuestProgress(const FTQuestStruct& Quest)
 	EventProgress.Init(0, Quest.EventConditions.Num());
 }
 
-void UFTObjectiveSubsystem::BroadcastQuestProgressChanged(FName QuestID) const
+void UFTObjectiveSubsystem::BroadcastQuestProgressChanged(FName QuestID)
 {
+	OnQuestStateChanged.Broadcast(QuestID);
+
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	FFTMessagePayloadStruct Payload;
 	Payload.QuestId = QuestID;

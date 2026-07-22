@@ -37,9 +37,19 @@ void UFTRaidSelectWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+void UFTRaidSelectWidget::NotifyHubUIOpened()
+{
+	BP_OnHubUIOpened();
+}
+
+void UFTRaidSelectWidget::NotifyHubUIClosed()
+{
+	BP_OnHubUIClosed();
+}
+
 FReply UFTRaidSelectWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyEvent.GetKey() == EKeys::E)
+	if (InKeyEvent.GetKey() == EKeys::E || InKeyEvent.GetKey() == EKeys::Escape)
 	{
 		CloseRaidSelect();
 		return FReply::Handled();

@@ -528,6 +528,7 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 
 	HubCraftWidget->InitializeCraftWidget(PlayerInventory, StorageInventory, CraftingViewModel);
 	HubCraftWidget->AddToViewport(20);
+	HubCraftWidget->NotifyHubUIOpened();
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(HubCraftWidget->TakeWidget());
@@ -539,8 +540,9 @@ void UFTUIManagerSubsystem::ShowCrafting(UFTInventoryComponent* PlayerInventory,
 
 void UFTUIManagerSubsystem::HideCrafting()
 {
-	if (HubCraftWidget)
+	if (HubCraftWidget && HubCraftWidget->IsInViewport())
 	{
+		HubCraftWidget->NotifyHubUIClosed();
 		HubCraftWidget->RemoveFromParent();
 	}
 
@@ -610,6 +612,7 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 
 	HubStorageWidget->InitializeStorageWidget(HubStorage, PlayerInventory, HubStorageViewModel);
 	HubStorageWidget->AddToViewport(20);
+	HubStorageWidget->NotifyHubUIOpened();
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(HubStorageWidget->TakeWidget());
@@ -621,8 +624,9 @@ void UFTUIManagerSubsystem::ShowStorage(AFTHubStorage* HubStorage, UFTInventoryC
 
 void UFTUIManagerSubsystem::HideStorage()
 {
-	if (HubStorageWidget)
+	if (HubStorageWidget && HubStorageWidget->IsInViewport())
 	{
+		HubStorageWidget->NotifyHubUIClosed();
 		HubStorageWidget->RemoveFromParent();
 	}
 
@@ -684,6 +688,7 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	RaidSelectViewModel->Initialize(RaidEntrance, PlayerInventory);
 	RaidSelectWidget->InitializeRaidSelect(RaidSelectViewModel);
 	RaidSelectWidget->AddToViewport(20);
+	RaidSelectWidget->NotifyHubUIOpened();
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(RaidSelectWidget->TakeWidget());
@@ -697,8 +702,9 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 
 void UFTUIManagerSubsystem::HideRaidSelect()
 {
-	if (RaidSelectWidget)
+	if (RaidSelectWidget && RaidSelectWidget->IsInViewport())
 	{
+		RaidSelectWidget->NotifyHubUIClosed();
 		RaidSelectWidget->RemoveFromParent();
 	}
 
@@ -814,6 +820,7 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	}
 
 	HubMainWidget->AddToViewport(20);
+	HubMainWidget->NotifyHubUIOpened();
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(HubMainWidget->TakeWidget());
@@ -827,8 +834,9 @@ void UFTUIManagerSubsystem::ShowHubMain(
 
 void UFTUIManagerSubsystem::HideHubMain()
 {
-	if (HubMainWidget)
+	if (HubMainWidget && HubMainWidget->IsInViewport())
 	{
+		HubMainWidget->NotifyHubUIClosed();
 		HubMainWidget->RemoveFromParent();
 	}
 

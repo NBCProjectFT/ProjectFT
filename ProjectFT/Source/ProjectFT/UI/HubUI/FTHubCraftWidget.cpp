@@ -45,9 +45,19 @@ void UFTHubCraftWidget::NativeConstruct()
 	RefreshFromViewModel();
 }
 
+void UFTHubCraftWidget::NotifyHubUIOpened()
+{
+	BP_OnHubUIOpened();
+}
+
+void UFTHubCraftWidget::NotifyHubUIClosed()
+{
+	BP_OnHubUIClosed();
+}
+
 FReply UFTHubCraftWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyEvent.GetKey() == EKeys::E)
+	if (InKeyEvent.GetKey() == EKeys::E || InKeyEvent.GetKey() == EKeys::Escape)
 	{
 		CloseCraft();
 		return FReply::Handled();

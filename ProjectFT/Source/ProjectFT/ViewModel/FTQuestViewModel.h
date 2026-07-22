@@ -88,6 +88,7 @@ public:
 private:
 	UFUNCTION()
 	void HandleInventoryChanged();
+	void HandleQuestStateChanged(FName QuestID);
 
 	void RefreshQuestList();
 	void RefreshSelectedQuestItems();
@@ -95,6 +96,8 @@ private:
 	void ClearSelection();
 	void BindInventoryDelegate();
 	void UnbindInventoryDelegate();
+	void BindObjectiveDelegate();
+	void UnbindObjectiveDelegate();
 	const struct FTQuestStruct* GetSelectedQuest() const;
 	void NotifyChanged();
 
@@ -106,6 +109,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTInventoryComponent> BoundStorageInventory;
+
+	FDelegateHandle ObjectiveChangedDelegateHandle;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UObject>> QuestObjects;

@@ -26,7 +26,7 @@ enum class EFTHubTerminalAppType : uint8
 	Shop
 };
 
-UCLASS()
+UCLASS(Blueprintable)
 class PROJECTFT_API UFTHubMainWidget : public UUserWidget
 {
 	GENERATED_BODY()
@@ -83,84 +83,93 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal", meta = (DisplayName = "On App Focus Requested"))
 	void BP_OnAppFocusRequested(EFTHubTerminalAppType AppType);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal|Audio", meta = (DisplayName = "On Hub UI Opened"))
+	void BP_OnHubUIOpened();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal|Audio", meta = (DisplayName = "On Hub UI Closed"))
+	void BP_OnHubUIClosed();
+
+	void NotifyHubUIOpened();
+	void NotifyHubUIClosed();
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UWidgetSwitcher* WidgetSwitcher_Main;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_MailTab;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_QuestTab;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_MarketTab;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_ShopTab;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_Close;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_QuestAppIcon;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_MarketAppIcon;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_ShopAppIcon;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_CloseQuestApp;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_CloseMarketApp;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UButton* BTN_CloseShopApp;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UWidget* Window_QuestApp;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UWidget* Window_MarketApp;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UWidget* Window_ShopApp;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Widgets", meta = (BindWidgetOptional))
 	UTextBlock* TXT_CollectionCoin;
 
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Hub|Terminal|Animations", meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_QuestAppOpen;
 
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Hub|Terminal|Animations", meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_QuestAppClose;
 
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Hub|Terminal|Animations", meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_MarketAppOpen;
 
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Hub|Terminal|Animations", meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_MarketAppClose;
 
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Hub|Terminal|Animations", meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_ShopAppOpen;
 
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Hub|Terminal|Animations", meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_ShopAppClose;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Panels", meta = (BindWidgetOptional))
 	UFTHubQuestPanelWidget* WBP_QuestPanel;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Panels", meta = (BindWidgetOptional))
 	UFTHubMarketPanelWidget* WBP_MarketPanel;
 
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "Hub|Terminal|Panels", meta = (BindWidgetOptional))
 	UFTHubShopPanelWidget* WBP_ShopPanel;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub|Terminal|Migration")

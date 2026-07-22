@@ -42,9 +42,19 @@ void UFTHubStorageWidget::NativeConstruct()
 	RefreshFromViewModel();
 }
 
+void UFTHubStorageWidget::NotifyHubUIOpened()
+{
+	BP_OnHubUIOpened();
+}
+
+void UFTHubStorageWidget::NotifyHubUIClosed()
+{
+	BP_OnHubUIClosed();
+}
+
 FReply UFTHubStorageWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyEvent.GetKey() == EKeys::E)
+	if (InKeyEvent.GetKey() == EKeys::E || InKeyEvent.GetKey() == EKeys::Escape)
 	{
 		CloseStorage();
 		return FReply::Handled();

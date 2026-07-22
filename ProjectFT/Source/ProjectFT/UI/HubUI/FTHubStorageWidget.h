@@ -33,6 +33,15 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Storage", meta = (DisplayName = "On Storage ViewModel Changed"))
 	void BP_OnStorageViewModelChanged(UFTHubStorageViewModel* StorageViewModel);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Storage|Audio", meta = (DisplayName = "On Hub UI Opened"))
+	void BP_OnHubUIOpened();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Storage|Audio", meta = (DisplayName = "On Hub UI Closed"))
+	void BP_OnHubUIClosed();
+
+	void NotifyHubUIOpened();
+	void NotifyHubUIClosed();
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;

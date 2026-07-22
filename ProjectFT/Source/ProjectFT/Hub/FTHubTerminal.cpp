@@ -82,8 +82,6 @@ void AFTHubTerminal::OpenHubWidget(AActor* Interactor)
 		return;
 	}
 
-	ConfigureObjectiveSubsystem();
-
 	EnterComputerUseMode(Interactor);
 	if (!bIsInComputerUseMode)
 	{
@@ -234,14 +232,24 @@ void AFTHubTerminal::FinishComputerExitTransition()
 
 void AFTHubTerminal::ConfigureObjectiveSubsystem()
 {
+	if (bObjectiveSubsystemConfigured)
+	{
+		return;
+	}
+
 	UGameInstance* GameInstance = GetGameInstance();
-	UFTObjectiveSubsystem* ObjectiveSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr;
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	UFTObjectiveSubsystem* ObjectiveSubsystem = GameInstance->GetSubsystem<UFTObjectiveSubsystem>();
 	if (ObjectiveSubsystem)
 	{
 		ObjectiveSubsystem->ConfigureHubQuests(QuestDataTable, HubStorage, InitialQuestIDs);
 	}
 
-	if (UFTSaveSubsystem* SaveSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTSaveSubsystem>() : nullptr)
+	if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
 	{
 		SaveSubsystem->RestoreQuestState();
 	}
@@ -263,9 +271,11 @@ void AFTHubTerminal::ConfigureObjectiveSubsystem()
 		}
 	}
 
-	UFTShopSubsystem* ShopSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTShopSubsystem>() : nullptr;
+	UFTShopSubsystem* ShopSubsystem = GameInstance->GetSubsystem<UFTShopSubsystem>();
 	if (ShopSubsystem)
 	{
 		ShopSubsystem->ConfigureHubStorage(HubStorage);
 	}
+
+	bObjectiveSubsystemConfigured = true;
 }

@@ -20,6 +20,15 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "FT|Raid", meta = (DisplayName = "On Raid ViewModel Changed"))
 	void BP_OnRaidViewModelChanged(UFTRaidSelectViewModel* RaidViewModel);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "FT|Raid|Audio", meta = (DisplayName = "On Hub UI Opened"))
+	void BP_OnHubUIOpened();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "FT|Raid|Audio", meta = (DisplayName = "On Hub UI Closed"))
+	void BP_OnHubUIClosed();
+
+	void NotifyHubUIOpened();
+	void NotifyHubUIClosed();
+
 	UPROPERTY(BlueprintReadOnly, Transient, Category = "FT|Raid")
 	TObjectPtr<UFTRaidSelectViewModel> ViewModel;
 

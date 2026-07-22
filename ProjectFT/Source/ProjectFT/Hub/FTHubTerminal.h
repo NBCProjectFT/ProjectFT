@@ -81,6 +81,8 @@ private:
 	FTimerHandle ComputerExitTransitionTimerHandle;
 
 	bool bIsInComputerUseMode = false;
+	/** Quest configuration and save restoration run once per terminal lifetime. */
+	bool bObjectiveSubsystemConfigured = false;
 	/** 카메라가 터미널 또는 플레이어로 보간 중일 때 연속 열기·닫기 입력을 차단한다. */
 	bool bIsCameraTransitionInProgress = false;
 };

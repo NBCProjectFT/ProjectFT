@@ -25,6 +25,15 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Craft", meta = (DisplayName = "On Crafting ViewModel Changed"))
 	void BP_OnCraftingViewModelChanged(UFTCraftingViewModel* CraftingViewModel);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Craft|Audio", meta = (DisplayName = "On Hub UI Opened"))
+	void BP_OnHubUIOpened();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Craft|Audio", meta = (DisplayName = "On Hub UI Closed"))
+	void BP_OnHubUIClosed();
+
+	void NotifyHubUIOpened();
+	void NotifyHubUIClosed();
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
