@@ -133,3 +133,34 @@ void AFTAIControllerBase::DrawFlatSectorDebug(
 		PreviousPoint = CurrentPoint;
 	}
 }
+
+void AFTAIControllerBase::DrawFlatCircleDebug(
+	float Radius,
+	FColor Color,
+	float Thickness) const
+{
+	const APawn* ControlledPawn = GetPawn();
+	if (!bDrawSightDebug || !ControlledPawn || Radius <= 0.0f)
+	{
+		return;
+	}
+
+	const FVector Origin = ControlledPawn->GetActorLocation() + FVector(0.0f, 0.0f, 10.0f);
+	constexpr int32 SegmentCount = 32;
+	constexpr float LifeTime = 0.05f;
+
+	DrawDebugCircle(
+		GetWorld(),
+		Origin,
+		Radius,
+		SegmentCount,
+		Color,
+		false,
+		LifeTime,
+		0,
+		Thickness,
+		FVector::ForwardVector,
+		FVector::RightVector,
+		false
+	);
+}
