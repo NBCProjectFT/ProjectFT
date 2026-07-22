@@ -62,6 +62,7 @@ void UFTSecurityResponseComponent::HandleSecurityCalled(
 		SecurityCharacter->RestorePawnCollision();
 	}
 	Controller->bSecurityCalled = true;
+	Controller->bHasObservedCrime = true;
 	Controller->SetTargetActor(Payload.TargetActor);
 	Controller->InvestigateLocation = Payload.ReportLocation.IsNearlyZero()
 		? Payload.TargetActor->GetActorLocation()
@@ -112,6 +113,7 @@ void UFTSecurityResponseComponent::HandleShelfDamaged(
 	Controller->bReturning = false;
 	Controller->bReturnRequested = false;
 	Controller->bSecurityCalled = true;
+	Controller->bHasObservedCrime = true;
 	Controller->bCanRequestSecuritySupport = true;
 	if (Controller->SecurityCallComponent)
 	{
@@ -174,6 +176,7 @@ void UFTSecurityResponseComponent::HandleCharacterAttacked(
 	Controller->bReturnFailureLogged = false;
 	Controller->bReturnCollisionIgnored = false;
 	Controller->bSecurityCalled = true;
+	Controller->bHasObservedCrime = true;
 	if (bShouldStartSecuritySupportCall)
 	{
 		Controller->bCanRequestSecuritySupport = true;

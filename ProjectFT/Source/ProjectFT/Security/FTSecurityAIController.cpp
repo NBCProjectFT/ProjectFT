@@ -114,6 +114,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 
 	UpdateAbilityState();
 	UpdateTargetState();
+	UpdateReturnTargetMemory();
 	UpdateTargetFocus();
 	UpdateSecurityCallGauge(DeltaTime);
 	if (SecurityReturnComponent)
@@ -364,8 +365,13 @@ void AFTSecurityAIController::HandleControlledPawnDeath()
 	bSecurityCalled = false;
 	bHasSeenTarget = false;
 	bIsTargetInAttackRange = false;
+	bDetectedTargetByCloseRange = false;
+	bHasObservedCrime = false;
 	TargetDistance = 0.0f;
 	bReturning = false;
+	bRememberingTarget = false;
+	TargetMemoryEndTime = 0.0f;
+	bReacquiredTargetDuringReturn = false;
 	SecurityChaseGauge = 0.0f;
 	bSecurityChaseActive = false;
 	bTargetCaptured = false;
@@ -445,6 +451,33 @@ AActor* AFTSecurityAIController::GetTargetActor() const
 	return TargetActor;
 }
 
+bool AFTSecurityAIController::IsRememberingTarget() const
+{
+	return bRememberingTarget && TargetActor != nullptr;
+}
+
+bool AFTSecurityAIController::CanStartCaptureAttempt() const
+{
+	if (!TargetActor || bTargetCaptured || bIsGrabbing || bIsStunned || !bSecurityChaseActive)
+	{
+		return false;
+	}
+
+	if (!bIsTargetInAttackRange)
+	{
+		return false;
+	}
+
+	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	return CurrentTime - LastCaptureAttemptTime >= CaptureRetryCooldown;
+}
+
+void AFTSecurityAIController::StartCaptureAttempt()
+{
+	LastCaptureAttemptTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	bCanStartCaptureAttempt = false;
+}
+
 void AFTSecurityAIController::UpdateTargetState()
 {
 	if (bTargetCaptured)
@@ -452,16 +485,22 @@ void AFTSecurityAIController::UpdateTargetState()
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetInAttackRange = false;
+		bDetectedTargetByCloseRange = false;
+		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
 
 	const APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn || !TargetActor)
+	if (!ControlledPawn)
 	{
 		TargetDistance = 0.0f;
 		bHasSeenTarget = false;
 		bIsTargetInAttackRange = false;
+		bDetectedTargetByCloseRange = false;
+		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		if (SecurityTargetComponent)
 		{
 			SecurityTargetComponent->ResetTargetMemory();
@@ -469,6 +508,37 @@ void AFTSecurityAIController::UpdateTargetState()
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
+
+	if (!TargetActor)
+	{
+		if (AActor* PlayerActor = UGameplayStatics::GetPlayerPawn(this, 0))
+		{
+			if (IsPlayerActor(PlayerActor) && IsActorDetectedByCloseRange(PlayerActor))
+			{
+				SetTargetActor(PlayerActor);
+			}
+		}
+	}
+
+	if (!TargetActor)
+	{
+		TargetDistance = 0.0f;
+		bHasSeenTarget = false;
+		bIsTargetInAttackRange = false;
+		bDetectedTargetByCloseRange = false;
+		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
+		if (SecurityTargetComponent)
+		{
+			SecurityTargetComponent->ResetTargetMemory();
+		}
+		UpdateChaseGaugeTargetSeenState();
+		return;
+	}
+
+	bDetectedTargetByCloseRange = IsTargetDetectedByCloseRange();
+	const bool bTargetStealing = IsTargetStealing(TargetActor);
+	bHasObservedCrime = bTargetStealing || bSecurityCalled || bSecurityChaseActive;
 
 	if (SecurityTargetComponent)
 	{
@@ -483,10 +553,11 @@ void AFTSecurityAIController::UpdateTargetState()
 			bIsTargetInAttackRange);
 	}
 
-	if (!bSecurityCalled && bHasSeenTarget && IsTargetStealing(TargetActor))
+	if (!bReturning && !bSecurityCalled && bHasSeenTarget && bTargetStealing)
 	{
 		bReturning = false;
 		bSecurityCalled = true;
+		bHasObservedCrime = true;
 		bCanRequestSecuritySupport = true;
 		if (SecurityCallComponent)
 		{
@@ -499,6 +570,12 @@ void AFTSecurityAIController::UpdateTargetState()
 		}
 	}
 	
+	// 근접 감지는 즉시 추격이 아니라 StateTree의 경계/확인 상태로 넘기기 위한 위치만 갱신한다.
+	if (bDetectedTargetByCloseRange && !bHasSeenTarget)
+	{
+		InvestigateLocation = TargetActor->GetActorLocation();
+	}
+
 	// 현재 보이는 상태라면 마지막 목격 위치 갱신
 	if (bHasSeenTarget)
 	{
@@ -506,12 +583,13 @@ void AFTSecurityAIController::UpdateTargetState()
 	}
 
 	UpdateChaseGaugeTargetSeenState();
+	bCanStartCaptureAttempt = CanStartCaptureAttempt();
 }
 
 void AFTSecurityAIController::UpdateTargetFocus()
 {
 	const bool bShouldFocusTarget = TargetActor
-		&& bSecurityCalled
+		&& (bSecurityCalled || bReacquiredTargetDuringReturn)
 		&& bSecurityChaseActive
 		&& bHasSeenTarget
 		&& !bReturning
@@ -525,6 +603,77 @@ void AFTSecurityAIController::UpdateTargetFocus()
 	}
 
 	ClearFocus(EAIFocusPriority::Gameplay);
+}
+
+void AFTSecurityAIController::UpdateReturnTargetMemory()
+{
+	if (!bRememberingTarget)
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World || !TargetActor)
+	{
+		bRememberingTarget = false;
+		bReacquiredTargetDuringReturn = false;
+		TargetMemoryEndTime = 0.0f;
+		TargetActor = nullptr;
+		return;
+	}
+
+	if (World->GetTimeSeconds() > TargetMemoryEndTime)
+	{
+		bRememberingTarget = false;
+		bReacquiredTargetDuringReturn = false;
+		TargetMemoryEndTime = 0.0f;
+		TargetActor = nullptr;
+		return;
+	}
+
+	if (bHasSeenTarget)
+	{
+		StartPersonalRechase();
+	}
+}
+
+void AFTSecurityAIController::StartPersonalRechase()
+{
+	if (!TargetActor)
+	{
+		return;
+	}
+
+	StopMovement();
+
+	// 개인 재추격은 Event.Security.Called를 바로 방송하지 않고, 이 보안요원만 추격 상태로 복귀시킨다.
+	bReturning = false;
+	bReturnRequested = false;
+	bRememberingTarget = false;
+	TargetMemoryEndTime = 0.0f;
+	bReacquiredTargetDuringReturn = true;
+	bSecurityCalled = true;
+	bSecurityChaseActive = true;
+	SecurityChaseGauge = 100.0f;
+	bHasObservedCrime = true;
+	bCanRequestSecuritySupport = true;
+	bReturnFailureLogged = false;
+	bReturnCollisionIgnored = false;
+	InvestigateLocation = TargetActor->GetActorLocation();
+
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StartSecurityCall(TargetActor);
+	}
+
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Security AI '%s' reacquired remembered target during return"),
+			*GetName());
+	}
 }
 
 void AFTSecurityAIController::UpdateChaseGaugeTargetSeenState()
@@ -546,7 +695,7 @@ void AFTSecurityAIController::OnChaseGaugeChanged(FGameplayTag Channel, const FF
 void AFTSecurityAIController::UpdateSecurityCallGauge(float DeltaTime)
 {
 	const bool bShouldChargeSecurityCall = bCanRequestSecuritySupport
-		&& bSecurityCalled
+		&& (bSecurityCalled || bReacquiredTargetDuringReturn)
 		&& bSecurityChaseActive
 		&& bHasSeenTarget
 		&& TargetActor
@@ -641,6 +790,27 @@ void AFTSecurityAIController::OnMoveCompleted(FAIRequestID RequestID, const FPat
 bool AFTSecurityAIController::IsTargetCurrentlyVisible() const
 {
 	return IsActorVisibleBySight(TargetActor, SightConfig);
+}
+
+bool AFTSecurityAIController::IsActorDetectedByCloseRange(AActor* Actor) const
+{
+	const APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !Actor || CloseDetectionRadius <= 0.0f)
+	{
+		return false;
+	}
+
+	// 전방 시야 밖이라도 아주 가까운 대상은 벽에 가려지지 않았을 때 기척으로 감지한다.
+	const float DistanceSquared = FVector::DistSquared(
+		ControlledPawn->GetActorLocation(),
+		Actor->GetActorLocation()
+	);
+	return DistanceSquared <= FMath::Square(CloseDetectionRadius) && LineOfSightTo(Actor);
+}
+
+bool AFTSecurityAIController::IsTargetDetectedByCloseRange() const
+{
+	return IsActorDetectedByCloseRange(TargetActor);
 }
 
 bool AFTSecurityAIController::IsPlayerActor(const AActor* Actor) const
@@ -746,6 +916,8 @@ void AFTSecurityAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AFTSecurityAIController::DrawSightDebug() const
 {
 	DrawFlatSightDebug(SightConfig, FColor::Magenta, 1.5f);
+
+	DrawFlatCircleDebug(CloseDetectionRadius, FColor::Yellow, 1.5f);
 
 	if (bDrawAttackRangeDebug)
 	{

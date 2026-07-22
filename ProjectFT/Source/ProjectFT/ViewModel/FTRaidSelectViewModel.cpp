@@ -17,19 +17,26 @@ void UFTRaidSelectViewModel::Initialize(AFTHubRaidEntrance* InRaidEntrance, UFTI
 	for (int32 Index = 0; Index < Options.Num(); ++Index)
 	{
 		const FFTRaidEntranceOption& Option = Options[Index];
-		UTexture2D* LevelPreview = Option.PreviewImage.IsNull()
-			? nullptr
-			: Option.PreviewImage.LoadSynchronous();
-
 		UFTRaidLevelListObject* LevelObject = NewObject<UFTRaidLevelListObject>(this);
-		LevelObject->Initialize(Option, Index, LevelPreview);
+		LevelObject->Initialize(Option, Index);
 		LevelObjects.Add(LevelObject);
 	}
-	SelectedOptionIndex = INDEX_NONE;
+	SelectedOptionIndex = LevelObjects.IsEmpty() ? INDEX_NONE : 0;
 	bEntryRequestInProgress = false;
 
 	BindInventory();
 	OnChanged.Broadcast();
+}
+
+TArray<UObject*> UFTRaidSelectViewModel::GetLevelObjects() const
+{
+	TArray<UObject*> Result;
+	Result.Reserve(LevelObjects.Num());
+	for (UObject* LevelObject : LevelObjects)
+	{
+		Result.Add(LevelObject);
+	}
+	return Result;
 }
 
 bool UFTRaidSelectViewModel::GetOption(const int32 Index, FFTRaidEntranceOption& OutOption) const
@@ -98,6 +105,80 @@ bool UFTRaidSelectViewModel::ConfirmSelectedOption()
 	return bStarted;
 }
 
+bool UFTRaidSelectViewModel::HasSelectedOption() const
+{
+	return GetSelectedOption() != nullptr;
+}
+
+UFTRaidLevelListObject* UFTRaidSelectViewModel::GetSelectedLevelObject() const
+{
+	return LevelObjects.IsValidIndex(SelectedOptionIndex)
+		? Cast<UFTRaidLevelListObject>(LevelObjects[SelectedOptionIndex])
+		: nullptr;
+}
+
+bool UFTRaidSelectViewModel::CanEnterSelectedOption() const
+{
+	return CanEnterOption(SelectedOptionIndex);
+}
+
+bool UFTRaidSelectViewModel::IsSelectedOptionFree() const
+{
+	const FFTRaidEntranceOption* Option = GetSelectedOption();
+	return Option && Option->RequiredItemId.IsNone();
+}
+
+FName UFTRaidSelectViewModel::GetSelectedRequiredItemID() const
+{
+	const FFTRaidEntranceOption* Option = GetSelectedOption();
+	return Option ? Option->RequiredItemId : NAME_None;
+}
+
+FText UFTRaidSelectViewModel::GetSelectedRequiredItemName() const
+{
+	const FName RequiredItemID = GetSelectedRequiredItemID();
+	if (RequiredItemID.IsNone())
+	{
+		return FText::GetEmpty();
+	}
+
+	const UFTItemDataAsset* ItemData = UFTItemFunctionLibrary::FindItemData(this, RequiredItemID);
+	return ItemData && !ItemData->ItemData.ItemName.IsEmpty()
+		? ItemData->ItemData.ItemName
+		: FText::FromName(RequiredItemID);
+}
+
+int32 UFTRaidSelectViewModel::GetSelectedRequiredItemOwnedCount() const
+{
+	const FName RequiredItemID = GetSelectedRequiredItemID();
+	return !RequiredItemID.IsNone() && PlayerInventory
+		? PlayerInventory->GetItemQuantity(RequiredItemID)
+		: 0;
+}
+
+int32 UFTRaidSelectViewModel::GetSelectedRequiredItemCount() const
+{
+	return IsSelectedOptionFree() ? 0 : 1;
+}
+
+TSoftObjectPtr<UTexture2D> UFTRaidSelectViewModel::GetSelectedPreviewImageSoft() const
+{
+	const FFTRaidEntranceOption* Option = GetSelectedOption();
+	return Option ? Option->PreviewImage : TSoftObjectPtr<UTexture2D>();
+}
+
+TSoftObjectPtr<UTexture2D> UFTRaidSelectViewModel::GetSelectedRequiredItemIconSoft() const
+{
+	const FName RequiredItemID = GetSelectedRequiredItemID();
+	if (RequiredItemID.IsNone())
+	{
+		return TSoftObjectPtr<UTexture2D>();
+	}
+
+	const UFTItemDataAsset* ItemData = UFTItemFunctionLibrary::FindItemData(this, RequiredItemID);
+	return ItemData ? ItemData->ItemData.ItemIcon : TSoftObjectPtr<UTexture2D>();
+}
+
 FText UFTRaidSelectViewModel::GetSelectedDisplayName() const
 {
 	const FFTRaidEntranceOption* Option = GetSelectedOption();
@@ -108,71 +189,6 @@ FText UFTRaidSelectViewModel::GetSelectedDescription() const
 {
 	const FFTRaidEntranceOption* Option = GetSelectedOption();
 	return Option ? Option->Description : FText::GetEmpty();
-}
-
-UTexture2D* UFTRaidSelectViewModel::GetSelectedPreviewImage() const
-{
-	const FFTRaidEntranceOption* Option = GetSelectedOption();
-	return Option && !Option->PreviewImage.IsNull()
-		? Option->PreviewImage.LoadSynchronous()
-		: nullptr;
-}
-
-UTexture2D* UFTRaidSelectViewModel::GetSelectedRequiredItemIcon() const
-{
-	const FFTRaidEntranceOption* Option = GetSelectedOption();
-	if (!Option || Option->RequiredItemId.IsNone())
-	{
-		return nullptr;
-	}
-
-	const UFTItemDataAsset* ItemData = UFTItemFunctionLibrary::FindItemData(this, Option->RequiredItemId);
-	return ItemData && !ItemData->ItemData.ItemIcon.IsNull()
-		? ItemData->ItemData.ItemIcon.LoadSynchronous()
-		: nullptr;
-}
-
-FText UFTRaidSelectViewModel::GetSelectedEntryCostText() const
-{
-	const FFTRaidEntranceOption* Option = GetSelectedOption();
-	if (!Option)
-	{
-		return FText::GetEmpty();
-	}
-	if (Option->RequiredItemId.IsNone())
-	{
-		return FText::FromString(TEXT("무료 입장"));
-	}
-
-	FText RequiredItemName = FText::FromName(Option->RequiredItemId);
-	if (const UFTItemDataAsset* ItemData = UFTItemFunctionLibrary::FindItemData(this, Option->RequiredItemId))
-	{
-		if (!ItemData->ItemData.ItemName.IsEmpty())
-		{
-			RequiredItemName = ItemData->ItemData.ItemName;
-		}
-	}
-
-	const int32 OwnedCount = PlayerInventory ? PlayerInventory->GetItemQuantity(Option->RequiredItemId) : 0;
-	return FText::FromString(FString::Printf(
-		TEXT("%s  %d / 1"),
-		*RequiredItemName.ToString(),
-		OwnedCount));
-}
-
-FText UFTRaidSelectViewModel::GetSelectedStatusText() const
-{
-	const FFTRaidEntranceOption* Option = GetSelectedOption();
-	if (!Option)
-	{
-		return FText::GetEmpty();
-	}
-
-	return CanEnterOption(SelectedOptionIndex)
-		? (Option->RequiredItemId.IsNone()
-			? FText::FromString(TEXT("무료로 입장할 수 있습니다."))
-			: FText::FromString(TEXT("입장권 1개를 소모합니다.")))
-		: FText::FromString(TEXT("필요한 입장권이 없습니다."));
 }
 
 void UFTRaidSelectViewModel::HandleInventoryChanged()

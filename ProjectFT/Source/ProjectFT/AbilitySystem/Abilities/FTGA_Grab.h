@@ -98,6 +98,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
 	TSubclassOf<UGameplayEffect> StunEffectClass;
 
+	// [붙잡힌 순간 1회] 초기 피해와 함께 적용할 '공격 표식' GE(에셋 태그 Effect.Hostile). 기본 UFTGE_Hostile.
+	// 대상은 이 표식을 보고 피격 연출(피격음)과 어그로 신호 Event.Character.Attacked를 낸다.
+	// 지속 피해 틱에는 일부러 붙이지 않는다 — 붙이면 틱마다 "공격당함"이 재발행돼 잡혀있는 내내 피격음이 울린다.
+	// 비워두면 잡혀도 피격 연출/어그로 신호가 발생하지 않는다(표식 도입 전 동작).
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
+	TSubclassOf<UGameplayEffect> HostileMarkerEffectClass;
+
 	// 잡기가 확정된 순간 재생할 애니메이션. Ability 수명은 이 애니메이션 종료와 묶지 않는다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation")
 	TObjectPtr<UAnimSequenceBase> GrabAnimation = nullptr;
@@ -132,7 +139,8 @@ private:
 	void TickCaptureDamage();
 
 	// 대상에게 DamageEffectClass를 SetByCaller(음수 크기)로 적용한다. 초기 1회·지속·실패 피해가 모두 이 경로를 쓴다.
-	void ApplyDamageToTarget(float DamageAmount);
+	// bMarkHostile=true면 피해 직후 HostileMarkerEffectClass를 함께 적용해 "공격당함"으로 표시한다(붙잡힌 순간 1회 전용).
+	void ApplyDamageToTarget(float DamageAmount, bool bMarkHostile = false);
 
 	// 대상을 붙일 지점을 정한다. CaptureAttachSocketName이 경비 스켈레톤에 있으면 (메시, 소켓명),
 	// 없거나 비어 있으면 (CapturePoint, NAME_None)을 돌려준다 — 어느 쪽이든 부착 지점은 non-null이다.

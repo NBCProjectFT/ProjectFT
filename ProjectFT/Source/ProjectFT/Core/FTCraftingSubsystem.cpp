@@ -1,12 +1,15 @@
 #include "FTCraftingSubsystem.h"
 
 #include "Engine/DataTable.h"
+#include "GameFramework/GameplayMessageSubsystem.h"
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "ProjectFT/Data/FTGameDataAsset.h"
 #include "ProjectFT/Core/FTGameInstance.h"
 #include "ProjectFT/Core/FTSaveGame.h"
 #include "ProjectFT/Manager/AssetManager/FTAssetManager.h"
+#include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTCraftIngredientStruct.h"
+#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
 namespace
 {
@@ -235,6 +238,12 @@ bool UFTCraftingSubsystem::TryCraftRecipe(
 		UE_LOG(LogTemp, Warning, TEXT("Craft reward failed: %s"), *RecipeID.ToString());
 		return false;
 	}
+
+	// 재료 차감과 결과 아이템 지급까지 모두 성공한 제작만 퀘스트에 기록한다.
+	FFTMessagePayloadStruct Payload;
+	Payload.ItemId = Recipe.ResultItemID;
+	Payload.Value = static_cast<float>(Recipe.ResultCount);
+	UGameplayMessageSubsystem::Get(this).BroadcastMessage(TAG_FT_Event_CraftCompleted, Payload);
 
 	UE_LOG(LogTemp, Warning, TEXT("Craft success: %s"), *RecipeID.ToString());
 	return true;

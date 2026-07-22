@@ -20,12 +20,16 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UProgressBar> SecurityCallProgressBar;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UImage> SecurityCallIconImage;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> MemoryIconImage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Call")
 	bool bHideWhenEmpty = true;
@@ -39,4 +43,5 @@ private:
 	void OnSecurityCallGaugeChanged(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void UpdateSecurityCallProgress(float Progress);
 	void SetSecurityCallCompleted(bool bCompleted);
+	void UpdateMemoryIcon();
 };

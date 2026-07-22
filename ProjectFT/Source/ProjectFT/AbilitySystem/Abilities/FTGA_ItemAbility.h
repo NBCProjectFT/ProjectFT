@@ -30,9 +30,21 @@ public:
 	// 쿨다운 부여(ApplyCooldown)와 차단 검사(호출측)가 동일한 태그를 쓰도록 공유하는 헬퍼.
 	static FGameplayTag ResolveCooldownTag(const FTItemUseStruct& UseData);
 
+	// 비용/쿨다운 커밋에 성공하면 아이템 데이터의 사용 효과음(ActiveUseData.UseSound)을 재생한다.
+	// 여기를 훅으로 삼은 이유: 커밋 성공은 "이 아이템 사용이 실제로 성립했다"와 동치이고(비용을 지불했다),
+	// 활성 1회당 정확히 한 번 일어나며, 모든 자식 어빌리티가 각자의 '사용 확정' 시점에 이미 부르고 있다
+	// — UseItem은 시전 완료 후(FinishUse), Taser는 발사 시점, ThrowItemAction은 투척 릴리즈 시점.
+	// 덕분에 자식마다 재생 호출을 심을 필요가 없고, 앞으로 추가되는 아이템 어빌리티도 자동으로 효과음을 얻는다.
+	// (OnItemConsumed를 쓰지 않은 이유: 그건 '소모품이 소진됨' 신호라 재사용 도구인 Taser는 부르지 않는다.)
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+
 protected:
 	// 쿨다운 지속시간을 ActiveUseData.CooldownSeconds로 주입한다(공용 UFTGE_Cooldown + SetByCaller). 0이면 no-op.
 	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
+
+	// ActiveUseData.UseSound를 사용자(아바타)에게 붙여 1회 재생한다. 비어 있으면 no-op.
+	// 아이템 종류별 분기가 필요하면 자식이 override 한다(예: 남은 탄약에 따라 다른 소리).
+	virtual void PlayUseSound() const;
 
 	// 발동 페이로드에서 아이템을 읽어 ActiveUseData에 캐싱한다. 아이템이 없으면 nullptr 반환(자식이 취소 판단).
 	// 반환 포인터로 메시 등 전체 데이터에 접근 가능(효과/수치/시전/쿨다운은 ActiveUseData로 충분).

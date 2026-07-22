@@ -8,6 +8,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/AbilitySystem/FTAttributeSet.h"
@@ -17,6 +19,10 @@
 
 AFTCharacterBase::AFTCharacterBase()
 {
+	// 발소리 거리 누적(UpdateFootstepDistance)이 매 프레임 갱신을 필요로 한다. ACharacter 기본값도 true지만,
+	// 의존 관계를 드러내기 위해 명시한다 — 여기를 끄면 발소리가 조용히 사라진다.
+	PrimaryActorTick.bCanEverTick = true;
+
 	// GAS: 능력시스템 컴포넌트 + 공용 속성셋. 속성셋은 캐릭터 서브오브젝트라 ASC가 자동 등록한다.
 	// (서브클래스가 추가 속성셋을 더 만들면 그 세트도 같은 ASC에 자동 등록된다.)
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
@@ -99,6 +105,13 @@ void AFTCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	StopStruggleJitter();
 	Super::EndPlay(EndPlayReason);
+}
+
+void AFTCharacterBase::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	UpdateFootstepDistance(DeltaSeconds);
 }
 
 void AFTCharacterBase::HandleDeath()
@@ -289,41 +302,53 @@ void AFTCharacterBase::PlayHitReact(const FGameplayTagContainer& EffectTags)
 		return;
 	}
 
-	// 구속 연출(잡힘/비눗방울 등)이 도는 중엔 기본적으로 피격 몽타주로 덮어쓰지 않는다.
-	if (!bPlayHitReactWhileImmobilized && AbilitySystemComponent
-		&& AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized))
-	{
-		return;
-	}
-
 	UWorld* World = GetWorld();
 	if (!World)
 	{
 		return;
 	}
 
-	// 산탄/다단히트가 한 프레임에 여러 GE로 들어와도 몽타주가 처음부터 재시작하며 떠는 것을 막는다.
+	// 산탄/다단히트가 한 프레임에 여러 GE로 들어와도 몽타주가 처음부터 재시작하며 떨거나 피격음이 겹쳐 터지는 것을 막는다.
+	// 소리와 몽타주가 같은 간격을 공유하므로 둘의 타이밍이 어긋나지 않는다.
 	const float Now = World->GetTimeSeconds();
 	if (HitReactMinInterval > 0.0f && (Now - LastHitReactTime) < HitReactMinInterval)
 	{
 		return;
 	}
 
-	UAnimMontage* MontageToPlay = SelectHitReactMontage(EffectTags);
-	if (!MontageToPlay)
+	// 소리와 몽타주 중 하나라도 실제로 나갔는지. 아무것도 못 냈으면(에셋 없음/재생 실패) 쿨다운을 찍지 않아
+	// 다음 피격에서 다시 시도된다.
+	bool bPlayedAnyFeedback = false;
+
+	// 피격음은 구속(잡힘/비눗방울 등) 중에도 낸다 — 아래 몽타주와 달리 소리는 자세를 덮어쓰지 않으므로 막을 이유가 없다.
+	// 오히려 잡혀서 몽타주가 봉쇄된 동안엔 소리가 유일한 피격 피드백이다.
+	if (USoundBase* SoundToPlay = SelectHitReactSound(EffectTags))
 	{
-		return;
+		// 캐릭터(루트)에 붙여 재생 — 맞고 밀려나거나 경비에게 끌려가는 중에도 소리가 몸을 따라간다.
+		UGameplayStatics::SpawnSoundAttached(SoundToPlay, GetRootComponent());
+		bPlayedAnyFeedback = true;
 	}
 
-	USkeletalMeshComponent* CharacterMesh = GetMesh();
-	UAnimInstance* AnimInstance = CharacterMesh ? CharacterMesh->GetAnimInstance() : nullptr;
-	if (!AnimInstance)
+	// 구속 연출이 도는 중엔 기본적으로 피격 몽타주로 상체를 덮어쓰지 않는다(자세가 풀려 보이므로).
+	const bool bMontageAllowed = bPlayHitReactWhileImmobilized
+		|| !AbilitySystemComponent
+		|| !AbilitySystemComponent->HasMatchingGameplayTag(TAG_FT_State_Debuff_Immobilized);
+	if (bMontageAllowed)
 	{
-		return;
+		if (UAnimMontage* MontageToPlay = SelectHitReactMontage(EffectTags))
+		{
+			USkeletalMeshComponent* CharacterMesh = GetMesh();
+			UAnimInstance* AnimInstance = CharacterMesh ? CharacterMesh->GetAnimInstance() : nullptr;
+
+			// 재생 실패(슬롯 없음/에셋 불일치)는 성공으로 치지 않는다.
+			if (AnimInstance && AnimInstance->Montage_Play(MontageToPlay, 1.0f) > 0.0f)
+			{
+				bPlayedAnyFeedback = true;
+			}
+		}
 	}
 
-	// 재생에 실패하면(슬롯 없음/에셋 불일치) 쿨다운을 찍지 않아, 다음 피격에서 다시 시도된다.
-	if (AnimInstance->Montage_Play(MontageToPlay, 1.0f) > 0.0f)
+	if (bPlayedAnyFeedback)
 	{
 		LastHitReactTime = Now;
 	}
@@ -333,6 +358,103 @@ UAnimMontage* AFTCharacterBase::SelectHitReactMontage_Implementation(const FGame
 {
 	// 기본은 공격 종류 불문 단일 몽타주. 태그별 분기는 BP/자식에서 override 한다.
 	return HitReactMontage;
+}
+
+USoundBase* AFTCharacterBase::SelectHitReactSound_Implementation(const FGameplayTagContainer& EffectTags) const
+{
+	// 기본은 공격 종류 불문 단일 피격음. 태그별 분기(감전/화상 등)는 BP/자식에서 override 한다.
+	return HitReactSound;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// [임시 구동부] 거리 누적 발소리 — 애님 노티파이로 전환하는 방법
+//
+// 왜 지금은 노티파이가 아닌가:
+//   발소리 타이밍의 정석은 애님 노티파이다(접지 프레임에 정확히 붙고, 재생속도가 변해도 따라간다).
+//   그런데 현재 '서서' 걷는 이동 블렌드가 시각적으로 깨져 있다 — 다리가 실제 이동속도보다 빠르게 돌아간다
+//   (앉아서 이동은 정상). 노티파이는 그 어긋난 애니메이션을 그대로 반영하므로 소리까지 같이 어긋난다.
+//   반면 거리 누적은 "이만큼 이동했으면 몇 보"라는 물리적 사실을 지켜 그 상태에서도 덜 어색하다.
+//   유력한 원인은 UFTPlayerAnimInstance::UpdateCharacterState의 LocomotionPlayRate가 '현재 속도'가 아니라
+//   최대 스프린트 속도로 계산돼 속도와 무관한 상수라는 점이다. 그쪽이 정리되면 아래 절차로 전환할 것.
+//
+// 전환 절차:
+//   1) UFTFootstepAnimNotify(UAnimNotify 파생)를 Source/ProjectFT/AnimNotifies/에 추가한다.
+//      선례는 같은 폴더의 FTThrowReleaseAnimNotify — 노티파이는 '신호'만 보내고 처리는 다른 곳이 한다.
+//      구현은 MeshComp->GetOwner()를 AFTCharacterBase로 캐스트해 PlayFootstep()을 부르는 게 전부다.
+//   2) 이동 '시퀀스'에 노티파이를 찍는다. 블렌드 스페이스 에셋(NEKO_BS_*)은 건드리지 않는다 —
+//      노티파이는 블렌드 스페이스가 아니라 그것이 샘플링하는 시퀀스에 붙는다(NEKO_MF_Unarmed_Walk_*/Jog_*, 각 4방향).
+//      접지 프레임을 새로 찾을 필요는 없다: 그 시퀀스들엔 이미 싱크 마커 LeftFootFX/RightFootFX가 찍혀 있으니
+//      같은 프레임에 노티파이를 놓으면 된다. (NEKO_CrouchWalk엔 마커가 없어 수동으로 잡아야 한다.)
+//   3) 블렌드 구간의 중복 발동은 따로 막을 필요가 없다. 블렌드 스페이스의 Notify Trigger Mode 기본값이
+//      HighestWeightedAnimation이라, 섞이는 중에도 가중치가 가장 높은 샘플 하나에서만 노티파이가 나온다.
+//   4) 걷어낼 것: 이 함수, Tick 오버라이드, FootstepStrideLength/FootstepMinSpeed/FootstepDistanceAccumulator,
+//      그리고 생성자의 PrimaryActorTick.bCanEverTick(그때까지 다른 매 프레임 작업이 생기지 않았다면).
+//      남길 것: PlayFootstep / SelectFootstepSound / FootstepSound — 호출 주체만 노티파이로 바뀐다.
+//
+// 주의: 노티파이에 사운드를 직접 박지 말 것.
+//   살금걷기(NEKO_BS_Sneak_Walk)는 전용 시퀀스가 없어 일반 Walk 시퀀스를 샘플링할 가능성이 높다.
+//   시퀀스에 소리가 박혀 있으면 몰래 걸을 때도 정상 보행과 같은 소리가 난다.
+//   '언제'는 노티파이가, '무엇을'은 SelectFootstepSound가 정하는 분리를 유지해야 한다.
+//   같은 이유로 바닥 재질별 발소리·AI 청각(MakeNoise)도 노티파이가 아니라 PlayFootstep 안에 들어가야 한다.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+void AFTCharacterBase::UpdateFootstepDistance(float DeltaSeconds)
+{
+	// 죽었거나 행동불능(잡힘/스턴/비눗방울)이면 발소리 없음 — 끌려가는 중엔 스스로 걷는 게 아니다.
+	if (bDead || bIsImmobilized)
+	{
+		FootstepDistanceAccumulator = 0.0f;
+		return;
+	}
+
+	// 공중(점프/낙하)에선 발이 땅에 없으므로 누적하지 않는다. 착지음은 별도 연출의 몫.
+	const UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (!Movement || !Movement->IsMovingOnGround())
+	{
+		FootstepDistanceAccumulator = 0.0f;
+		return;
+	}
+
+	// 위치 변화가 아니라 속도를 쓴다 — 순간이동이나 부착 이동(경비에게 끌려가는 등)으로 헛발소리가 나지 않는다.
+	const float GroundSpeed = GetVelocity().Size2D();
+	if (GroundSpeed < FootstepMinSpeed)
+	{
+		FootstepDistanceAccumulator = 0.0f;
+		return;
+	}
+
+	FootstepDistanceAccumulator += GroundSpeed * DeltaSeconds;
+	if (FootstepDistanceAccumulator < FootstepStrideLength)
+	{
+		return;
+	}
+
+	// 프레임이 크게 밀려 한 번에 여러 걸음치가 쌓여도 소리는 한 번만 낸다(겹쳐 들리기만 하므로).
+	// 나머지 거리는 Fmod로 다음 걸음에 넘겨, 밀린 뒤에도 걸음 간격이 어긋나지 않는다.
+	FootstepDistanceAccumulator = FMath::Fmod(FootstepDistanceAccumulator, FootstepStrideLength);
+	PlayFootstep();
+}
+
+void AFTCharacterBase::PlayFootstep()
+{
+	if (bDead)
+	{
+		return;
+	}
+
+	USoundBase* SoundToPlay = SelectFootstepSound();
+	if (!SoundToPlay)
+	{
+		return;
+	}
+
+	// 캐릭터(루트)에 붙여 재생 — 이동 중에도 소리가 몸을 따라간다(피격음과 동일한 방식).
+	UGameplayStatics::SpawnSoundAttached(SoundToPlay, GetRootComponent());
+}
+
+USoundBase* AFTCharacterBase::SelectFootstepSound_Implementation() const
+{
+	// 기본은 상황 불문 단일 발소리. 앉기/달리기·바닥 재질별 분기는 BP/자식에서 override 한다.
+	return FootstepSound;
 }
 
 void AFTCharacterBase::PlayStruggleJitter()

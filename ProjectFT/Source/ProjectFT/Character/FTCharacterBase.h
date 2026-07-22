@@ -18,6 +18,7 @@ class UAbilitySystemComponent;
 class UAnimMontage;
 class UFTAttributeSet;
 class UGameplayAbility;
+class USoundBase;
 struct FOnAttributeChangeData;
 struct FGameplayEffectSpec;
 struct FActiveGameplayEffectHandle;
@@ -61,9 +62,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Feedback")
 	void PlayStruggleJitter();
 
-	// 피격 반응 몽타주를 재생한다. 적대적 GE를 맞으면 OnHostileEffectApplied가 자동으로 부르지만,
+	// 피격 반응(몽타주 + 피격음)을 재생한다. 적대적 GE를 맞으면 OnHostileEffectApplied가 자동으로 부르지만,
 	// GE를 거치지 않는 연출(스크립트 이벤트 등)에서 BP가 직접 호출할 수도 있다.
-	// EffectTags는 몽타주 선택 분기용 — 비워서 호출하면 SelectHitReactMontage의 기본값(HitReactMontage)이 쓰인다.
+	// EffectTags는 선택 분기용 — 비워서 호출하면 SelectHitReactMontage/SelectHitReactSound의 기본값이 쓰인다.
 	UFUNCTION(BlueprintCallable, Category = "FT|Feedback")
 	void PlayHitReact(const FGameplayTagContainer& EffectTags);
 
@@ -73,9 +74,34 @@ public:
 	UAnimMontage* SelectHitReactMontage(const FGameplayTagContainer& EffectTags) const;
 	virtual UAnimMontage* SelectHitReactMontage_Implementation(const FGameplayTagContainer& EffectTags) const;
 
+	// 공격 종류에 따라 재생할 피격음을 고르는 확장 지점(몽타주 선택과 같은 구조).
+	// 기본 구현은 종류 불문 HitReactSound. 타격/감전/화상 소리를 나누고 싶으면 BP나 자식에서 override 한다.
+	// 캐릭터마다 다른 목소리를 쓰려면 각 캐릭터 BP에서 HitReactSound만 바꾸면 된다.
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "FT|Feedback")
+	USoundBase* SelectHitReactSound(const FGameplayTagContainer& EffectTags) const;
+	virtual USoundBase* SelectHitReactSound_Implementation(const FGameplayTagContainer& EffectTags) const;
+
+	// 발소리를 1회 재생한다. 지금은 베이스의 이동거리 누적(UpdateFootstepDistance)이 보폭마다 자동으로 부르지만,
+	// 나중에 애님 노티파이로 옮기면 노티파이가 이 함수를 부르면 된다 — 호출 주체만 바뀌고 아래 선택/재생 경로는 그대로다.
+	UFUNCTION(BlueprintCallable, Category = "FT|Feedback")
+	void PlayFootstep();
+
+	// 재생할 발소리를 고르는 확장 지점(피격음 SelectHitReactSound와 같은 구조).
+	// 기본 구현은 상황 불문 FootstepSound. 앉기/달리기나 바닥 재질별로 나누고 싶으면 BP나 자식에서 override 한다
+	// (앉기 여부는 ACharacter의 bIsCrouched로 BP에서 바로 분기할 수 있다).
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "FT|Feedback")
+	USoundBase* SelectFootstepSound() const;
+	virtual USoundBase* SelectFootstepSound_Implementation() const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void Tick(float DeltaSeconds) override;
+
+	// 지면 이동 거리를 누적해 보폭(FootstepStrideLength)마다 PlayFootstep을 부른다.
+	// 애님 노티파이 대신 쓰는 '임시' 구동부다 — 지금 노티파이를 안 쓰는 이유와 전환 절차는
+	// FTCharacterBase.cpp의 이 함수 정의 위 주석 블록에 정리돼 있다.
+	void UpdateFootstepDistance(float DeltaSeconds);
 
 	// 체력이 0에 도달했을 때 호출(공용 속성셋의 OnOutOfHealth 통지). 공통 사망 처리를 담당한다:
 	// 재진입 가드(bDead) + State.Dead 태그 부여 + 진행 중 능력 취소 + 이동 정지. 이후 확장 훅 OnDeath()를 부른다.
@@ -134,15 +160,35 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback")
 	TObjectPtr<UAnimMontage> HitReactMontage = nullptr;
 
-	// 피격 반응 재생 최소 간격(초). 산탄/다단히트로 몽타주가 매 히트마다 처음부터 재시작해
-	// 제자리에서 떠는 것을 막는다. 0이면 제한 없음.
+	// 적대적 GE(Effect.Hostile)를 맞았을 때 재생할 기본 피격음. 캐릭터에 붙여 재생되므로 맞고 밀려나거나
+	// 끌려가는 중에도 소리가 몸을 따라간다. 비워두면 무음(기존 동작 유지).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback")
+	TObjectPtr<USoundBase> HitReactSound = nullptr;
+
+	// 피격 반응 재생 최소 간격(초). 산탄/다단히트로 몽타주가 매 히트마다 처음부터 재시작해 제자리에서 떨거나
+	// 피격음이 한 프레임에 겹쳐 터지는 것을 막는다. 소리와 몽타주가 이 간격을 공유해 둘이 어긋나지 않는다.
+	// 0이면 제한 없음.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.0"))
 	float HitReactMinInterval = 0.35f;
 
-	// true면 행동불능(잡힘/비눗방울 등) 중에도 피격 반응을 재생한다. 기본은 false —
+	// true면 행동불능(잡힘/비눗방울 등) 중에도 피격 '몽타주'를 재생한다. 기본은 false —
 	// 구속 연출이 도는 중에 피격 몽타주가 상체를 덮어써 자세가 풀려 보이기 때문.
+	// 피격음은 이 옵션과 무관하게 항상 난다(소리는 자세를 덮어쓰지 않으므로 막을 이유가 없다).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback")
 	bool bPlayHitReactWhileImmobilized = false;
+
+	// 지면 이동 중 보폭마다 재생할 발소리. 비워두면 무음.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback")
+	TObjectPtr<USoundBase> FootstepSound = nullptr;
+
+	// 발소리 사이의 이동 거리(cm) = 한 걸음의 보폭. 빨리 움직일수록 발소리가 저절로 잦아진다.
+	// 실제 애니메이션 보폭보다 크게 잡으면 성큼성큼, 작게 잡으면 종종걸음으로 들린다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "1.0"))
+	float FootstepStrideLength = 175.0f;
+
+	// 이 속도(cm/s) 미만으로 움직이면 발소리를 내지 않는다. 밀림/미세 드리프트로 소리가 새는 것을 막는다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.0"))
+	float FootstepMinSpeed = 10.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FT|Feedback", meta = (ClampMin = "0.0"))
 	float StruggleJitterAmplitude = 8.0f;
@@ -167,6 +213,9 @@ private:
 	// 마지막으로 피격 몽타주를 재생한 월드 시각. HitReactMinInterval 판정용
 	// (월드 시각은 0부터 시작하므로, 큰 음수로 두면 첫 피격은 간격 검사를 항상 통과한다).
 	float LastHitReactTime = -1000.0f;
+
+	// 마지막 발소리 이후 누적된 지면 이동 거리(cm). 멈추거나 공중에 뜨면 0으로 리셋된다.
+	float FootstepDistanceAccumulator = 0.0f;
 
 	FTimerHandle StruggleJitterTimerHandle;
 	FVector StruggleJitterAppliedOffset = FVector::ZeroVector;
