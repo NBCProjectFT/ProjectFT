@@ -4,6 +4,7 @@
 #include "FTProjectileActorStruct.generated.h"
 
 class AFTProjectileActor;
+class USoundBase;
 
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FFTProjectileActorStruct
@@ -88,4 +89,20 @@ public:
 	// 폭발 후 Destroy할지
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Explosion")
 	bool bDestroyAfterExplosion = true;
+
+	// 무언가에 부딪힌 순간 충돌 지점에서 재생할 착탄음. 비우면 무음.
+	// 폭발한 경우에는 재생되지 않는다 — 그쪽은 아래 ExplosionSound가 대신한다(툭 소리와 폭발음이 겹치지 않게).
+	// 던지는 소리는 이게 아니라 아이템 데이터의 UseData.UseSound다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Audio")
+	TObjectPtr<USoundBase> ImpactSound = nullptr;
+
+	// 폭발할 때(bExplodeOnImpact/bExplodeOnLifeEnd) 재생할 소리. 폭발형이 아니면 비워둔다.
+	// 폭발은 bHasExploded 가드로 1회만 일어나므로 이 소리도 자연히 한 번만 난다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Audio")
+	TObjectPtr<USoundBase> ExplosionSound = nullptr;
+
+	// 착탄음 최소 간격(초). 한 프레임에 여러 대상과 겹치거나(Overlap 모드) 연속으로 부딪힐 때
+	// 같은 소리가 뭉쳐 터지는 것을 막는다. 0이면 제한 없음.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Audio", meta = (ClampMin = "0.0"))
+	float ImpactSoundMinInterval = 0.1f;
 };

@@ -11,6 +11,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 #include "ProjectFT/AbilitySystem/Abilities/FTGameplayAbility.h"
 #include "ProjectFT/AbilitySystem/Abilities/FTGA_ItemAbility.h"
@@ -521,12 +523,16 @@ EFTWeaponStanceType AFTPlayerCharacter::GetHeldWeaponStance() const
 	return Item ? Item->ItemData.WeaponStance : EFTWeaponStanceType::Unarmed;
 }
 
-void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem)
+void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& NewHeldItem, bool bPlaySound)
 {
 	// 같은 아이템(ItemId 동일)이면 비주얼 액터를 다시 스폰하지 않는다.
 	// 같은 퀵슬롯을 반복해서 누를 때 Destroy→Respawn으로 깜빡이거나 진행 중인 연출이 끊기는 것을 막는다.
 	// 수량/데이터 포인터는 갱신될 수 있으므로 값 자체는 덮어쓴다.
 	const bool bHeldItemChanged = (CurrentHeldInventoryItem.ItemId != NewHeldItem.ItemId);
+
+	// 집어넣는 소리는 '나가는' 아이템의 것이다 — 아래에서 값이 덮여 쓰이기 전에 미리 읽어둔다.
+	const UFTItemDataAsset* OutgoingItemData = bHeldItemChanged ? CurrentHeldInventoryItem.ItemDataAsset.Get() : nullptr;
+
 	CurrentHeldInventoryItem = NewHeldItem;
 
 	if (CrosshairComponent)
@@ -537,7 +543,32 @@ void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& New
 	if (bHeldItemChanged)
 	{
 		RefreshHeldItemActor();
+
+		// 손에 든 것이 실제로 바뀐 순간에만 낸다. 같은 슬롯을 다시 눌러 값만 갱신되는 경우엔 위 가드에 걸려 조용하다.
+		// 교체(A→B)면 집어넣는 소리와 꺼내는 소리가 함께 나 자연스러운 홀스터→드로우가 된다.
+		if (bPlaySound)
+		{
+			PlayHeldItemSound(OutgoingItemData, /*bEquipped=*/false);
+			PlayHeldItemSound(CurrentHeldInventoryItem.ItemDataAsset.Get(), /*bEquipped=*/true);
+		}
 	}
+}
+
+void AFTPlayerCharacter::PlayHeldItemSound(const UFTItemDataAsset* ItemData, bool bEquipped) const
+{
+	if (!ItemData)
+	{
+		return;
+	}
+
+	USoundBase* SoundToPlay = bEquipped ? ItemData->ItemData.EquipSound : ItemData->ItemData.UnequipSound;
+	if (!SoundToPlay)
+	{
+		return;
+	}
+
+	// 사용자에 붙여 재생 — 걸어가며 무기를 바꿔도 소리가 몸을 따라간다(피격음/발소리/아이템 사용음과 같은 방식).
+	UGameplayStatics::SpawnSoundAttached(SoundToPlay, GetRootComponent());
 }
 
 void AFTPlayerCharacter::RefreshHeldItemActor()
@@ -665,7 +696,8 @@ void AFTPlayerCharacter::OnInventoryChangedCallback()
 
 	if (Inventory->GetItemQuantity(CurrentHeldInventoryItem.ItemId) <= 0)
 	{
-		SetCurrentHeldInventoryItem(FFTInventoryItem());
+		// 다 써서 손에서 없어진 것이지 플레이어가 집어넣은 게 아니므로 집어넣는 소리는 내지 않는다.
+		SetCurrentHeldInventoryItem(FFTInventoryItem(), /*bPlaySound=*/false);
 	}
 }
 
@@ -945,9 +977,10 @@ void AFTPlayerCharacter::UseInventoryItem(const FFTInventoryItem& InventoryItem)
 		|| Inventory->GetItemQuantity(InventoryItem.ItemId) <= 0)
 	{
 		// 사용하려던 아이템이 손에 쥐고 있던 템인데 다 소진되었다면 장착 해제
+		// (소모로 사라진 것이라 집어넣는 소리는 내지 않는다 — 소모 연출은 사용음의 몫이다.)
 		if (InventoryItem.ItemId == CurrentHeldInventoryItem.ItemId)
 		{
-			SetCurrentHeldInventoryItem(FFTInventoryItem());
+			SetCurrentHeldInventoryItem(FFTInventoryItem(), /*bPlaySound=*/false);
 		}
 		return;
 	}
