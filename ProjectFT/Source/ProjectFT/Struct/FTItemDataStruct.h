@@ -7,6 +7,7 @@
 #include "FTItemDataStruct.generated.h"
 
 class UFTItemDataAsset;
+class USoundBase;
 
 USTRUCT(BlueprintType)
 struct PROJECTFT_API FTItemDataStruct
@@ -35,6 +36,17 @@ public:
 	// 이 아이템을 손에 들었을 때 AnimBP가 쓸 Idle/로코모션 스탠스. 무기가 아니면 Unarmed로 둔다.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Animation")
 	EFTWeaponStanceType WeaponStance = EFTWeaponStanceType::Unarmed;
+
+	// 퀵슬롯에서 꺼내 손에 들 때 재생할 소리. 비우면 무음.
+	// 손에 들지 않고 즉시 소모되는 아이템(회복약 등 Healing 카테고리)은 장착 경로를 타지 않으므로 채울 필요가 없다.
+	// '사용'과 무관한 값이라 UseData가 아니라 여기 둔다 — 손에 드는 것과 관련된 WeaponStance와 같은 층.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Audio")
+	TObjectPtr<USoundBase> EquipSound = nullptr;
+
+	// 손에 든 아이템을 집어넣어 '빈 손'이 될 때 재생할 소리. 비우면 무음.
+	// 다른 아이템으로 교체할 때는 재생되지 않는다 — 그땐 새로 드는 아이템의 EquipSound만 난다(두 소리가 겹쳐 과해지므로).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Audio")
+	TObjectPtr<USoundBase> UnequipSound = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item")
 	TSoftObjectPtr<UTexture2D> ItemIcon;
