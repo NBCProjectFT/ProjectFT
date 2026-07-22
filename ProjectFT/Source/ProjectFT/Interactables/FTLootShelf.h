@@ -9,6 +9,8 @@
 
 class UStaticMeshComponent;
 class UFTChanneledInteractionComponent;
+class USoundBase;
+class UAudioComponent;
 
 /**
  * 마트 진열대에서 물건을 "훔치는" 채널형 상호작용 대상(테스트/예시).
@@ -42,6 +44,10 @@ protected:
 	/* @brief : 채널형 상호작용(훔치기)이 완료되었을 때 호출되는 메서드입니다. */
 	UFUNCTION()
 	void HandleStealCompleted();
+
+	/* @brief : 채널형 상호작용 진행 상태가 변경될 때 호출되는 메서드입니다. */
+	UFUNCTION()
+	void HandleChannelStateChanged(bool bIsChanneling);
 
 	/* @brief : 훔치기 완료 시 인벤토리에 아이템을 직접 보상으로 지급합니다. */
 	void GiveStealReward();
@@ -110,4 +116,25 @@ protected:
 
 	/* @brief : 재입고 요청 감지를 위한 메시지 리스너 핸들 */
 	FGameplayMessageListenerHandle RestockRequestListenerHandle;
+
+protected:
+	/* @brief : 매대를 부실 때(타격 시) 재생할 효과음 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shelf|Audio")
+	TObjectPtr<USoundBase> DamagedSound = nullptr;
+
+	/* @brief : 매대가 완전히 부서졌을 때 재생할 효과음 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shelf|Audio")
+	TObjectPtr<USoundBase> DestroyedSound = nullptr;
+
+	/* @brief : 매대 상호작용 중일 때(루프 등) 재생할 효과음 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shelf|Audio")
+	TObjectPtr<USoundBase> InteractSound = nullptr;
+
+	/* @brief : 매대 재입고 완료(다시 채울 때) 시 재생할 효과음 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shelf|Audio")
+	TObjectPtr<USoundBase> RestockedSound = nullptr;
+
+	/* @brief : 현재 재생 중인 상호작용 지속 사운드 컴포넌트 */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> ActiveAudioComponent = nullptr;
 };

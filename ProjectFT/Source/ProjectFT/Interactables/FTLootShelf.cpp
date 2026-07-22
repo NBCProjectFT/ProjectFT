@@ -17,6 +17,9 @@
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTDamageTextPayloadStruct.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "Components/AudioComponent.h"
 
 namespace FTDamageTextMessageTags
 {
@@ -91,6 +94,7 @@ void AFTLootShelf::BeginPlay()
 	{
 		ChanneledInteraction->SetActive(true);
 		ChanneledInteraction->OnCompleted.AddDynamic(this, &AFTLootShelf::HandleStealCompleted);
+		ChanneledInteraction->OnChannelStateChanged.AddDynamic(this, &AFTLootShelf::HandleChannelStateChanged);
 	}
 
 	// 재입고 요청 메시지 리스너 등록
@@ -104,6 +108,13 @@ void AFTLootShelf::BeginPlay()
 
 void AFTLootShelf::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	// 재생 중인 사운드가 있다면 안전하게 정지 처리
+	if (ActiveAudioComponent)
+	{
+		ActiveAudioComponent->Stop();
+		ActiveAudioComponent = nullptr;
+	}
+
 	if (RestockRequestListenerHandle.IsValid())
 	{
 		UGameplayMessageSubsystem::Get(this).UnregisterListener(RestockRequestListenerHandle);
@@ -178,6 +189,22 @@ float AFTLootShelf::TakeDamage(float DamageAmount, struct FDamageEvent const& Da
 
 	MessageSubsystem.BroadcastMessage(FTDamageTextMessageTags::TAG_FT_Event_DamageText, DamageTextPayload);
 
+	// 매대 피격 및 파괴 사운드 재생
+	if (Health > 0.0f)
+	{
+		if (DamagedSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, DamagedSound, DamageTextLocation);
+		}
+	}
+	else
+	{
+		if (DestroyedSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, DestroyedSound, GetActorLocation());
+		}
+	}
+
 	// 2. 체력이 0 이하가 되어 파괴되었을 때 '파괴 완료(Destroyed)' 메시지 브로드캐스트
 	if (Health <= 0.0f)
 	{
@@ -251,6 +278,27 @@ void AFTLootShelf::HandleStealCompleted()
 	}
 }
 
+void AFTLootShelf::HandleChannelStateChanged(bool bIsChanneling)
+{
+	if (bIsChanneling)
+	{
+		// 상호작용 시작 시 단일 사운드(합쳐진 Sound Cue)를 월드 공간에 스폰하여 지속 재생
+		if (InteractSound && !ActiveAudioComponent)
+		{
+			ActiveAudioComponent = UGameplayStatics::SpawnSoundAtLocation(this, InteractSound, GetActorLocation());
+		}
+	}
+	else
+	{
+		// 상호작용 성공(완료) 또는 중간에 그만둘 때(중단) 0.35초 동안 부드럽게 페이드아웃
+		if (ActiveAudioComponent)
+		{
+			ActiveAudioComponent->FadeOut(0.35f, 0.0f);
+			ActiveAudioComponent = nullptr;
+		}
+	}
+}
+
 void AFTLootShelf::StartInteractionCooldown()
 {
 	bIsOnCooldown = true;
@@ -293,6 +341,12 @@ void AFTLootShelf::EndInteractionCooldown()
 		TAG_FT_Event_ShelfRestocked,
 		RestockedPayload
 	);
+
+	// 재입고 완료 사운드 재생
+	if (RestockedSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, RestockedSound, GetActorLocation());
+	}
 }
 
 void AFTLootShelf::HandleRestockRequested(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload)
