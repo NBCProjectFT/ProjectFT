@@ -125,6 +125,14 @@ public:
 	/** 기억 시간 동안 플레이어를 기억하고 있는지 반환한다. */
 	UFUNCTION(BlueprintPure, Category = "FT|Security|Memory")
 	bool IsRememberingTarget() const;
+
+	/** 현재 잡기 시도를 시작할 수 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Security|Capture")
+	bool CanStartCaptureAttempt() const;
+
+	/** 잡기 시도를 시작했다고 기록한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Security|Capture")
+	void StartCaptureAttempt();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	FVector HomeLocation = FVector::ZeroVector;
@@ -197,6 +205,18 @@ public:
 	/** 보안요원의 Grab 어빌리티가 현재 실행 중인지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	bool bIsGrabbing = false;
+
+	/** 현재 StateTree가 Capture 상태로 진입해도 되는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bCanStartCaptureAttempt = false;
+
+	/** 잡기 시도 후 다시 잡기를 시도하기 전까지 기다릴 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture", meta = (ClampMin = "0.0"))
+	float CaptureRetryCooldown = 1.5f;
+
+	/** 마지막으로 잡기를 시도한 월드 시간이다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	float LastCaptureAttemptTime = -BIG_NUMBER;
 
 	/** 보안요원의 ASC가 실제 Stun 태그를 보유하고 있는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")

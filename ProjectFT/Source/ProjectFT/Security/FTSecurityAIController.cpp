@@ -456,6 +456,28 @@ bool AFTSecurityAIController::IsRememberingTarget() const
 	return bRememberingTarget && TargetActor != nullptr;
 }
 
+bool AFTSecurityAIController::CanStartCaptureAttempt() const
+{
+	if (!TargetActor || bTargetCaptured || bIsGrabbing || bIsStunned || !bSecurityChaseActive)
+	{
+		return false;
+	}
+
+	if (!bIsTargetInAttackRange)
+	{
+		return false;
+	}
+
+	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	return CurrentTime - LastCaptureAttemptTime >= CaptureRetryCooldown;
+}
+
+void AFTSecurityAIController::StartCaptureAttempt()
+{
+	LastCaptureAttemptTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	bCanStartCaptureAttempt = false;
+}
+
 void AFTSecurityAIController::UpdateTargetState()
 {
 	if (bTargetCaptured)
@@ -465,6 +487,7 @@ void AFTSecurityAIController::UpdateTargetState()
 		bIsTargetInAttackRange = false;
 		bDetectedTargetByCloseRange = false;
 		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
@@ -477,6 +500,7 @@ void AFTSecurityAIController::UpdateTargetState()
 		bIsTargetInAttackRange = false;
 		bDetectedTargetByCloseRange = false;
 		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		if (SecurityTargetComponent)
 		{
 			SecurityTargetComponent->ResetTargetMemory();
@@ -503,6 +527,7 @@ void AFTSecurityAIController::UpdateTargetState()
 		bIsTargetInAttackRange = false;
 		bDetectedTargetByCloseRange = false;
 		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		if (SecurityTargetComponent)
 		{
 			SecurityTargetComponent->ResetTargetMemory();
@@ -558,6 +583,7 @@ void AFTSecurityAIController::UpdateTargetState()
 	}
 
 	UpdateChaseGaugeTargetSeenState();
+	bCanStartCaptureAttempt = CanStartCaptureAttempt();
 }
 
 void AFTSecurityAIController::UpdateTargetFocus()
