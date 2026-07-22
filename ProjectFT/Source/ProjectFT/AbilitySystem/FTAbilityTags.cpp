@@ -42,6 +42,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Bubble, "GameplayCue.State.Bubbl
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Melee_Hit, "GameplayCue.Melee.Hit");
 
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Use_Heal, "GameplayCue.Use.Heal");
+
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowItem, "Event.ThrowItem");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_Begin, "Event.Melee.Begin");

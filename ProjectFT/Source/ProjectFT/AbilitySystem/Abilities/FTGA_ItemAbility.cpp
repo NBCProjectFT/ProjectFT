@@ -33,6 +33,7 @@ UFTGA_ItemAbility::UFTGA_ItemAbility()
 const UFTItemDataAsset* UFTGA_ItemAbility::CacheActiveItem(const FGameplayEventData* TriggerEventData)
 {
 	const UFTItemDataAsset* ItemAsset = TriggerEventData ? Cast<UFTItemDataAsset>(TriggerEventData->OptionalObject) : nullptr;
+	
 	if (ItemAsset)
 	{
 		ActiveUseData = ItemAsset->ItemData.UseData;

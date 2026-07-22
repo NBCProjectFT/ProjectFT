@@ -1,6 +1,8 @@
 #include "FTMeleeActionTraceNotifyState.h"
 
+#include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/MeshComponent.h"
 #include "DrawDebugHelpers.h"
@@ -312,6 +314,8 @@ void UFTMeleeActionTraceNotifyState::TraceAndSendHitEvent(USkeletalMeshComponent
 
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(FTMeleeNotifyTrace), false, OwnerActor);
 	QueryParams.AddIgnoredActor(OwnerActor);
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(OwnerActor);
 
 	const FPreviousTraceFrame* PreviousFrame = PreviousTraceFrames.Find(MeshComp);
 	const float MaxSocketMovement = PreviousFrame
@@ -390,13 +394,49 @@ void UFTMeleeActionTraceNotifyState::TraceAndSendHitEvent(USkeletalMeshComponent
 
 			ReportedActors.Add(HitActor);
 
+			UPrimitiveComponent* HitComponent = OverlapResult.GetComponent();
+			const FVector TargetCenter = HitComponent
+				? HitComponent->Bounds.Origin
+				: HitActor->GetActorLocation();
+			const FVector WeaponProbe = FMath::ClosestPointOnSegment(
+				TargetCenter,
+				SampleStart,
+				SampleEnd);
+
+			FVector ImpactPoint = TargetCenter;
+			if (HitComponent && HitComponent->GetClosestPointOnCollision(WeaponProbe, ImpactPoint) < 0.0f)
+			{
+				ImpactPoint = HitComponent->Bounds.GetBox().GetClosestPointTo(WeaponProbe);
+			}
+
+			FVector ImpactNormal = (WeaponProbe - ImpactPoint).GetSafeNormal();
+			if (ImpactNormal.IsNearlyZero())
+			{
+				ImpactNormal = (WeaponProbe - TargetCenter).GetSafeNormal();
+			}
+
+			FHitResult HitResult(HitActor, HitComponent, ImpactPoint, ImpactNormal);
+			HitResult.bBlockingHit = true;
+			HitResult.TraceStart = SampleStart;
+			HitResult.TraceEnd = SampleEnd;
+			HitResult.Location = ImpactPoint;
+			HitResult.ImpactPoint = ImpactPoint;
+			HitResult.Normal = ImpactNormal;
+			HitResult.ImpactNormal = ImpactNormal;
+
 			FGameplayEventData EventData;
 			EventData.EventTag = TAG_FT_Event_Melee_Hit;
 			EventData.Instigator = OwnerActor;
 			EventData.Target = HitActor;
 			EventData.OptionalObject = TraceMesh;
 			EventData.TargetData =
-				UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(HitActor);
+				UAbilitySystemBlueprintLibrary::AbilityTargetDataFromHitResult(HitResult);
+
+			if (SourceASC)
+			{
+				EventData.ContextHandle = SourceASC->MakeEffectContext();
+				EventData.ContextHandle.AddHitResult(HitResult, true);
+			}
 
 			UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
 				OwnerActor,

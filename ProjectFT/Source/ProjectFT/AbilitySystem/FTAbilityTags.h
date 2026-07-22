@@ -119,6 +119,9 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Bubble);
 // 물리공격이 Hit했을 때 나타나는 VFX용 태그
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_Melee_Hit);
 
+// Heal아이템을 적용했을 때 나타나는 VFX용 태그
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_Use_Heal);
+
 // 던지기(전용 GA) — 사용 이벤트 트리거.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ThrowItem);
 
