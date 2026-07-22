@@ -2,7 +2,9 @@
 
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
+#include "GameFramework/Pawn.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
+#include "ProjectFT/Security/FTSecurityAIController.h"
 #include "ProjectFT/Struct/FTSecurityChaseGaugePayloadStruct.h"
 
 void UFTSecurityCallGaugeWidget::NativeConstruct()
@@ -11,6 +13,7 @@ void UFTSecurityCallGaugeWidget::NativeConstruct()
 
 	UpdateSecurityCallProgress(0.0f);
 	SetSecurityCallCompleted(false);
+	UpdateMemoryIcon();
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	SecurityCallGaugeChangedListenerHandle = MessageSubsystem.RegisterListener(
@@ -31,9 +34,17 @@ void UFTSecurityCallGaugeWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+void UFTSecurityCallGaugeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	UpdateMemoryIcon();
+}
+
 void UFTSecurityCallGaugeWidget::SetSecurityOwnerActor(AActor* InSecurityOwnerActor)
 {
 	SecurityOwnerActor = InSecurityOwnerActor;
+	UpdateMemoryIcon();
 }
 
 void UFTSecurityCallGaugeWidget::OnSecurityCallGaugeChanged(
@@ -62,6 +73,24 @@ void UFTSecurityCallGaugeWidget::UpdateSecurityCallProgress(float Progress)
 			? ESlateVisibility::HitTestInvisible
 			: ESlateVisibility::Collapsed);
 	}
+}
+
+void UFTSecurityCallGaugeWidget::UpdateMemoryIcon()
+{
+	if (!MemoryIconImage)
+	{
+		return;
+	}
+
+	const APawn* SecurityPawn = Cast<APawn>(SecurityOwnerActor);
+	const AFTSecurityAIController* SecurityController = SecurityPawn
+		? Cast<AFTSecurityAIController>(SecurityPawn->GetController())
+		: nullptr;
+	const bool bShouldShowMemoryIcon = SecurityController && SecurityController->IsRememberingTarget();
+
+	MemoryIconImage->SetVisibility(bShouldShowMemoryIcon
+		? ESlateVisibility::HitTestInvisible
+		: ESlateVisibility::Collapsed);
 }
 
 void UFTSecurityCallGaugeWidget::SetSecurityCallCompleted(bool bCompleted)
