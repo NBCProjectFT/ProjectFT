@@ -75,8 +75,16 @@ void UFTSecurityPursuitStateComponent::HandleChaseEnded(
 	Controller->bSecurityChaseActive = false;
 	Controller->bSecurityCalled = false;
 	Controller->bHasObservedCrime = false;
+	Controller->bReacquiredTargetDuringReturn = false;
 	Controller->ClearFocus(EAIFocusPriority::Gameplay);
-	Controller->TargetActor = nullptr;
+	Controller->bRememberingTarget = Controller->TargetActor != nullptr && Controller->TargetMemoryDuration > 0.0f;
+	Controller->TargetMemoryEndTime = Controller->bRememberingTarget && Controller->GetWorld()
+		? Controller->GetWorld()->GetTimeSeconds() + Controller->TargetMemoryDuration
+		: 0.0f;
+	if (!Controller->bRememberingTarget)
+	{
+		Controller->TargetActor = nullptr;
+	}
 	if (Controller->SecurityTargetComponent)
 	{
 		Controller->SecurityTargetComponent->ResetTargetMemory();
