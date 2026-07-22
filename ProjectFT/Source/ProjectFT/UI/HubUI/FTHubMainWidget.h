@@ -6,6 +6,7 @@
 
 class AFTHubTerminal;
 class AFTHubStorage;
+class UFTObjectiveSubsystem;
 class UButton;
 class UTextBlock;
 class UWidget;
@@ -54,6 +55,33 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Hub|Terminal")
 	void CloseAllApps();
+
+	UFUNCTION(BlueprintCallable, Category = "Hub|Terminal")
+	void CloseTerminal();
+
+	UFUNCTION(BlueprintPure, Category = "Hub|Terminal")
+	int32 GetCollectionCoinAmount() const;
+
+	UFUNCTION(BlueprintPure, Category = "Hub|Terminal|Migration")
+	bool UsesBlueprintTerminalPresentation() const { return bUseBlueprintTerminalPresentation; }
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal", meta = (DisplayName = "On Hub Main Initialized"))
+	void BP_OnHubMainInitialized(
+		UFTObjectiveSubsystem* ObjectiveSubsystem,
+		UFTShopSubsystem* InShopSubsystem,
+		UFTInventoryComponent* InPlayerInventory);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal", meta = (DisplayName = "On Collection Coin Changed"))
+	void BP_OnCollectionCoinChanged(int32 CoinAmount);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal", meta = (DisplayName = "On App Open Requested"))
+	void BP_OnAppOpenRequested(EFTHubTerminalAppType AppType);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal", meta = (DisplayName = "On App Close Requested"))
+	void BP_OnAppCloseRequested(EFTHubTerminalAppType AppType);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hub|Terminal", meta = (DisplayName = "On App Focus Requested"))
+	void BP_OnAppFocusRequested(EFTHubTerminalAppType AppType);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -126,14 +154,17 @@ protected:
 	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
 	UWidgetAnimation* Anim_ShopAppClose;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
 	UFTHubQuestPanelWidget* WBP_QuestPanel;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
 	UFTHubMarketPanelWidget* WBP_MarketPanel;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(meta = (BindWidgetOptional))
 	UFTHubShopPanelWidget* WBP_ShopPanel;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hub|Terminal|Migration")
+	bool bUseBlueprintTerminalPresentation = false;
 
 	
 private:

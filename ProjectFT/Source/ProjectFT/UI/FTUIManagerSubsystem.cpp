@@ -778,32 +778,35 @@ void UFTUIManagerSubsystem::ShowHubMain(
 
 	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory, HubStorage);
 
-	if (UFTHubQuestPanelWidget* QuestPanelWidget = HubMainWidget->GetQuestPanelWidget())
+	if (!HubMainWidget->UsesBlueprintTerminalPresentation())
 	{
-		UGameInstance* GameInstance = GetGameInstance();
-		QuestPanelWidget->InitializeQuestPanel(GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr, PlayerInventory);
-	}
-	else
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Hub quest panel is missing from HubMainWidget."));
-	}
+		if (UFTHubQuestPanelWidget* QuestPanelWidget = HubMainWidget->GetQuestPanelWidget())
+		{
+			UGameInstance* GameInstance = GetGameInstance();
+			QuestPanelWidget->InitializeQuestPanel(GameInstance ? GameInstance->GetSubsystem<UFTObjectiveSubsystem>() : nullptr, PlayerInventory);
+		}
+		else
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Hub quest panel is missing from HubMainWidget."));
+		}
 
-	if (UFTHubMarketPanelWidget* MarketPanelWidget = HubMainWidget->GetMarketPanelWidget())
-	{
-		MarketPanelWidget->InitializeMarketPanel(ShopSubsystem, PlayerInventory);
-	}
-	else
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Hub market panel is missing from HubMainWidget."));
-	}
+		if (UFTHubMarketPanelWidget* MarketPanelWidget = HubMainWidget->GetMarketPanelWidget())
+		{
+			MarketPanelWidget->InitializeMarketPanel(ShopSubsystem, PlayerInventory);
+		}
+		else
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Hub market panel is missing from HubMainWidget."));
+		}
 
-	if (UFTHubShopPanelWidget* ShopPanelWidget = HubMainWidget->GetShopPanelWidget())
-	{
-		ShopPanelWidget->InitializeShopPanel(ShopSubsystem, PlayerInventory);
-	}
-	else
-	{
-		UE_LOG(LogFTUI, Warning, TEXT("Hub shop panel is missing from HubMainWidget."));
+		if (UFTHubShopPanelWidget* ShopPanelWidget = HubMainWidget->GetShopPanelWidget())
+		{
+			ShopPanelWidget->InitializeShopPanel(ShopSubsystem, PlayerInventory);
+		}
+		else
+		{
+			UE_LOG(LogFTUI, Warning, TEXT("Hub shop panel is missing from HubMainWidget."));
+		}
 	}
 	if (IsInventoryOpen())
 	{
