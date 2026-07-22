@@ -23,6 +23,12 @@ public:
 	bool SaveToDisk();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	bool DeleteSaveData();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	UFTSaveGame* ResetForNewGame();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
 	void CaptureCurrentWorldState(FName NextLevelName, EFTFlowStateType FlowState);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Save")
@@ -38,7 +44,7 @@ public:
 	void ClearPlayerInventoryForRaidFailure();
 
 	UFUNCTION(BlueprintPure, Category = "FT|Save")
-	bool HasSaveData() const { return bHasSaveData; }
+	bool HasSaveData() const;
 
 	/**
 	 * Returns an item count from the storage snapshot already held in memory.

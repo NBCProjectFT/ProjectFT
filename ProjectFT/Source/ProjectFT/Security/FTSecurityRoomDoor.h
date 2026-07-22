@@ -37,11 +37,21 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|SecurityRoom")
 	TObjectPtr<USceneComponent> ReturnPoint;
 
+	/** 일반 보안요원(잡는용) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|SecurityRoom|Spawn")
 	TSubclassOf<AFTSecurityCharacter> SecurityClass;
+	
+	/** 공격 보안요원(공격용) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|SecurityRoom|Spawn")
+	TSubclassOf<AFTSecurityCharacter> AttackSecurityClass;
 
+	/** 소환할 일반 보안요원의 수이다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|SecurityRoom|Spawn", meta = (ClampMin = "0"))
 	int32 SpawnCount = 1;
+	
+	/** 소환할 공격 보안요원의 수이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|SecurityRoom|Spawn", meta = (ClampMin = "0"))
+	int32 AttackSecuritySpawnCount = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|SecurityRoom|Spawn", meta = (ClampMin = "0.0"))
 	float SpawnDelay = 0.5f;
