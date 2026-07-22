@@ -31,6 +31,9 @@ public:
 	void RequestStartGame();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
+	void RequestContinueGame();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Flow")
 	void RequestStartRaid();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Flow")

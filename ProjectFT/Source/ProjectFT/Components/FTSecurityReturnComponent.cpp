@@ -114,6 +114,7 @@ void UFTSecurityReturnComponent::CompleteReturn(AFTSecurityAIController* Control
 
 	Controller->bReturning = false;
 	Controller->bReturnRequested = false;
+	Controller->bReacquiredTargetDuringReturn = false;
 	APawn* ControlledPawn = Controller->GetPawn();
 	if (!ControlledPawn)
 	{
