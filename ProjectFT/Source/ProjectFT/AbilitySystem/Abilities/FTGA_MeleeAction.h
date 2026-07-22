@@ -62,9 +62,17 @@ private:
 	// 현재 활성화된 Melee DataAsset에서 공격 데이터만 꺼낸다.
 	const FFTMeleeActionStruct* GetMeleeActionData() const;
 
+	// 무기 데이터의 타격음(MeleeActionData.HitSound)을 맞은 대상 위치에서 1회 재생한다.
+	void PlayMeleeHitSound(const AActor* HitActor) const;
+
 	// 한 번의 공격 구간에서 같은 액터를 여러 번 맞히지 않기 위한 목록.
 	UPROPERTY()
 	TSet<TObjectPtr<AActor>> HitActors;
+
+	// 이번 판정 구간에서 타격음을 이미 냈는지. HitActors가 '대상별' 중복을 막는 것과 달리
+	// 이 플래그는 '구간 전체'에 하나만 허용한다 — 한 번 휘둘러 여러 명을 맞혀도 소리는 한 번이다.
+	// (HitActors와 같은 시점에 리셋되므로, 콤보처럼 판정 구간이 여러 번이면 구간마다 다시 한 번씩 난다.)
+	bool bHitSoundPlayed = false;
 
 	// AnimNotifyState가 보낸 Trace Begin/End 상태.
 	bool bMeleeTraceActive = false;

@@ -15,6 +15,7 @@
 #include "TimerManager.h"
 
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Damage.h"
+#include "ProjectFT/AbilitySystem/Effects/FTGE_Hostile.h"
 #include "ProjectFT/AbilitySystem/Effects/FTGE_Stun.h"
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTCaptureEscapeComponent.h"
@@ -39,6 +40,7 @@ UFTGA_Grab::UFTGA_Grab()
 	// 기본 GE(에디터에서 교체 가능).
 	DamageEffectClass = UFTGE_Damage::StaticClass();
 	StunEffectClass = UFTGE_Stun::StaticClass();
+	HostileMarkerEffectClass = UFTGE_Hostile::StaticClass();
 }
 
 void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -126,7 +128,8 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 
 	// 붙잡힌 대가: 즉시 1회(InitialCaptureDamage) + 붙잡혀 있는 동안 초당 지속(CaptureDamagePerSecond).
 	// 잡힌 것 자체의 대가이므로 이후 어떤 결말(탈출/이송/캡터 무력화)로 끝나든 되돌리지 않는다.
-	ApplyDamageToTarget(InitialCaptureDamage);
+	// 공격 표식은 이 첫 1회에만 붙인다 — 잡히는 순간 피격음이 한 번 울리고, 지속 틱은 무음으로 체력만 깎는다.
+	ApplyDamageToTarget(InitialCaptureDamage, /*bMarkHostile=*/true);
 	StartCaptureDamageTick();
 
 	if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
@@ -246,7 +249,7 @@ void UFTGA_Grab::TickCaptureDamage()
 	ApplyDamageToTarget(CaptureDamagePerSecond * DeltaSeconds);
 }
 
-void UFTGA_Grab::ApplyDamageToTarget(float DamageAmount)
+void UFTGA_Grab::ApplyDamageToTarget(float DamageAmount, bool bMarkHostile)
 {
 	if (DamageAmount <= 0.0f || !DamageEffectClass || !CapturedTarget.IsValid())
 	{
@@ -263,6 +266,19 @@ void UFTGA_Grab::ApplyDamageToTarget(float DamageAmount)
 	DamageSpec.Data->SetSetByCallerMagnitude(TAG_FT_Data_Damage, -DamageAmount);
 	const FGameplayAbilityTargetDataHandle TargetData = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(CapturedTarget.Get());
 	ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DamageSpec, TargetData);
+
+	if (!bMarkHostile || !HostileMarkerEffectClass)
+	{
+		return;
+	}
+
+	// 공격 표식(효과 없는 마커 GE)은 피해 '뒤에' 적용한다 — 대상의 피격 훅이 깨어날 땐 체력이 이미 깎여 있어야
+	// 연출/어그로가 실제 피해와 어긋나지 않는다.
+	FGameplayEffectSpecHandle HostileSpec = MakeOutgoingGameplayEffectSpec(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, HostileMarkerEffectClass);
+	if (HostileSpec.IsValid())
+	{
+		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, HostileSpec, TargetData);
+	}
 }
 
 USceneComponent* UFTGA_Grab::ResolveCaptureAttachPoint(AFTSecurityCharacter* Security, FName& OutAttachSocketName) const

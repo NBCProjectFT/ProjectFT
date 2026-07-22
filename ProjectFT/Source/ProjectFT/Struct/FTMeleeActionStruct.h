@@ -4,6 +4,7 @@
 #include "FTMeleeActionStruct.generated.h"
 
 class UAnimMontage;
+class USoundBase;
 
 /**
  * 근접 무기 아이템이 UFTGA_MeleeAction을 실행할 때 사용하는 데이터다.
@@ -19,6 +20,12 @@ struct PROJECTFT_API FFTMeleeActionStruct
 	// 공격 입력 시 재생할 근접 공격 몽타주.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee|Animation")
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
+
+	// 무언가를 실제로 때렸을 때 맞은 대상 위치에서 재생할 타격음. 비우면 무음.
+	// 판정 구간(Trace Begin~End)당 '한 번만' 재생된다 — 한 번 휘둘러 여러 명을 쓸어도 소리는 하나다.
+	// 휘두르는 소리(헛스윙해도 나는 소리)는 이게 아니라 부모 ItemData.UseData.UseSound 쪽이다.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee|Audio")
+	TObjectPtr<USoundBase> HitSound = nullptr;
 
 	// 아이템을 캐릭터 손에 장착할 때 사용할 소켓 이름.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee|Attach")
