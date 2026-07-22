@@ -167,7 +167,7 @@ void UFTShopViewModel::RefreshAll()
 }
 
 void UFTShopViewModel::SetBuyMode()
-{
+0{
 	if (CurrentMode == EFTShopPanelMode::Buy)
 	{
 		return;
