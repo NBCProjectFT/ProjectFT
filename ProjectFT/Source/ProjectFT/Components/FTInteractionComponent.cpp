@@ -65,6 +65,14 @@ void UFTInteractionComponent::TickComponent(float DeltaTime, ELevelTick TickType
 
 void UFTInteractionComponent::TryInteract()
 {
+	// 채널형은 토글이다: 이미 채널링 중이면 같은 키를 다시 눌러 중단한다(진행도는 유지).
+	// 대상에서 시선을 돌린 뒤에도 취소할 수 있어야 하므로 포커스 검사보다 먼저 처리한다.
+	if (IsChanneling())
+	{
+		StopInteract();
+		return;
+	}
+
 	AActor* Target = FocusedActor.Get();
 	if (!Target)
 	{

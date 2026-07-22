@@ -88,7 +88,7 @@ void UFTChanneledInteractionComponent::StartChannel(AActor* InInteractor, float 
 	OnChannelStateChanged.Broadcast(true);
 }
 
-//플레이어가 상호작용 키에서 손을 떼는 경우. (채널링 멈춤.)
+//플레이어가 이동하거나 상호작용 키를 다시 누르는 경우. (채널링 멈춤.)
 void UFTChanneledInteractionComponent::StopChannel()
 {
 	if (!bIsChanneling)

@@ -7,6 +7,7 @@
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "InputCoreTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 
@@ -40,6 +41,7 @@ void UFTMainMenuWidget::NativeConstruct()
 	}
 
 	BindButton(TEXT("WBP_ContinueButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleContinueButtonClicked));
+	CachedContinueButtonWidget = ResolveWrappedUserWidget(TEXT("WBP_ContinueButton"));
 	CachedContinueButton = ResolveWrappedButton(TEXT("WBP_ContinueButton"));
 
 	BindButton(TEXT("WBP_OptionsButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleOptionsButtonClicked));
@@ -47,8 +49,11 @@ void UFTMainMenuWidget::NativeConstruct()
 	BindButton(TEXT("WBP_QuitButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleQuitButtonClicked));
 	BindButton(TEXT("WBP_QuitConfirmButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleQuitConfirmButtonClicked));
 	BindButton(TEXT("WBP_QuitCancelButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleQuitCancelButtonClicked));
+	BindButton(TEXT("WBP_NewGameConfirmButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleNewGameConfirmButtonClicked));
+	BindButton(TEXT("WBP_NewGameCancelButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleNewGameCancelButtonClicked));
 
 	ShowMainPanel();
+	RefreshSaveState();
 	SetKeyboardFocus();
 }
 
@@ -56,6 +61,12 @@ FReply UFTMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKe
 {
 	if (InKeyEvent.GetKey() == EKeys::Escape)
 	{
+		if (IsNewGameConfirmVisible())
+		{
+			HideNewGameConfirm();
+			return FReply::Handled();
+		}
+
 		if (IsQuitConfirmVisible())
 		{
 			HideQuitConfirm();
@@ -97,10 +108,14 @@ bool UFTMainMenuWidget::BindButton(FName WrapperWidgetName, FName HandlerName, b
 
 UButton* UFTMainMenuWidget::ResolveWrappedButton(FName WrapperWidgetName) const
 {
-	UUserWidget* ButtonWidget = WidgetTree
+	return ResolveButtonInsideWidget(ResolveWrappedUserWidget(WrapperWidgetName), TEXT("FTGameButton"));
+}
+
+UUserWidget* UFTMainMenuWidget::ResolveWrappedUserWidget(FName WrapperWidgetName) const
+{
+	return WidgetTree
 		? Cast<UUserWidget>(WidgetTree->FindWidget(WrapperWidgetName))
 		: nullptr;
-	return ResolveButtonInsideWidget(ButtonWidget, TEXT("FTGameButton"));
 }
 
 UButton* UFTMainMenuWidget::ResolveButtonInsideWidget(UUserWidget* UserWidget, FName ButtonName) const
@@ -113,8 +128,19 @@ void UFTMainMenuWidget::ResolvePanels()
 	CachedMainMenuSwitcher = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("SW_MainMenuPanels")));
 	CachedMainPanel = GetWidgetFromName(TEXT("MainPanel"));
 	CachedOptionsPanel = GetWidgetFromName(TEXT("OptionsPanel"));
+	CachedMainActionSwitcher = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("SW_MainMenuActionPanels")));
+	if (!CachedMainActionSwitcher)
+	{
+		CachedMainActionSwitcher = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("WidgetSwitcher_924")));
+	}
+	CachedMainActionPanel = GetWidgetFromName(TEXT("MainActionPanel"));
+	if (!CachedMainActionPanel)
+	{
+		CachedMainActionPanel = GetWidgetFromName(TEXT("Border_352"));
+	}
 	CachedQuitConfirmPanel = GetWidgetFromName(TEXT("QuitConfirmPanel"));
 	CachedQuitConfirmBorder = GetWidgetFromName(TEXT("QuitConfirmBorder"));
+	CachedNewGameConfirmBorder = GetWidgetFromName(TEXT("NewGameConfirmBorder"));
 	
 }
 
@@ -126,20 +152,42 @@ void UFTMainMenuWidget::ActivatePanel(UWidget* PanelToShow)
 	}
 }
 
+void UFTMainMenuWidget::ActivateMainActionPanel()
+{
+	ActivateMainActionSwitcherPanel(CachedMainActionPanel);
+}
+
+void UFTMainMenuWidget::ActivateMainActionSwitcherPanel(UWidget* PanelToShow)
+{
+	if (CachedMainActionSwitcher && PanelToShow && CachedMainActionSwitcher->GetChildIndex(PanelToShow) != INDEX_NONE)
+	{
+		PanelToShow->SetVisibility(ESlateVisibility::Visible);
+		CachedMainActionSwitcher->SetActiveWidget(PanelToShow);
+	}
+}
+
 void UFTMainMenuWidget::ShowMainPanel()
 {
-	HideQuitConfirm();
+	HideAllConfirmPanels();
 	ActivatePanel(CachedMainPanel);
 }
 
 void UFTMainMenuWidget::ShowOptionsPanel()
 {
-	HideQuitConfirm();
+	HideAllConfirmPanels();
 	ActivatePanel(CachedOptionsPanel);
 }
 
 void UFTMainMenuWidget::ShowQuitConfirmPanel()
 {
+	HideNewGameConfirm();
+
+	if (CachedMainActionSwitcher && CachedQuitConfirmBorder)
+	{
+		ActivateMainActionSwitcherPanel(CachedQuitConfirmBorder);
+		return;
+	}
+
 	if (CachedQuitConfirmBorder)
 	{
 		CachedQuitConfirmBorder->SetVisibility(ESlateVisibility::Visible);
@@ -149,28 +197,112 @@ void UFTMainMenuWidget::ShowQuitConfirmPanel()
 	ActivatePanel(CachedQuitConfirmPanel);
 }
 
+void UFTMainMenuWidget::ShowNewGameConfirmPanel()
+{
+	HideQuitConfirm();
+
+	if (CachedMainActionSwitcher && CachedNewGameConfirmBorder)
+	{
+		ActivateMainActionSwitcherPanel(CachedNewGameConfirmBorder);
+		return;
+	}
+
+	if (CachedNewGameConfirmBorder)
+	{
+		CachedNewGameConfirmBorder->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
 void UFTMainMenuWidget::HideQuitConfirm()
 {
+	if (CachedMainActionSwitcher
+		&& CachedQuitConfirmBorder
+		&& CachedMainActionSwitcher->GetActiveWidget() == CachedQuitConfirmBorder)
+	{
+		ActivateMainActionPanel();
+		return;
+	}
+
 	if (CachedQuitConfirmBorder)
 	{
 		CachedQuitConfirmBorder->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }
 
+void UFTMainMenuWidget::HideNewGameConfirm()
+{
+	if (CachedMainActionSwitcher
+		&& CachedNewGameConfirmBorder
+		&& CachedMainActionSwitcher->GetActiveWidget() == CachedNewGameConfirmBorder)
+	{
+		ActivateMainActionPanel();
+		return;
+	}
+
+	if (CachedNewGameConfirmBorder)
+	{
+		CachedNewGameConfirmBorder->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void UFTMainMenuWidget::HideAllConfirmPanels()
+{
+	HideQuitConfirm();
+	HideNewGameConfirm();
+}
+
 bool UFTMainMenuWidget::IsQuitConfirmVisible() const
 {
+	if (CachedMainActionSwitcher && CachedQuitConfirmBorder)
+	{
+		return CachedMainActionSwitcher->GetActiveWidget() == CachedQuitConfirmBorder;
+	}
+
 	return CachedQuitConfirmBorder
 		&& CachedQuitConfirmBorder->GetVisibility() != ESlateVisibility::Collapsed
 		&& CachedQuitConfirmBorder->GetVisibility() != ESlateVisibility::Hidden;
 }
 
-void UFTMainMenuWidget::HandleStartButtonClicked()
+bool UFTMainMenuWidget::IsNewGameConfirmVisible() const
+{
+	if (CachedMainActionSwitcher && CachedNewGameConfirmBorder)
+	{
+		return CachedMainActionSwitcher->GetActiveWidget() == CachedNewGameConfirmBorder;
+	}
+
+	return CachedNewGameConfirmBorder
+		&& CachedNewGameConfirmBorder->GetVisibility() != ESlateVisibility::Collapsed
+		&& CachedNewGameConfirmBorder->GetVisibility() != ESlateVisibility::Hidden;
+}
+
+bool UFTMainMenuWidget::HasSaveData() const
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	const UFTSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UFTSaveSubsystem>()
+		: nullptr;
+	return SaveSubsystem && SaveSubsystem->HasSaveData();
+}
+
+void UFTMainMenuWidget::RequestStartGame()
 {
 	FFTMessagePayloadStruct Payload;
 	Payload.InstigatorActor = GetOwningPlayerPawn();
 
 	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
 	MessageSubsystem.BroadcastMessage(TAG_FT_Request_Flow_StartGame, Payload);
+}
+
+void UFTMainMenuWidget::HandleStartButtonClicked()
+{
+	RefreshSaveState();
+	if (HasSaveData() && CachedNewGameConfirmBorder)
+	{
+		ShowNewGameConfirmPanel();
+		return;
+	}
+
+	RequestStartGame();
 }
 
 void UFTMainMenuWidget::HandleContinueButtonClicked()
@@ -191,10 +323,26 @@ void UFTMainMenuWidget::HandleContinueButtonClicked()
 
 void UFTMainMenuWidget::SetContinueButtonEnabled(bool bEnabled)
 {
+	if (CachedContinueButtonWidget)
+	{
+		CachedContinueButtonWidget->SetIsEnabled(bEnabled);
+	}
+
 	if (CachedContinueButton)
 	{
 		CachedContinueButton->SetIsEnabled(bEnabled);
 	}
+
+	UE_LOG(LogFTMainMenu, Log, TEXT("Continue button enabled state refreshed. HasSaveData=%s Wrapper=%s InnerButton=%s"),
+		bEnabled ? TEXT("true") : TEXT("false"),
+		CachedContinueButtonWidget && CachedContinueButtonWidget->GetIsEnabled() ? TEXT("enabled") : TEXT("disabled-or-missing"),
+		CachedContinueButton && CachedContinueButton->GetIsEnabled() ? TEXT("enabled") : TEXT("disabled-or-missing"));
+}
+
+void UFTMainMenuWidget::RefreshSaveState()
+{
+	SetContinueButtonEnabled(HasSaveData());
+	HideAllConfirmPanels();
 }
 
 void UFTMainMenuWidget::HandleOptionsButtonClicked()
@@ -236,4 +384,24 @@ void UFTMainMenuWidget::QuitGame()
 void UFTMainMenuWidget::HandleQuitCancelButtonClicked()
 {
 	HideQuitConfirm();
+}
+
+void UFTMainMenuWidget::HandleNewGameConfirmButtonClicked()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
+		{
+			SaveSubsystem->ResetForNewGame();
+		}
+	}
+
+	HideNewGameConfirm();
+	SetContinueButtonEnabled(false);
+	RequestStartGame();
+}
+
+void UFTMainMenuWidget::HandleNewGameCancelButtonClicked()
+{
+	HideNewGameConfirm();
 }
