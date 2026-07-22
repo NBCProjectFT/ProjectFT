@@ -8,31 +8,47 @@
 #include "ProjectFT/UI/HubUI/FTItemTileListObject.h"
 #include "ProjectFT/UI/HubUI/FTQuestListObject.h"
 
+namespace
+{
+	TArray<UObject*> ToRawObjectArray(const TArray<TObjectPtr<UObject>>& Objects)
+	{
+		TArray<UObject*> Result;
+		Result.Reserve(Objects.Num());
+		for (UObject* Object : Objects)
+		{
+			Result.Add(Object);
+		}
+		return Result;
+	}
+}
+
 void UFTQuestViewModel::Initialize(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory)
 {
+	UnbindObjectiveDelegate();
 	UnbindInventoryDelegate();
 
 	ObjectiveSubsystem = InObjectiveSubsystem;
 	PlayerInventory = InPlayerInventory;
 	ClearSelection();
 
+	BindObjectiveDelegate();
 	BindInventoryDelegate();
 	RefreshAll();
 }
 
-const TArray<TObjectPtr<UObject>>& UFTQuestViewModel::GetQuestObjects() const
+TArray<UObject*> UFTQuestViewModel::GetQuestObjects() const
 {
-	return QuestObjects;
+	return ToRawObjectArray(QuestObjects);
 }
 
-const TArray<TObjectPtr<UObject>>& UFTQuestViewModel::GetRequiredItemObjects() const
+TArray<UObject*> UFTQuestViewModel::GetRequiredItemObjects() const
 {
-	return RequiredItemObjects;
+	return ToRawObjectArray(RequiredItemObjects);
 }
 
-const TArray<TObjectPtr<UObject>>& UFTQuestViewModel::GetRewardItemObjects() const
+TArray<UObject*> UFTQuestViewModel::GetRewardItemObjects() const
 {
-	return RewardItemObjects;
+	return ToRawObjectArray(RewardItemObjects);
 }
 
 UFTQuestListObject* UFTQuestViewModel::GetSelectedQuestObject() const
@@ -40,106 +56,11 @@ UFTQuestListObject* UFTQuestViewModel::GetSelectedQuestObject() const
 	return SelectedQuestObject;
 }
 
-FText UFTQuestViewModel::GetSelectedQuestNameText() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	return Quest ? Quest->QuestName : FText::FromString(TEXT("Select Quest"));
-}
-
-FText UFTQuestViewModel::GetSelectedQuestSenderText() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	if (!Quest)
-	{
-		return FText::GetEmpty();
-	}
-
-	return Quest->SenderName.IsEmpty()
-		? FText::FromString(TEXT("Hub Mail"))
-		: Quest->SenderName;
-}
-
-FText UFTQuestViewModel::GetSelectedQuestDescriptionText() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	if (!Quest)
-	{
-		return FText::GetEmpty();
-	}
-
-	FString Description = Quest->Description.ToString().TrimStartAndEnd();
-
-	Description.ReplaceInline(TEXT(". "), TEXT(".\n\n"));
-	Description.ReplaceInline(TEXT("! "), TEXT("!\n\n"));
-	Description.ReplaceInline(TEXT("? "), TEXT("?\n\n"));
-
-	return FText::FromString(Description);
-}
-
-FText UFTQuestViewModel::GetSelectedQuestObjectiveLinesText() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	if (!Quest || Quest->ObjectiveLines.IsEmpty())
-	{
-		return FText::GetEmpty();
-	}
-
-	FString ObjectiveText;
-	for (const FText& ObjectiveLine : Quest->ObjectiveLines)
-	{
-		if (ObjectiveLine.IsEmpty())
-		{
-			continue;
-		}
-
-		if (!ObjectiveText.IsEmpty())
-		{
-			ObjectiveText += LINE_TERMINATOR;
-		}
-
-		ObjectiveText += FString::Printf(TEXT("- %s"), *ObjectiveLine.ToString());
-	}
-
-	return FText::FromString(ObjectiveText);
-}
-
-FText UFTQuestViewModel::GetSelectedQuestCurrencyRewardText() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	if (!Quest || Quest->CurrencyReward <= 0)
-	{
-		return FText::GetEmpty();
-	}
-
-	return FText::FromString(FString::Printf(TEXT("%d 코인"), Quest->CurrencyReward));
-}
-
-FText UFTQuestViewModel::GetSelectedQuestActionText() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	if (!Quest || !ObjectiveSubsystem)
-	{
-		return FText::FromString(TEXT("선택"));
-	}
-
-	if (ObjectiveSubsystem->IsQuestAvailable(Quest->QuestID))
-	{
-		return FText::FromString(TEXT("수락"));
-	}
-
-	if (ObjectiveSubsystem->IsQuestActive(Quest->QuestID))
-	{
-		return FText::FromString(TEXT("완료"));
-	}
-
-	return FText::FromString(TEXT("확인"));
-}
-
-FText UFTQuestViewModel::GetActiveQuestCountText() const
+int32 UFTQuestViewModel::GetActiveQuestCount() const
 {
 	if (!ObjectiveSubsystem)
 	{
-		return FText::FromString(TEXT("0"));
+		return 0;
 	}
 
 	TArray<FTQuestStruct> AvailableQuests;
@@ -148,19 +69,27 @@ FText UFTQuestViewModel::GetActiveQuestCountText() const
 	TArray<FTQuestStruct> ActiveQuests;
 	ObjectiveSubsystem->GetQuestListByState(EFTQuestStateType::Active, ActiveQuests);
 
-	return FText::AsNumber(AvailableQuests.Num() + ActiveQuests.Num());
+	return AvailableQuests.Num() + ActiveQuests.Num();
 }
 
-FText UFTQuestViewModel::GetCompletedQuestCountText() const
+int32 UFTQuestViewModel::GetCompletedQuestCount() const
 {
 	if (!ObjectiveSubsystem)
 	{
-		return FText::FromString(TEXT("0"));
+		return 0;
 	}
 
 	TArray<FTQuestStruct> CompletedQuests;
 	ObjectiveSubsystem->GetQuestListByState(EFTQuestStateType::Completed, CompletedQuests);
-	return FText::AsNumber(CompletedQuests.Num());
+	return CompletedQuests.Num();
+}
+
+EFTQuestStateType UFTQuestViewModel::GetSelectedQuestState() const
+{
+	const FTQuestStruct* Quest = GetSelectedQuest();
+	return Quest && ObjectiveSubsystem
+		? ObjectiveSubsystem->GetQuestState(Quest->QuestID)
+		: EFTQuestStateType::Locked;
 }
 
 bool UFTQuestViewModel::IsActiveQuestTabSelected() const
@@ -173,16 +102,16 @@ bool UFTQuestViewModel::IsCompletedQuestTabSelected() const
 	return CurrentQuestFilter == EFTQuestStateType::Completed;
 }
 
-bool UFTQuestViewModel::CanAcceptSelectedQuest() const
-{
-	const FTQuestStruct* Quest = GetSelectedQuest();
-	return Quest && ObjectiveSubsystem && ObjectiveSubsystem->IsQuestAvailable(Quest->QuestID);
-}
-
 bool UFTQuestViewModel::HasSelectedQuestRequiredItems() const
 {
 	const FTQuestStruct* Quest = GetSelectedQuest();
 	return Quest && !Quest->RequiredItems.IsEmpty();
+}
+
+bool UFTQuestViewModel::CanAcceptSelectedQuest() const
+{
+	const FTQuestStruct* Quest = GetSelectedQuest();
+	return Quest && ObjectiveSubsystem && ObjectiveSubsystem->IsQuestAvailable(Quest->QuestID);
 }
 
 bool UFTQuestViewModel::CanCompleteSelectedQuest() const
@@ -223,7 +152,13 @@ void UFTQuestViewModel::SetQuestFilter(const EFTQuestStateType NewQuestFilter)
 
 void UFTQuestViewModel::SelectQuestObject(UObject* ItemObject)
 {
-	SelectedQuestObject = Cast<UFTQuestListObject>(ItemObject);
+	UFTQuestListObject* NewSelectedQuestObject = Cast<UFTQuestListObject>(ItemObject);
+	if (SelectedQuestObject == NewSelectedQuestObject)
+	{
+		return;
+	}
+
+	SelectedQuestObject = NewSelectedQuestObject;
 	RefreshSelectedQuestItems();
 	NotifyChanged();
 }
@@ -236,13 +171,14 @@ bool UFTQuestViewModel::AcceptSelectedQuest()
 		return false;
 	}
 
-	if (!ObjectiveSubsystem->AcceptQuest(Quest->QuestID))
+	bTransactionInProgress = true;
+	const bool bAccepted = ObjectiveSubsystem->AcceptQuest(Quest->QuestID);
+	bTransactionInProgress = false;
+	if (!bAccepted)
 	{
 		return false;
 	}
 
-	// 방금 수락한 퀘스트를 그대로 선택해 버튼이 즉시 '완료' 상태와 완료 조건을 표시하게 한다.
-	// 선택을 지우면 다음 Available 퀘스트가 자동 선택되어 수락 버튼이 계속 활성화되어 보인다.
 	CurrentQuestFilter = EFTQuestStateType::Active;
 	RefreshAll();
 	return true;
@@ -256,7 +192,10 @@ bool UFTQuestViewModel::CompleteSelectedQuest()
 		return false;
 	}
 
-	if (!ObjectiveSubsystem->TryCompleteQuest(Quest->QuestID, PlayerInventory))
+	bTransactionInProgress = true;
+	const bool bCompleted = ObjectiveSubsystem->TryCompleteQuest(Quest->QuestID, PlayerInventory);
+	bTransactionInProgress = false;
+	if (!bCompleted)
 	{
 		return false;
 	}
@@ -283,7 +222,18 @@ bool UFTQuestViewModel::ExecuteSelectedQuestAction()
 
 void UFTQuestViewModel::HandleInventoryChanged()
 {
-	RefreshAll();
+	if (!bTransactionInProgress)
+	{
+		RefreshAll();
+	}
+}
+
+void UFTQuestViewModel::HandleQuestStateChanged(const FName)
+{
+	if (!bTransactionInProgress)
+	{
+		RefreshAll();
+	}
 }
 
 void UFTQuestViewModel::RefreshQuestList()
@@ -309,7 +259,6 @@ void UFTQuestViewModel::RefreshQuestList()
 		ObjectiveSubsystem->GetQuestListByState(CurrentQuestFilter, Quests);
 	}
 
-	// DataTable 행 저장 순서나 TSet 순회 순서에 의존하지 않고 메일 제목 가나다순으로 고정한다.
 	Quests.Sort([](const FTQuestStruct& Left, const FTQuestStruct& Right)
 	{
 		const int32 NameComparison = Left.QuestName.ToString().Compare(
@@ -417,6 +366,25 @@ void UFTQuestViewModel::UnbindInventoryDelegate()
 		BoundStorageInventory->OnInventoryChanged.RemoveDynamic(this, &UFTQuestViewModel::HandleInventoryChanged);
 		BoundStorageInventory = nullptr;
 	}
+}
+
+void UFTQuestViewModel::BindObjectiveDelegate()
+{
+	if (ObjectiveSubsystem && !ObjectiveChangedDelegateHandle.IsValid())
+	{
+		ObjectiveChangedDelegateHandle = ObjectiveSubsystem->OnQuestStateChanged.AddUObject(
+			this,
+			&UFTQuestViewModel::HandleQuestStateChanged);
+	}
+}
+
+void UFTQuestViewModel::UnbindObjectiveDelegate()
+{
+	if (ObjectiveSubsystem && ObjectiveChangedDelegateHandle.IsValid())
+	{
+		ObjectiveSubsystem->OnQuestStateChanged.Remove(ObjectiveChangedDelegateHandle);
+	}
+	ObjectiveChangedDelegateHandle.Reset();
 }
 
 const FTQuestStruct* UFTQuestViewModel::GetSelectedQuest() const

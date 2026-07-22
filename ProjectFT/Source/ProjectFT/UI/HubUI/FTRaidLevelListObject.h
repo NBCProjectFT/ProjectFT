@@ -7,27 +7,31 @@
 
 class UTexture2D;
 
-UCLASS()
+UCLASS(BlueprintType)
 class PROJECTFT_API UFTRaidLevelListObject : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	void Initialize(
-		const FFTRaidEntranceOption& InOption,
-		int32 InOptionIndex,
-		UTexture2D* InLevelPreview);
+	void Initialize(const FFTRaidEntranceOption& InOption, int32 InOptionIndex);
 
 	const FFTRaidEntranceOption& GetOption() const { return Option; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid Level")
 	int32 GetOptionIndex() const { return OptionIndex; }
-	UTexture2D* GetLevelPreview() const { return LevelPreview; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid Level")
+	FText GetDisplayName() const { return Option.DisplayName; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid Level")
+	FText GetDescription() const { return Option.Description; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid Level")
+	TSoftObjectPtr<UTexture2D> GetLevelPreview() const { return Option.PreviewImage; }
 
 private:
 	UPROPERTY(Transient)
 	FFTRaidEntranceOption Option;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UTexture2D> LevelPreview;
 
 	int32 OptionIndex = INDEX_NONE;
 };
