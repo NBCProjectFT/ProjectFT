@@ -47,6 +47,11 @@ int32 UFTItemTileListObject::GetPrice() const
 	return Price;
 }
 
+float UFTItemTileListObject::GetUnitWeight() const
+{
+	return UnitWeight;
+}
+
 float UFTItemTileListObject::GetTotalWeight() const
 {
 	return UnitWeight * Count;
@@ -110,6 +115,11 @@ FText UFTItemTileListObject::GetCategoryText() const
 	default:
 		return FText::FromString(TEXT("기타"));
 	}
+}
+
+EFTItemCategoryType UFTItemTileListObject::GetCategoryType() const
+{
+	return CategoryType;
 }
 
 void UFTItemTileListObject::LoadItemData()

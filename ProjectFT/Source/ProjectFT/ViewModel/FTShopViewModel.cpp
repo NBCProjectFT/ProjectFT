@@ -17,19 +17,31 @@ void UFTShopViewModel::Initialize(UFTShopSubsystem* InShopSubsystem, UFTInventor
 	RefreshAll();
 }
 
-const TArray<TObjectPtr<UObject>>& UFTShopViewModel::GetShopItemObjects() const
+TArray<UObject*> UFTShopViewModel::GetShopItemObjects() const
 {
-	return ShopItemObjects;
+	TArray<UObject*> Result;
+	Result.Reserve(ShopItemObjects.Num());
+	for (UObject* Item : ShopItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
-const TArray<TObjectPtr<UObject>>& UFTShopViewModel::GetPlayerItemObjects() const
+TArray<UObject*> UFTShopViewModel::GetPlayerItemObjects() const
 {
-	return PlayerItemObjects;
+	TArray<UObject*> Result;
+	Result.Reserve(PlayerItemObjects.Num());
+	for (UObject* Item : PlayerItemObjects)
+	{
+		Result.Add(Item);
+	}
+	return Result;
 }
 
-const TArray<TObjectPtr<UObject>>& UFTShopViewModel::GetCurrentItemObjects() const
+TArray<UObject*> UFTShopViewModel::GetCurrentItemObjects() const
 {
-	return CurrentMode == EFTShopPanelMode::Buy ? ShopItemObjects : PlayerItemObjects;
+	return CurrentMode == EFTShopPanelMode::Buy ? GetShopItemObjects() : GetPlayerItemObjects();
 }
 
 UFTItemTileListObject* UFTShopViewModel::GetSelectedShopItemObject() const
@@ -47,81 +59,42 @@ UFTItemTileListObject* UFTShopViewModel::GetSelectedCurrentItemObject() const
 	return CurrentMode == EFTShopPanelMode::Buy ? SelectedShopItem : SelectedPlayerItem;
 }
 
+bool UFTShopViewModel::HasSelectedItem() const
+{
+	return GetSelectedItem() != nullptr;
+}
+
+int32 UFTShopViewModel::GetSelectedItemUnitPrice() const
+{
+	return HasSelectedItem() ? GetUnitPrice() : 0;
+}
+
+int32 UFTShopViewModel::GetSelectedItemOwnedCount() const
+{
+	const FName ItemID = GetSelectedItemID();
+	return !ItemID.IsNone() && PlayerInventory ? PlayerInventory->GetItemQuantity(ItemID) : 0;
+}
+
+int32 UFTShopViewModel::GetTradeQuantity() const
+{
+	return TradeQuantity;
+}
+
+int32 UFTShopViewModel::GetTradeTotalPrice() const
+{
+	return HasSelectedItem() ? GetUnitPrice() * TradeQuantity : 0;
+}
+
 FText UFTShopViewModel::GetSelectedItemNameText() const
 {
 	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
 	return SelectedItem ? SelectedItem->GetDisplayName() : FText::FromString(TEXT("Select Item"));
 }
 
-FText UFTShopViewModel::GetSelectedItemTagText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem ? SelectedItem->GetCategoryText() : FText::GetEmpty();
-}
-
 FText UFTShopViewModel::GetSelectedItemDescriptionText() const
 {
 	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
 	return SelectedItem ? SelectedItem->GetDescription() : FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetSelectedItemPriceText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem
-		? FText::FromString(FString::Printf(TEXT("개당 가격: %d"), GetUnitPrice()))
-		: FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetSelectedItemCountText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem
-		? FText::FromString(FString::Printf(TEXT("수량: %d"), SelectedItem->GetCount()))
-		: FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetSelectedItemOwnedCountText() const
-{
-	const FName ItemID = GetSelectedItemID();
-	if (ItemID.IsNone() || !PlayerInventory)
-	{
-		return FText::GetEmpty();
-	}
-
-	return FText::FromString(FString::Printf(TEXT("보유: %d"), PlayerInventory->GetItemQuantity(ItemID)));
-}
-
-FText UFTShopViewModel::GetTradeQuantityText() const
-{
-	return FText::AsNumber(TradeQuantity);
-}
-
-FText UFTShopViewModel::GetTradeTotalPriceText() const
-{
-	const UFTItemTileListObject* SelectedItem = GetSelectedItem();
-	return SelectedItem
-		? FText::FromString(FString::Printf(TEXT("총 가격: %d"), GetUnitPrice() * TradeQuantity))
-		: FText::GetEmpty();
-}
-
-FText UFTShopViewModel::GetTradeActionText() const
-{
-	return CurrentMode == EFTShopPanelMode::Buy
-		? FText::FromString(TEXT("구매하기"))
-		: FText::FromString(TEXT("판매하기"));
-}
-
-FText UFTShopViewModel::GetSelectedItemStateText() const
-{
-	if (!GetSelectedItem())
-	{
-		return FText::GetEmpty();
-	}
-
-	return CanExecuteTradeAction()
-		? FText::FromString(TEXT("거래 가능"))
-		: FText::FromString(TEXT("거래 불가"));
 }
 
 TSoftObjectPtr<UTexture2D> UFTShopViewModel::GetSelectedItemIcon() const
@@ -162,6 +135,23 @@ bool UFTShopViewModel::CanExecuteTradeAction() const
 	return CurrentMode == EFTShopPanelMode::Buy ? CanBuySelectedItem() : CanSellSelectedItem();
 }
 
+bool UFTShopViewModel::CanSetTradeQuantityToHalf() const
+{
+	if (!GetSelectedItem())
+	{
+		return false;
+	}
+
+	const int32 MaxTradeQuantity = GetMaxTradeQuantity();
+	const int32 HalfTradeQuantity = FMath::Clamp(MaxTradeQuantity / 2, 1, MaxTradeQuantity);
+	return MaxTradeQuantity > 1 && TradeQuantity != HalfTradeQuantity;
+}
+
+bool UFTShopViewModel::CanSetTradeQuantityToMax() const
+{
+	return GetSelectedItem() && TradeQuantity < GetMaxTradeQuantity();
+}
+
 void UFTShopViewModel::RefreshAll()
 {
 	const FName PreviousShopItemID = SelectedShopItem ? SelectedShopItem->GetItemID() : NAME_None;
@@ -176,8 +166,7 @@ void UFTShopViewModel::RefreshAll()
 	NotifyChanged();
 }
 
-void UFTShopViewModel::SetBuyMode()
-{
+void UFTShopViewModel::SetBuyMode(){
 	if (CurrentMode == EFTShopPanelMode::Buy)
 	{
 		return;
@@ -252,6 +241,19 @@ void UFTShopViewModel::DecreaseTradeQuantity()
 	NotifyChanged();
 }
 
+void UFTShopViewModel::SetTradeQuantityToHalf()
+{
+	const int32 MaxTradeQuantity = GetMaxTradeQuantity();
+	TradeQuantity = FMath::Clamp(MaxTradeQuantity / 2, 1, MaxTradeQuantity);
+	NotifyChanged();
+}
+
+void UFTShopViewModel::SetTradeQuantityToMax()
+{
+	TradeQuantity = GetMaxTradeQuantity();
+	NotifyChanged();
+}
+
 bool UFTShopViewModel::BuySelectedItem()
 {
 	if (!ShopSubsystem || !SelectedShopItem)
@@ -259,7 +261,9 @@ bool UFTShopViewModel::BuySelectedItem()
 		return false;
 	}
 
+	bTransactionInProgress = true;
 	const bool bPurchased = ShopSubsystem->BuyItemCount(SelectedShopItem->GetItemID(), TradeQuantity, PlayerInventory);
+	bTransactionInProgress = false;
 	RefreshAll();
 	return bPurchased;
 }
@@ -271,14 +275,16 @@ bool UFTShopViewModel::SellSelectedItem()
 		return false;
 	}
 
-	if (!ShopSubsystem->SellItemToShop(SelectedPlayerItem->GetItemID(), TradeQuantity, PlayerInventory))
+	bTransactionInProgress = true;
+	const bool bSold = ShopSubsystem->SellItemToShop(SelectedPlayerItem->GetItemID(), TradeQuantity, PlayerInventory);
+	bTransactionInProgress = false;
+	if (bSold)
 	{
-		return false;
+		ClearSelection();
 	}
 
-	ClearSelection();
 	RefreshAll();
-	return true;
+	return bSold;
 }
 
 bool UFTShopViewModel::ExecuteTradeAction()
@@ -294,7 +300,10 @@ void UFTShopViewModel::RefreshShop()
 
 void UFTShopViewModel::HandleInventoryChanged()
 {
-	RefreshAll();
+	if (!bTransactionInProgress)
+	{
+		RefreshAll();
+	}
 }
 
 void UFTShopViewModel::RefreshShopItems()
@@ -463,7 +472,7 @@ int32 UFTShopViewModel::GetMaxTradeQuantity() const
 		return 99;
 	}
 
-	return FMath::Clamp(ShopSubsystem->GetCurrencyAmount(PlayerInventory) / UnitPrice, 1, 99);
+	return FMath::Max(1, ShopSubsystem->GetCurrencyAmount(PlayerInventory) / UnitPrice);
 }
 
 int32 UFTShopViewModel::GetUnitPrice() const

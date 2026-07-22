@@ -19,34 +19,67 @@ class PROJECTFT_API UFTQuestViewModel : public UObject
 public:
 	void Initialize(UFTObjectiveSubsystem* InObjectiveSubsystem, UFTInventoryComponent* InPlayerInventory);
 
-	const TArray<TObjectPtr<UObject>>& GetQuestObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetRequiredItemObjects() const;
-	const TArray<TObjectPtr<UObject>>& GetRewardItemObjects() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Items")
+	TArray<UObject*> GetQuestObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Items")
+	TArray<UObject*> GetRequiredItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Items")
+	TArray<UObject*> GetRewardItemObjects() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Selection")
 	UFTQuestListObject* GetSelectedQuestObject() const;
 
-	FText GetSelectedQuestNameText() const;
-	FText GetSelectedQuestSenderText() const;
-	FText GetSelectedQuestDescriptionText() const;
-	FText GetSelectedQuestObjectiveLinesText() const;
-	FText GetSelectedQuestCurrencyRewardText() const;
-	FText GetSelectedQuestActionText() const;
-	FText GetActiveQuestCountText() const;
-	FText GetCompletedQuestCountText() const;
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|State")
+	int32 GetActiveQuestCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|State")
+	int32 GetCompletedQuestCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|State")
+	EFTQuestStateType GetQuestFilter() const { return CurrentQuestFilter; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|State")
+	EFTQuestStateType GetSelectedQuestState() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|State")
 	bool IsActiveQuestTabSelected() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|State")
 	bool IsCompletedQuestTabSelected() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Selection")
 	bool HasSelectedQuestRequiredItems() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Rules")
 	bool CanAcceptSelectedQuest() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Rules")
 	bool CanCompleteSelectedQuest() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Quest|Rules")
 	bool CanExecuteSelectedQuestAction() const;
 
 	UPROPERTY(BlueprintReadWrite, Category = "FT|Quest")
 	float ObjectiveProgress = 0.0f;
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest")
 	void RefreshAll();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Filter")
 	void SetQuestFilter(EFTQuestStateType NewQuestFilter);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Selection")
 	void SelectQuestObject(UObject* ItemObject);
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Actions")
 	bool AcceptSelectedQuest();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Actions")
 	bool CompleteSelectedQuest();
+
+	UFUNCTION(BlueprintCallable, Category = "FT|Quest|Actions")
 	bool ExecuteSelectedQuestAction();
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Quest")
@@ -55,6 +88,7 @@ public:
 private:
 	UFUNCTION()
 	void HandleInventoryChanged();
+	void HandleQuestStateChanged(FName QuestID);
 
 	void RefreshQuestList();
 	void RefreshSelectedQuestItems();
@@ -62,6 +96,8 @@ private:
 	void ClearSelection();
 	void BindInventoryDelegate();
 	void UnbindInventoryDelegate();
+	void BindObjectiveDelegate();
+	void UnbindObjectiveDelegate();
 	const struct FTQuestStruct* GetSelectedQuest() const;
 	void NotifyChanged();
 
@@ -73,6 +109,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTInventoryComponent> BoundStorageInventory;
+
+	FDelegateHandle ObjectiveChangedDelegateHandle;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UObject>> QuestObjects;
@@ -87,4 +125,5 @@ private:
 	TObjectPtr<UFTQuestListObject> SelectedQuestObject;
 
 	EFTQuestStateType CurrentQuestFilter = EFTQuestStateType::Active;
+	bool bTransactionInProgress = false;
 };
