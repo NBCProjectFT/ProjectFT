@@ -45,4 +45,9 @@ protected:
 		float HalfAngleDegrees,
 		FColor Color,
 		float Thickness) const;
+
+	void DrawFlatCircleDebug(
+		float Radius,
+		FColor Color,
+		float Thickness) const;
 };

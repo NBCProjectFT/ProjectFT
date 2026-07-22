@@ -74,6 +74,7 @@ void UFTSecurityPursuitStateComponent::HandleChaseEnded(
 	Controller->SecurityChaseGauge = 0.0f;
 	Controller->bSecurityChaseActive = false;
 	Controller->bSecurityCalled = false;
+	Controller->bHasObservedCrime = false;
 	Controller->ClearFocus(EAIFocusPriority::Gameplay);
 	Controller->TargetActor = nullptr;
 	if (Controller->SecurityTargetComponent)

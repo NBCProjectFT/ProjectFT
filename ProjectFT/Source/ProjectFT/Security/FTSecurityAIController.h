@@ -106,6 +106,18 @@ public:
 	/** 짧은 가림이나 이동 회전으로 시야가 끊겨도 추격 상태를 유지하는 시간이다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
 	float TargetSightLostGracePeriod = 0.75f;
+
+	/** 전방 시야 밖이라도 가까운 대상은 감지할 수 있는 근접 원형 감지 반경이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
+	float CloseDetectionRadius = 300.0f;
+
+	/** 전방 시야가 아니라 근접 원형 범위로 대상을 감지했는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception")
+	bool bDetectedTargetByCloseRange = false;
+
+	/** 현재 타겟이 범죄행위와 연결된 대상으로 확인되었는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception")
+	bool bHasObservedCrime = false;
 	
 	UFUNCTION(BlueprintPure, Category = "FT|Security")
 	AActor* GetTargetActor() const;
@@ -174,7 +186,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|State")
 	bool bKnockedOut = false;
 
-	/** True only for the security selected to approach and capture the current target. */
+	/** 플레이어를 붙잡기 위해 Approach 상태로 진입할 보안요원인지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Coordination")
 	bool bIsAttackLeader = false;
 
@@ -240,5 +252,7 @@ private:
 	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsTargetStealing(const AActor* Actor) const;
 	bool IsTargetCurrentlyVisible() const;
+	bool IsActorDetectedByCloseRange(AActor* Actor) const;
+	bool IsTargetDetectedByCloseRange() const;
 	void DrawSightDebug() const;
 };
