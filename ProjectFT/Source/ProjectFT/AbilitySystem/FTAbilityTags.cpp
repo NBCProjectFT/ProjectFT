@@ -40,6 +40,8 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Start, "GameplayCue.Taser.Start"
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Stun, "GameplayCue.State.Stun");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Bubble, "GameplayCue.State.Bubble");
 
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Melee_Hit, "GameplayCue.Melee.Hit");
+
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowItem, "Event.ThrowItem");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_Melee_Begin, "Event.Melee.Begin");

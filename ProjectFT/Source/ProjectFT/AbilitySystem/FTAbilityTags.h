@@ -116,6 +116,9 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Stun);
 // 비주얼(액터를 감싸는 큰 구체)은 GC_Bubble Notify(BP, 루핑 — GameplayCueNotify_Looping/Actor)가 담당한다.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Bubble);
 
+// 물리공격이 Hit했을 때 나타나는 VFX용 태그
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_Melee_Hit);
+
 // 던지기(전용 GA) — 사용 이벤트 트리거.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_Event_ThrowItem);
 
