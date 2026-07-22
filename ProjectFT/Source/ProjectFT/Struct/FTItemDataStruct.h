@@ -43,8 +43,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Audio")
 	TObjectPtr<USoundBase> EquipSound = nullptr;
 
-	// 손에 든 아이템을 다시 집어넣을 때 재생할 소리. 비우면 무음.
-	// 꺼낼 때와 같은 소리를 쓰려면 EquipSound와 같은 에셋을 지정하면 된다.
+	// 손에 든 아이템을 집어넣어 '빈 손'이 될 때 재생할 소리. 비우면 무음.
+	// 다른 아이템으로 교체할 때는 재생되지 않는다 — 그땐 새로 드는 아이템의 EquipSound만 난다(두 소리가 겹쳐 과해지므로).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Item|Audio")
 	TObjectPtr<USoundBase> UnequipSound = nullptr;
 	

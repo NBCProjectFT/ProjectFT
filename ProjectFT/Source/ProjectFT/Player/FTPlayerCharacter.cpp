@@ -545,11 +545,22 @@ void AFTPlayerCharacter::SetCurrentHeldInventoryItem(const FFTInventoryItem& New
 		RefreshHeldItemActor();
 
 		// 손에 든 것이 실제로 바뀐 순간에만 낸다. 같은 슬롯을 다시 눌러 값만 갱신되는 경우엔 위 가드에 걸려 조용하다.
-		// 교체(A→B)면 집어넣는 소리와 꺼내는 소리가 함께 나 자연스러운 홀스터→드로우가 된다.
 		if (bPlaySound)
 		{
-			PlayHeldItemSound(OutgoingItemData, /*bEquipped=*/false);
-			PlayHeldItemSound(CurrentHeldInventoryItem.ItemDataAsset.Get(), /*bEquipped=*/true);
+			// 빈 손 상태(해제 센티널)는 '들어오는 아이템'으로 치지 않는다 — RefreshHeldItemActor의 판정과 같은 기준.
+			const UFTItemDataAsset* IncomingItemData =
+				CurrentHeldInventoryItem.ItemId.IsNone() ? nullptr : CurrentHeldInventoryItem.ItemDataAsset.Get();
+
+			if (IncomingItemData)
+			{
+				// 교체(A→B): 새로 드는 것의 장착음만 낸다. 해제음까지 같이 내면 두 소리가 한 프레임에 겹쳐 과해진다.
+				PlayHeldItemSound(IncomingItemData, /*bEquipped=*/true);
+			}
+			else
+			{
+				// 순수 해제(A→빈 손): 손을 비우는 동작이므로 나가는 아이템의 해제음을 낸다.
+				PlayHeldItemSound(OutgoingItemData, /*bEquipped=*/false);
+			}
 		}
 	}
 }
