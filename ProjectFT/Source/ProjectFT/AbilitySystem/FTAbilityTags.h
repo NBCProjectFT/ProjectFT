@@ -111,6 +111,7 @@ UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_Taser_Start);
 
 // 스턴 상태 '지속' 연출 GameplayCue. 스턴 태그가 붙어있는 동안 캐릭터 ASC에 Add/Remove(베이스가 관리), 비주얼은 GC_Stun Notify(BP, 루핑)가 담당.
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Stun);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_FT_GameplayCue_State_Slow);
 
 // 비눗방울 갇힘 '지속' 연출 GameplayCue. UFTGE_BubbleTrap이 활성인 동안 자동 발동/제거된다(GE 수명과 함께).
 // 비주얼(액터를 감싸는 큰 구체)은 GC_Bubble Notify(BP, 루핑 — GameplayCueNotify_Looping/Actor)가 담당한다.
