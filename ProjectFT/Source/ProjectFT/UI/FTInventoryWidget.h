@@ -4,6 +4,8 @@
 #include "Blueprint/UserWidget.h"
 #include "FTInventoryWidget.generated.h"
 
+class USoundBase;
+
 /** @brief 인벤토리 UI 연동 및 뷰모델 이벤트를 처리하는 위젯 클래스 */
 UCLASS()
 class PROJECTFT_API UFTInventoryWidget : public UUserWidget
@@ -13,6 +15,9 @@ class PROJECTFT_API UFTInventoryWidget : public UUserWidget
 protected:
 	/** @brief 위젯 생성 시 초기화 및 뷰모델 이벤트 바인딩을 처리 */
 	virtual void NativeConstruct() override;
+
+	/** @brief 위젯 제거 시 클린업 및 사운드 재생을 처리 */
+	virtual void NativeDestruct() override;
 
 	/** @brief 연동된 인벤토리 뷰모델 객체 포인터 */
 	UPROPERTY(BlueprintReadOnly, Category = "FT|Inventory")
@@ -51,4 +56,11 @@ public:
 	 */
 	UFUNCTION(BlueprintImplementableEvent, Category = "FT|Inventory")
 	void ShowItemDetail(FName ItemId);
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Inventory|Audio")
+	TObjectPtr<USoundBase> OpenSound = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Inventory|Audio")
+	TObjectPtr<USoundBase> CloseSound = nullptr;
 };
