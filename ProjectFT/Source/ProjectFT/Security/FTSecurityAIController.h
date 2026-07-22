@@ -121,6 +121,18 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "FT|Security")
 	AActor* GetTargetActor() const;
+
+	/** 기억 시간 동안 플레이어를 기억하고 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Security|Memory")
+	bool IsRememberingTarget() const;
+
+	/** 현재 잡기 시도를 시작할 수 있는지 반환한다. */
+	UFUNCTION(BlueprintPure, Category = "FT|Security|Capture")
+	bool CanStartCaptureAttempt() const;
+
+	/** 잡기 시도를 시작했다고 기록한다. */
+	UFUNCTION(BlueprintCallable, Category = "FT|Security|Capture")
+	void StartCaptureAttempt();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	FVector HomeLocation = FVector::ZeroVector;
@@ -143,6 +155,22 @@ public:
 	/** 복귀 이동 성공을 실제 복귀 완료로 인정할 최대 거리다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Return", meta = (ClampMin = "0.0"))
 	float ReturnCompletionDistance = 250.0f;
+
+	/** 추격 종료 후 플레이어를 개인적으로 기억하는 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Memory", meta = (ClampMin = "0.0"))
+	float TargetMemoryDuration = 60.0f;
+
+	/** 현재 Return 중 타겟을 기억하고 있는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Memory")
+	bool bRememberingTarget = false;
+
+	/** 타겟 기억이 만료되는 월드 시간이다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Memory")
+	float TargetMemoryEndTime = 0.0f;
+
+	/** Return 중 기억하던 타겟을 다시 봐서 개인 재추격해야 하는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Memory")
+	bool bReacquiredTargetDuringReturn = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|ChaseGauge")
 	float SecurityChaseGauge = 0.0f;
@@ -177,6 +205,18 @@ public:
 	/** 보안요원의 Grab 어빌리티가 현재 실행 중인지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	bool bIsGrabbing = false;
+
+	/** 현재 StateTree가 Capture 상태로 진입해도 되는지 나타낸다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	bool bCanStartCaptureAttempt = false;
+
+	/** 잡기 시도 후 다시 잡기를 시도하기 전까지 기다릴 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture", meta = (ClampMin = "0.0"))
+	float CaptureRetryCooldown = 1.5f;
+
+	/** 마지막으로 잡기를 시도한 월드 시간이다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	float LastCaptureAttemptTime = -BIG_NUMBER;
 
 	/** 보안요원의 ASC가 실제 Stun 태그를 보유하고 있는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
@@ -242,6 +282,8 @@ private:
 	void UpdateAbilityState();
 	void UpdateChaseGaugeTargetSeenState();
 	void UpdateSecurityCallGauge(float DeltaTime);
+	void UpdateReturnTargetMemory();
+	void StartPersonalRechase();
 	bool bReturnFailureLogged = false;
 	bool bReturnCollisionIgnored = false;
 	bool bCanRequestSecuritySupport = false;

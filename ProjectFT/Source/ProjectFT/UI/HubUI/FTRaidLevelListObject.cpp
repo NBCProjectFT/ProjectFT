@@ -2,10 +2,8 @@
 
 void UFTRaidLevelListObject::Initialize(
 	const FFTRaidEntranceOption& InOption,
-	const int32 InOptionIndex,
-	UTexture2D* InLevelPreview)
+	const int32 InOptionIndex)
 {
 	Option = InOption;
 	OptionIndex = InOptionIndex;
-	LevelPreview = InLevelPreview;
 }

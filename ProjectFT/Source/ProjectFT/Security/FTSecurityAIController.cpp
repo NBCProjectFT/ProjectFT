@@ -114,6 +114,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 
 	UpdateAbilityState();
 	UpdateTargetState();
+	UpdateReturnTargetMemory();
 	UpdateTargetFocus();
 	UpdateSecurityCallGauge(DeltaTime);
 	if (SecurityReturnComponent)
@@ -368,6 +369,9 @@ void AFTSecurityAIController::HandleControlledPawnDeath()
 	bHasObservedCrime = false;
 	TargetDistance = 0.0f;
 	bReturning = false;
+	bRememberingTarget = false;
+	TargetMemoryEndTime = 0.0f;
+	bReacquiredTargetDuringReturn = false;
 	SecurityChaseGauge = 0.0f;
 	bSecurityChaseActive = false;
 	bTargetCaptured = false;
@@ -447,6 +451,33 @@ AActor* AFTSecurityAIController::GetTargetActor() const
 	return TargetActor;
 }
 
+bool AFTSecurityAIController::IsRememberingTarget() const
+{
+	return bRememberingTarget && TargetActor != nullptr;
+}
+
+bool AFTSecurityAIController::CanStartCaptureAttempt() const
+{
+	if (!TargetActor || bTargetCaptured || bIsGrabbing || bIsStunned || !bSecurityChaseActive)
+	{
+		return false;
+	}
+
+	if (!bIsTargetInAttackRange)
+	{
+		return false;
+	}
+
+	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	return CurrentTime - LastCaptureAttemptTime >= CaptureRetryCooldown;
+}
+
+void AFTSecurityAIController::StartCaptureAttempt()
+{
+	LastCaptureAttemptTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	bCanStartCaptureAttempt = false;
+}
+
 void AFTSecurityAIController::UpdateTargetState()
 {
 	if (bTargetCaptured)
@@ -456,6 +487,7 @@ void AFTSecurityAIController::UpdateTargetState()
 		bIsTargetInAttackRange = false;
 		bDetectedTargetByCloseRange = false;
 		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		UpdateChaseGaugeTargetSeenState();
 		return;
 	}
@@ -468,6 +500,7 @@ void AFTSecurityAIController::UpdateTargetState()
 		bIsTargetInAttackRange = false;
 		bDetectedTargetByCloseRange = false;
 		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		if (SecurityTargetComponent)
 		{
 			SecurityTargetComponent->ResetTargetMemory();
@@ -494,6 +527,7 @@ void AFTSecurityAIController::UpdateTargetState()
 		bIsTargetInAttackRange = false;
 		bDetectedTargetByCloseRange = false;
 		bHasObservedCrime = false;
+		bCanStartCaptureAttempt = false;
 		if (SecurityTargetComponent)
 		{
 			SecurityTargetComponent->ResetTargetMemory();
@@ -519,7 +553,7 @@ void AFTSecurityAIController::UpdateTargetState()
 			bIsTargetInAttackRange);
 	}
 
-	if (!bSecurityCalled && bHasSeenTarget && bTargetStealing)
+	if (!bReturning && !bSecurityCalled && bHasSeenTarget && bTargetStealing)
 	{
 		bReturning = false;
 		bSecurityCalled = true;
@@ -549,12 +583,13 @@ void AFTSecurityAIController::UpdateTargetState()
 	}
 
 	UpdateChaseGaugeTargetSeenState();
+	bCanStartCaptureAttempt = CanStartCaptureAttempt();
 }
 
 void AFTSecurityAIController::UpdateTargetFocus()
 {
 	const bool bShouldFocusTarget = TargetActor
-		&& bSecurityCalled
+		&& (bSecurityCalled || bReacquiredTargetDuringReturn)
 		&& bSecurityChaseActive
 		&& bHasSeenTarget
 		&& !bReturning
@@ -568,6 +603,77 @@ void AFTSecurityAIController::UpdateTargetFocus()
 	}
 
 	ClearFocus(EAIFocusPriority::Gameplay);
+}
+
+void AFTSecurityAIController::UpdateReturnTargetMemory()
+{
+	if (!bRememberingTarget)
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World || !TargetActor)
+	{
+		bRememberingTarget = false;
+		bReacquiredTargetDuringReturn = false;
+		TargetMemoryEndTime = 0.0f;
+		TargetActor = nullptr;
+		return;
+	}
+
+	if (World->GetTimeSeconds() > TargetMemoryEndTime)
+	{
+		bRememberingTarget = false;
+		bReacquiredTargetDuringReturn = false;
+		TargetMemoryEndTime = 0.0f;
+		TargetActor = nullptr;
+		return;
+	}
+
+	if (bHasSeenTarget)
+	{
+		StartPersonalRechase();
+	}
+}
+
+void AFTSecurityAIController::StartPersonalRechase()
+{
+	if (!TargetActor)
+	{
+		return;
+	}
+
+	StopMovement();
+
+	// 개인 재추격은 Event.Security.Called를 바로 방송하지 않고, 이 보안요원만 추격 상태로 복귀시킨다.
+	bReturning = false;
+	bReturnRequested = false;
+	bRememberingTarget = false;
+	TargetMemoryEndTime = 0.0f;
+	bReacquiredTargetDuringReturn = true;
+	bSecurityCalled = true;
+	bSecurityChaseActive = true;
+	SecurityChaseGauge = 100.0f;
+	bHasObservedCrime = true;
+	bCanRequestSecuritySupport = true;
+	bReturnFailureLogged = false;
+	bReturnCollisionIgnored = false;
+	InvestigateLocation = TargetActor->GetActorLocation();
+
+	if (SecurityCallComponent)
+	{
+		SecurityCallComponent->StartSecurityCall(TargetActor);
+	}
+
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Security AI '%s' reacquired remembered target during return"),
+			*GetName());
+	}
 }
 
 void AFTSecurityAIController::UpdateChaseGaugeTargetSeenState()
@@ -589,7 +695,7 @@ void AFTSecurityAIController::OnChaseGaugeChanged(FGameplayTag Channel, const FF
 void AFTSecurityAIController::UpdateSecurityCallGauge(float DeltaTime)
 {
 	const bool bShouldChargeSecurityCall = bCanRequestSecuritySupport
-		&& bSecurityCalled
+		&& (bSecurityCalled || bReacquiredTargetDuringReturn)
 		&& bSecurityChaseActive
 		&& bHasSeenTarget
 		&& TargetActor

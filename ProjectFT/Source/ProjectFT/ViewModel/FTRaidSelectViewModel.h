@@ -22,7 +22,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	int32 GetOptionCount() const { return Options.Num(); }
 
-	const TArray<TObjectPtr<UObject>>& GetLevelObjects() const { return LevelObjects; }
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Items")
+	TArray<UObject*> GetLevelObjects() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	bool GetOption(int32 Index, FFTRaidEntranceOption& OutOption) const;
@@ -33,6 +34,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Raid")
 	void SelectOption(int32 Index);
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Raid|Selection")
 	void SelectLevelObject(UObject* LevelObject);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|Raid")
@@ -41,23 +43,44 @@ public:
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	int32 GetSelectedOptionIndex() const { return SelectedOptionIndex; }
 
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Selection")
+	bool HasSelectedOption() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Selection")
+	UFTRaidLevelListObject* GetSelectedLevelObject() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Rules")
+	bool CanEnterSelectedOption() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|State")
+	bool IsEntryRequestInProgress() const { return bEntryRequestInProgress; }
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	bool IsSelectedOptionFree() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	FName GetSelectedRequiredItemID() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	FText GetSelectedRequiredItemName() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	int32 GetSelectedRequiredItemOwnedCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	int32 GetSelectedRequiredItemCount() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	TSoftObjectPtr<UTexture2D> GetSelectedPreviewImageSoft() const;
+
+	UFUNCTION(BlueprintPure, Category = "FT|Raid|Data")
+	TSoftObjectPtr<UTexture2D> GetSelectedRequiredItemIconSoft() const;
+
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	FText GetSelectedDisplayName() const;
 
 	UFUNCTION(BlueprintPure, Category = "FT|Raid")
 	FText GetSelectedDescription() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Raid")
-	UTexture2D* GetSelectedPreviewImage() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Raid")
-	UTexture2D* GetSelectedRequiredItemIcon() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Raid")
-	FText GetSelectedEntryCostText() const;
-
-	UFUNCTION(BlueprintPure, Category = "FT|Raid")
-	FText GetSelectedStatusText() const;
 
 	UPROPERTY(BlueprintAssignable, Category = "FT|Raid")
 	FFTRaidSelectViewModelChanged OnChanged;
