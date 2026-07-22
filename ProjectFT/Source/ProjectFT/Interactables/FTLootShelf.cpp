@@ -114,6 +114,11 @@ void AFTLootShelf::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		ActiveAudioComponent->Stop();
 		ActiveAudioComponent = nullptr;
 	}
+	if (ActiveRestockAudioComponent)
+	{
+		ActiveRestockAudioComponent->Stop();
+		ActiveRestockAudioComponent = nullptr;
+	}
 
 	if (RestockRequestListenerHandle.IsValid())
 	{
@@ -342,10 +347,11 @@ void AFTLootShelf::EndInteractionCooldown()
 		RestockedPayload
 	);
 
-	// 재입고 완료 사운드 재생
-	if (RestockedSound)
+	// 재입고 루프 사운드 페이드아웃 및 해제
+	if (ActiveRestockAudioComponent)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, RestockedSound, GetActorLocation());
+		ActiveRestockAudioComponent->FadeOut(0.35f, 0.0f);
+		ActiveRestockAudioComponent = nullptr;
 	}
 }
 
@@ -368,6 +374,12 @@ void AFTLootShelf::HandleRestockRequested(FGameplayTag Channel, const FFTMessage
 		);
 
 		UE_LOG(LogFTItem, Log, TEXT("매대 '%s'가 재입고 요청을 수신하여 %f초 타이머를 시작합니다."), *GetName(), ShelfDataAsset->CooldownSeconds);
+
+		// 재입고 진행 루프 사운드 재생
+		if (RestockedSound && !ActiveRestockAudioComponent)
+		{
+			ActiveRestockAudioComponent = UGameplayStatics::SpawnSoundAtLocation(this, RestockedSound, GetActorLocation());
+		}
 	}
 }
 

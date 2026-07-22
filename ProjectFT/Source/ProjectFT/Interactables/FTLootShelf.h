@@ -130,11 +130,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shelf|Audio")
 	TObjectPtr<USoundBase> InteractSound = nullptr;
 
-	/* @brief : 매대 재입고 완료(다시 채울 때) 시 재생할 효과음 */
+	/* @brief : 매대 재입고 진행 중(타이머 작동 중)일 때 재생할 루핑 효과음 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Shelf|Audio")
 	TObjectPtr<USoundBase> RestockedSound = nullptr;
 
 	/* @brief : 현재 재생 중인 상호작용 지속 사운드 컴포넌트 */
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ActiveAudioComponent = nullptr;
+
+	/* @brief : 현재 재생 중인 재입고 진행 지속 사운드 컴포넌트 */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> ActiveRestockAudioComponent = nullptr;
 };
