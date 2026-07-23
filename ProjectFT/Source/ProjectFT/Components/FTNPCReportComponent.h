@@ -6,7 +6,6 @@
 #include "FTNPCReportComponent.generated.h"
 
 class AFTNPCAIController;
-class UAnimMontage;
 struct FFTCharacterAttackedPayloadStruct;
 struct FFTMessagePayloadStruct;
 
@@ -29,15 +28,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report")
 	float ReportCancelDistance = 1800.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report|Animation")
-	TObjectPtr<UAnimMontage> ReportMontage = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report|Animation", meta = (ClampMin = "0.0"))
-	float ReportMontagePlayRate = 1.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report|Animation", meta = (ClampMin = "0.0"))
-	float ReportMontageBlendOutTime = 0.15f;
 
 	/** 신고 완료 후 같은 손님이 다시 신고할 수 있기까지 기다리는 시간이다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|NPC|Report", meta = (ClampMin = "0.0"))
@@ -79,8 +69,6 @@ private:
 	AActor* ResolvePlayerActor(AActor* DamageCauser) const;
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool ShouldCancelReport(const AFTNPCAIController* Controller) const;
-	void PlayReportMontage() const;
-	void StopReportMontage() const;
 	void CompleteReport();
 	void BroadcastReportMessage(FGameplayTag Channel, AActor* TargetActor, float InReportAmount, float ReportProgress) const;
 	void ResetReportState();
