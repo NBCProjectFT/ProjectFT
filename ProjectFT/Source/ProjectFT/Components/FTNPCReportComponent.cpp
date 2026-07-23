@@ -1,7 +1,10 @@
 #include "FTNPCReportComponent.h"
 
+#include "Animation/AnimInstance.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "ProjectFT/Character/FTAICharacterBase.h"
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
@@ -31,6 +34,7 @@ void UFTNPCReportComponent::EnterReporting()
 		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Enter Reporting"));
 	}
 	BroadcastReportMessage(TAG_FT_Event_NPCReportStarted, Controller->TargetActor, 0.0f, 0.0f);
+	PlayReportMontage();
 
 	if (ShouldCancelReport(Controller))
 	{
@@ -146,6 +150,7 @@ void UFTNPCReportComponent::CancelReport()
 	ReportElapsedTime = 0.0f;
 	LastLoggedReportDecayPercent = 0;
 	BroadcastReportMessage(TAG_FT_Event_NPCReportProgress, Controller->TargetActor, ReportAmount, 0.0f);
+	StopReportMontage();
 	if (Controller->bLogReportDebug)
 	{
 		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Cancelled"));
@@ -386,6 +391,45 @@ bool UFTNPCReportComponent::ShouldCancelReport(const AFTNPCAIController* Control
 	return Controller->TargetDistance > ReportCancelDistance;
 }
 
+void UFTNPCReportComponent::PlayReportMontage() const
+{
+	if (!ReportMontage)
+	{
+		return;
+	}
+
+	const AFTNPCAIController* Controller = GetNPCAIController();
+	const ACharacter* Character = Controller ? Cast<ACharacter>(Controller->GetPawn()) : nullptr;
+	const USkeletalMeshComponent* Mesh = Character ? Character->GetMesh() : nullptr;
+	UAnimInstance* AnimInstance = Mesh ? Mesh->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		return;
+	}
+
+	const float SafePlayRate = FMath::Max(ReportMontagePlayRate, KINDA_SMALL_NUMBER);
+	AnimInstance->Montage_Play(ReportMontage, SafePlayRate);
+}
+
+void UFTNPCReportComponent::StopReportMontage() const
+{
+	if (!ReportMontage)
+	{
+		return;
+	}
+
+	const AFTNPCAIController* Controller = GetNPCAIController();
+	const ACharacter* Character = Controller ? Cast<ACharacter>(Controller->GetPawn()) : nullptr;
+	const USkeletalMeshComponent* Mesh = Character ? Character->GetMesh() : nullptr;
+	UAnimInstance* AnimInstance = Mesh ? Mesh->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(ReportMontage))
+	{
+		return;
+	}
+
+	AnimInstance->Montage_Stop(ReportMontageBlendOutTime, ReportMontage);
+}
+
 void UFTNPCReportComponent::CompleteReport()
 {
 	AFTNPCAIController* Controller = GetNPCAIController();
@@ -406,6 +450,7 @@ void UFTNPCReportComponent::CompleteReport()
 	LastReportCompletedTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 
 	BroadcastReportMessage(TAG_FT_Event_NPCReportCompleted, Controller->TargetActor, ReportAmount, 1.0f);
+	StopReportMontage();
 	if (Controller->bLogReportDebug)
 	{
 		UE_LOG(LogFTNPC, Log, TEXT("[NPC] Report Completed"));
