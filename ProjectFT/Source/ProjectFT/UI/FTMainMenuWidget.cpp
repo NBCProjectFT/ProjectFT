@@ -2,14 +2,19 @@
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
+#include "Components/Slider.h"
+#include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "InputCoreTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "Sound/SoundClass.h"
+#include "Sound/SoundMix.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFTMainMenu, Log, All);
 
@@ -51,6 +56,13 @@ void UFTMainMenuWidget::NativeConstruct()
 	BindButton(TEXT("WBP_QuitCancelButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleQuitCancelButtonClicked));
 	BindButton(TEXT("WBP_NewGameConfirmButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleNewGameConfirmButtonClicked));
 	BindButton(TEXT("WBP_NewGameCancelButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleNewGameCancelButtonClicked));
+
+	if (SLD_MasterVolume)
+	{
+		SLD_MasterVolume->OnValueChanged.RemoveAll(this);
+		SLD_MasterVolume->OnValueChanged.AddDynamic(this, &ThisClass::HandleMasterVolumeChanged);
+		UpdateMasterVolumeText(SLD_MasterVolume->GetValue());
+	}
 
 	ShowMainPanel();
 	RefreshSaveState();
@@ -421,4 +433,25 @@ void UFTMainMenuWidget::HandleNewGameConfirmButtonClicked()
 void UFTMainMenuWidget::HandleNewGameCancelButtonClicked()
 {
 	HideNewGameConfirm();
+}
+
+void UFTMainMenuWidget::HandleMasterVolumeChanged(float Value)
+{
+	const float Volume = FMath::Clamp(Value, 0.0f, 1.0f);
+	if (MasterSoundMix && MasterSoundClass)
+	{
+		UGameplayStatics::SetSoundMixClassOverride(this, MasterSoundMix, MasterSoundClass, Volume, 1.0f, 0.0f, true);
+		UGameplayStatics::PushSoundMixModifier(this, MasterSoundMix);
+	}
+
+	UpdateMasterVolumeText(Volume);
+}
+
+void UFTMainMenuWidget::UpdateMasterVolumeText(float Volume) const
+{
+	if (TXT_MasterVolumeValue)
+	{
+		const int32 Percent = FMath::RoundToInt(FMath::Clamp(Volume, 0.0f, 1.0f) * 100.0f);
+		TXT_MasterVolumeValue->SetText(FText::FromString(FString::Printf(TEXT("%d%%"), Percent)));
+	}
 }
