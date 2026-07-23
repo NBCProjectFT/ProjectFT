@@ -251,12 +251,16 @@ UFTObjectiveSubsystem* UFTSaveSubsystem::FindObjectiveSubsystem() const
 
 void UFTSaveSubsystem::RestorePlayerInventory()
 {
-	if (CurrentSave)
+	LoadOrCreateSave();
+
+	if (!bHasSaveData || !CurrentSave)
 	{
-		if (UFTInventoryComponent* PlayerInventory = FindPlayerInventory())
-		{
-			PlayerInventory->ImportSaveState(CurrentSave->PlayerInventory);
-		}
+		return;
+	}
+
+	if (UFTInventoryComponent* PlayerInventory = FindPlayerInventory())
+	{
+		PlayerInventory->ImportSaveState(CurrentSave->PlayerInventory);
 	}
 }
 
