@@ -40,7 +40,7 @@ public:
 	// InWorkSpeedMultiplier: 진행 속도 배수(예: 플레이어 손재주). 1.0 = 기본. 채널 시작 시점에 캡처된다.
 	void StartChannel(AActor* InInteractor, float InWorkSpeedMultiplier = 1.0f);
 
-	// 이동하거나 키를 다시 누르거나 범위를 벗어남 → 채널링 중단(진행도는 유지된다).
+	// 이동하거나 키를 다시 누르거나 아이템을 쓰거나 범위를 벗어남 → 채널링 중단(진행도는 유지된다).
 	void StopChannel();
 
 	// 스킬체크 입력. 활성 스킬체크가 있으면 현재 커서 위치로 판정한다.
