@@ -103,6 +103,13 @@ protected:
 	// 탈출 성공 시 자신에게 적용할 스턴 GE(SetByCaller Data.StunDuration). 기본 UFTGE_Stun.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
 	TSubclassOf<UGameplayEffect> StunEffectClass;
+	
+	// [붙잡힌 순간 1회] 초기 피해와 함께 적용할 '공격 표식' GE(에셋 태그 Effect.Hostile). 기본 UFTGE_Hostile.
+	// 대상은 이 표식을 보고 피격 연출(피격음)과 어그로 신호 Event.Character.Attacked를 낸다.
+	// 지속 피해 틱에는 일부러 붙이지 않는다 — 붙이면 틱마다 "공격당함"이 재발행돼 잡혀있는 내내 피격음이 울린다.
+	// 비워두면 잡혀도 피격 연출/어그로 신호가 발생하지 않는다(표식 도입 전 동작).
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
+	TSubclassOf<UGameplayEffect> HostileMarkerEffectClass;
 
 	// 잡기 시도 몽타주. NotifyState로 캡처 가능 구간을 연다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation")

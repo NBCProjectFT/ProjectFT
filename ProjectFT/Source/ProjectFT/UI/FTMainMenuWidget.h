@@ -104,6 +104,7 @@ private:
 	void ActivatePanel(UWidget* PanelToShow);
 	void ActivateMainActionPanel();
 	void ActivateMainActionSwitcherPanel(UWidget* PanelToShow);
+	UWidgetSwitcher* GetMainActionSwitcher() const;
 	void HideQuitConfirm();
 	void HideNewGameConfirm();
 	void HideAllConfirmPanels();
@@ -124,6 +125,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWidgetSwitcher> CachedMainActionSwitcher = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UWidgetSwitcher> CachedLegacyMainActionSwitcher = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWidget> CachedMainActionPanel = nullptr;
