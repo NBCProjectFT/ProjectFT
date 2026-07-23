@@ -8,13 +8,9 @@
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
 #include "InputCoreTypes.h"
-#include "GameFramework/GameplayMessageSubsystem.h"
-#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "ProjectFT/Core/FTGameFlowSubsystem.h"
-#include "ProjectFT/Message/FTGameplayTags.h"
-#include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/UI/FTUIManagerSubsystem.h"
+#include "ProjectFT/ViewModel/FTPauseMenuViewModel.h"
 #include "Sound/SoundClass.h"
 #include "Sound/SoundMix.h"
 
@@ -23,6 +19,7 @@ void UFTPauseMenuWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	SetIsFocusable(true);
+	GetPauseMenuViewModel();
 
 	const bool bBoundResume = BindButton(TEXT("BTN_Resume"), TEXT("WBP_ResumeButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleResumeClicked));
 	const bool bBoundMainMenu = BindButton(TEXT("BTN_MainMenu"), TEXT("WBP_MainMenuButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleMainMenuClicked));
@@ -273,13 +270,6 @@ void UFTPauseMenuWidget::SetModalLayerVisible(bool bVisible)
 	}
 }
 
-bool UFTPauseMenuWidget::IsCurrentFlowStateBase() const
-{
-	const UGameInstance* GameInstance = GetGameInstance();
-	const UFTGameFlowSubsystem* FlowSubsystem = GameInstance ? GameInstance->GetSubsystem<UFTGameFlowSubsystem>() : nullptr;
-	return FlowSubsystem && FlowSubsystem->GetCurrentFlowState() == EFTFlowStateType::Base;
-}
-
 void UFTPauseMenuWidget::UpdateReturnToBaseButtonVisibility()
 {
 	UButton* ReturnToBaseButton = ResolveButton(TEXT("BTN_ReturnToBase"), TEXT("WBP_ReturnToBaseButton"));
@@ -290,17 +280,25 @@ void UFTPauseMenuWidget::UpdateReturnToBaseButtonVisibility()
 
 	if (ReturnToBaseButton)
 	{
-		ReturnToBaseButton->SetVisibility(IsCurrentFlowStateBase() ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
+		const UFTPauseMenuViewModel* ViewModel = GetPauseMenuViewModel();
+		const bool bShowReturnToBase = ViewModel && ViewModel->ShouldShowReturnToBaseButton();
+		ReturnToBaseButton->SetVisibility(bShowReturnToBase ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
 }
 
-void UFTPauseMenuWidget::BroadcastFlowRequest(const FGameplayTag& RequestTag)
+UFTPauseMenuViewModel* UFTPauseMenuWidget::GetPauseMenuViewModel()
 {
-	FFTMessagePayloadStruct Payload;
-	Payload.InstigatorActor = GetOwningPlayerPawn();
+	if (!PauseMenuViewModel)
+	{
+		PauseMenuViewModel = NewObject<UFTPauseMenuViewModel>(this);
+	}
 
-	UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	MessageSubsystem.BroadcastMessage(RequestTag, Payload);
+	if (PauseMenuViewModel)
+	{
+		PauseMenuViewModel->Initialize(this);
+	}
+
+	return PauseMenuViewModel;
 }
 
 void UFTPauseMenuWidget::HandleResumeClicked()
@@ -329,7 +327,7 @@ void UFTPauseMenuWidget::HandleReturnToBaseClicked()
 {
 	ShowConfirm(
 		EFTPauseMenuConfirmType::ReturnToBase,
-		NSLOCTEXT("FTPauseMenu", "ReturnToBaseConfirm", "레이드를 포기하고 거점으로\n돌아가시겠습니까?"));
+		NSLOCTEXT("FTPauseMenu", "ReturnToBaseConfirm", "인벤토리에 있는 아이템이 전부 삭제 됩니다.\n레이드를 포기하고 거점으로\n돌아가시겠습니까?"));
 }
 
 void UFTPauseMenuWidget::HandleQuitGameClicked()
@@ -347,12 +345,18 @@ void UFTPauseMenuWidget::HandleConfirmYesClicked()
 	if (ConfirmType == EFTPauseMenuConfirmType::ReturnToBase)
 	{
 		RequestClosePauseMenu();
-		BroadcastFlowRequest(TAG_FT_Request_Flow_ReturnToBase);
+		if (UFTPauseMenuViewModel* ViewModel = GetPauseMenuViewModel())
+		{
+			ViewModel->ExecuteConfirmedAction(ConfirmType);
+		}
 	}
 	else if (ConfirmType == EFTPauseMenuConfirmType::MainMenu)
 	{
 		RequestClosePauseMenu();
-		BroadcastFlowRequest(TAG_FT_Request_Flow_ReturnToMainMenu);
+		if (UFTPauseMenuViewModel* ViewModel = GetPauseMenuViewModel())
+		{
+			ViewModel->ExecuteConfirmedAction(ConfirmType);
+		}
 	}
 	else if (ConfirmType == EFTPauseMenuConfirmType::QuitGame)
 	{
@@ -371,10 +375,9 @@ void UFTPauseMenuWidget::HandleConfirmNoClicked()
 void UFTPauseMenuWidget::HandleMasterVolumeChanged(float Value)
 {
 	const float Volume = FMath::Clamp(Value, 0.0f, 1.0f);
-	if (MasterSoundMix && MasterSoundClass)
+	if (UFTPauseMenuViewModel* ViewModel = GetPauseMenuViewModel())
 	{
-		UGameplayStatics::SetSoundMixClassOverride(this, MasterSoundMix, MasterSoundClass, Volume, 1.0f, 0.0f, true);
-		UGameplayStatics::PushSoundMixModifier(this, MasterSoundMix);
+		ViewModel->ApplyMasterVolume(MasterSoundMix, MasterSoundClass, Volume);
 	}
 
 	OnMasterVolumeChanged(Volume);

@@ -43,6 +43,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Save")
 	void ClearPlayerInventoryForRaidFailure();
 
+	UFUNCTION(BlueprintCallable, Category = "FT|Save")
+	void RestorePlayerInventory();
+
 	UFUNCTION(BlueprintPure, Category = "FT|Save")
 	bool HasSaveData() const;
 
@@ -56,7 +59,6 @@ private:
 	UFTInventoryComponent* FindPlayerInventory() const;
 	UFTInventoryComponent* FindStorageInventory() const;
 	class UFTObjectiveSubsystem* FindObjectiveSubsystem() const;
-	void RestorePlayerInventory();
 	void RestoreStorageInventory();
 
 private:
