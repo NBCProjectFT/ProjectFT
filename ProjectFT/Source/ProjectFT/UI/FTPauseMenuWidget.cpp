@@ -105,9 +105,6 @@ void UFTPauseMenuWidget::CloseOptionsPanel()
 
 void UFTPauseMenuWidget::RequestClosePauseMenu()
 {
-	CloseOptionsPanel();
-	HideConfirm();
-
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())

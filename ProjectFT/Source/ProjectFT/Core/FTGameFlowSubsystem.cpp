@@ -686,6 +686,7 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 		BroadcastFlowEvent(TAG_FT_Event_RaidStarted);
 		break;
 	case EFTFlowStateType::Escaped:
+		StopBGMForRaidResult();
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
 			if (UFTUIManagerSubsystem* UIManager = GameInstance->GetSubsystem<UFTUIManagerSubsystem>())
@@ -696,6 +697,7 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 		BroadcastFlowEvent(TAG_FT_Event_RaidEscaped);
 		break;
 	case EFTFlowStateType::Failed:
+		StopBGMForRaidResult();
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
 			if (UFTSaveSubsystem* SaveSubsystem = GameInstance->GetSubsystem<UFTSaveSubsystem>())
@@ -713,6 +715,24 @@ void UFTGameFlowSubsystem::HandleFlowStateEntered(EFTFlowStateType NewFlowState)
 		break;
 	default:
 		break;
+	}
+}
+
+void UFTGameFlowSubsystem::StopBGMForRaidResult() const
+{
+	float FadeOutTime = 1.0f;
+	const FName CurrentLevelName = ResolveCurrentWorldLevelName();
+	if (const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByLevelName(CurrentLevelName))
+	{
+		FadeOutTime = Route->BGMFadeOutTime;
+	}
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTBGMSubsystem* BGMSubsystem = GameInstance->GetSubsystem<UFTBGMSubsystem>())
+		{
+			BGMSubsystem->StopBGM(FadeOutTime);
+		}
 	}
 }
 

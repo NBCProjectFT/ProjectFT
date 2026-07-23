@@ -187,12 +187,16 @@ void UFTInventoryViewModel::SetItemSelection(int32 SlotIndex, bool bIsSelected)
 
 void UFTInventoryViewModel::ClearSelection()
 {
+	ClearSelectionWithoutNotify();
+	OnViewModelChanged.Broadcast();
+}
+
+void UFTInventoryViewModel::ClearSelectionWithoutNotify()
+{
 	SelectedIndices.Empty();
 	SelectedItemIndex = INDEX_NONE;
 	SelectedItemDetail = FFTInventoryItem();
 	SelectedItem = NAME_None;
-
-	OnViewModelChanged.Broadcast();
 }
 
 void UFTInventoryViewModel::DiscardSelectedItems()

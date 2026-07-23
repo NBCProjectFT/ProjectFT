@@ -110,6 +110,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FT|Inventory")
 	void ClearSelection();
 
+	void ClearSelectionWithoutNotify();
+
 	/**
 	 * @brief 현재 체크되어 있는 아이템 수량 반환
 	 * @return 현재 체크 선택된 아이템의 총 종류 수
