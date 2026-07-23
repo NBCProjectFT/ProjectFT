@@ -37,6 +37,7 @@
 #include "ProjectFT/Components/FTInventoryComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 
 namespace
 {
@@ -352,8 +353,10 @@ void UFTUIManagerSubsystem::ShowInventory()
 	PlayerController->bShowMouseCursor = true;
 }
 
-void UFTUIManagerSubsystem::HideInventory()
+void UFTUIManagerSubsystem::HideInventory(bool bRestoreGameInput)
 {
+	UWidgetBlueprintLibrary::CancelDragDrop();
+
 	if (InventoryWidget)
 	{
 		InventoryWidget->RemoveFromParent();
@@ -361,14 +364,30 @@ void UFTUIManagerSubsystem::HideInventory()
 
 	if (InventoryViewModel)
 	{
-		InventoryViewModel->ClearSelection();
+		if (bRestoreGameInput)
+		{
+			InventoryViewModel->ClearSelection();
+		}
+		else
+		{
+			InventoryViewModel->ClearSelectionWithoutNotify();
+		}
 	}
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
 	{
-		PlayerController->SetInputMode(FInputModeGameOnly());
-		PlayerController->bShowMouseCursor = false;
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication& SlateApplication = FSlateApplication::Get();
+			SlateApplication.ReleaseAllPointerCapture();
+			SlateApplication.ClearKeyboardFocus(EFocusCause::SetDirectly);
+		}
 
+		if (bRestoreGameInput)
+		{
+			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->bShowMouseCursor = false;
+		}
 	}
 }
 
@@ -421,9 +440,10 @@ void UFTUIManagerSubsystem::ShowPauseMenu()
 
 	if (IsInventoryOpen())
 	{
-		HideInventory();
+		HideInventory(/*bRestoreGameInput=*/false);
 	}
 
+	PauseMenuWidget->SetVisibility(ESlateVisibility::Visible);
 	PauseMenuWidget->AddToViewport(100);
 	UGameplayStatics::SetGamePaused(this, true);
 
@@ -439,7 +459,11 @@ void UFTUIManagerSubsystem::HidePauseMenu()
 {
 	if (PauseMenuWidget)
 	{
-		PauseMenuWidget->RemoveFromParent();
+		PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+		if (PauseMenuWidget->IsInViewport())
+		{
+			PauseMenuWidget->RemoveFromParent();
+		}
 	}
 
 	UGameplayStatics::SetGamePaused(this, false);
@@ -448,11 +472,41 @@ void UFTUIManagerSubsystem::HidePauseMenu()
 	{
 		if (FSlateApplication::IsInitialized())
 		{
-			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+			FSlateApplication& SlateApplication = FSlateApplication::Get();
+			SlateApplication.ReleaseAllPointerCapture();
+			SlateApplication.ClearKeyboardFocus(EFocusCause::SetDirectly);
 		}
 
-		PlayerController->SetInputMode(FInputModeGameOnly());
-		PlayerController->bShowMouseCursor = false;
+		if (UWorld* World = GetWorld())
+		{
+			TWeakObjectPtr<UFTUIManagerSubsystem> WeakThis(this);
+			World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([WeakThis]()
+			{
+				if (!WeakThis.IsValid())
+				{
+					return;
+				}
+
+				UGameplayStatics::SetGamePaused(WeakThis.Get(), false);
+
+				if (WeakThis->PauseMenuWidget && WeakThis->PauseMenuWidget->IsInViewport())
+				{
+					WeakThis->PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+					WeakThis->PauseMenuWidget->RemoveFromParent();
+				}
+
+				if (APlayerController* DeferredPlayerController = WeakThis->GetPrimaryPlayerController())
+				{
+					DeferredPlayerController->SetInputMode(FInputModeGameOnly());
+					DeferredPlayerController->bShowMouseCursor = false;
+				}
+			}));
+		}
+		else
+		{
+			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->bShowMouseCursor = false;
+		}
 	}
 }
 

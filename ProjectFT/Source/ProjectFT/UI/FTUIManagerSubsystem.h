@@ -88,7 +88,7 @@ public:
 	void ShowInventory();
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
-	void HideInventory();
+	void HideInventory(bool bRestoreGameInput = true);
 
 	UFUNCTION(BlueprintCallable, Category = "FT|UI")
 	void ToggleInventory();
