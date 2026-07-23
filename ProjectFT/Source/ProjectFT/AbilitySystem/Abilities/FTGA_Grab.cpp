@@ -164,7 +164,7 @@ void UFTGA_Grab::OpenGrabCaptureWindow()
 
 	if (!bGrabCaptureConfirmed)
 	{
-		if (GrabCaptureSphereComponent)
+		if (IsValid(GrabCaptureSphereComponent))
 		{
 			TArray<AActor*> OverlappingActors;
 			GrabCaptureSphereComponent->GetOverlappingActors(OverlappingActors, APawn::StaticClass());
@@ -265,30 +265,34 @@ void UFTGA_Grab::CreateGrabCaptureSphere()
 
 void UFTGA_Grab::DestroyGrabCaptureSphere()
 {
-	if (!GrabCaptureSphereComponent)
+	USphereComponent* CaptureSphere = GrabCaptureSphereComponent;
+	if (!IsValid(CaptureSphere))
 	{
+		GrabCaptureSphereComponent = nullptr;
 		return;
 	}
 
-	GrabCaptureSphereComponent->OnComponentBeginOverlap.RemoveDynamic(this, &UFTGA_Grab::OnGrabCaptureSphereBeginOverlap);
-	GrabCaptureSphereComponent->DestroyComponent();
+	CaptureSphere->OnComponentBeginOverlap.RemoveDynamic(this, &UFTGA_Grab::OnGrabCaptureSphereBeginOverlap);
+	CaptureSphere->DestroyComponent();
 	GrabCaptureSphereComponent = nullptr;
 }
 
 void UFTGA_Grab::SetGrabCaptureSphereEnabled(bool bEnabled)
 {
-	if (!GrabCaptureSphereComponent)
+	USphereComponent* CaptureSphere = GrabCaptureSphereComponent;
+	if (!IsValid(CaptureSphere))
 	{
+		GrabCaptureSphereComponent = nullptr;
 		return;
 	}
 
-	GrabCaptureSphereComponent->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
-	GrabCaptureSphereComponent->SetHiddenInGame(!bDrawGrabCaptureDebugSphere);
-	GrabCaptureSphereComponent->SetVisibility(bDrawGrabCaptureDebugSphere);
+	CaptureSphere->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+	CaptureSphere->SetHiddenInGame(!bDrawGrabCaptureDebugSphere);
+	CaptureSphere->SetVisibility(bDrawGrabCaptureDebugSphere);
 
 	if (bEnabled)
 	{
-		GrabCaptureSphereComponent->UpdateOverlaps();
+		CaptureSphere->UpdateOverlaps();
 	}
 }
 
@@ -332,7 +336,7 @@ void UFTGA_Grab::TryConfirmCaptureFromActor(AActor* OtherActor)
 
 void UFTGA_Grab::DrawGrabCaptureDebugSphere() const
 {
-	if (!bDrawGrabCaptureDebugSphere || !GrabCaptureSphereComponent)
+	if (!bDrawGrabCaptureDebugSphere || !IsValid(GrabCaptureSphereComponent))
 	{
 		return;
 	}
