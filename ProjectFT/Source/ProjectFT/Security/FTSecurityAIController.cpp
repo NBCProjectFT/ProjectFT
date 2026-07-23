@@ -629,7 +629,7 @@ void AFTSecurityAIController::UpdateTargetState()
 
 	UpdateChaseGaugeTargetSeenState();
 	bCanStartCaptureAttempt = CanStartCaptureAttempt();
-	TryStartImmediateCaptureAttempt();
+	//TryStartImmediateCaptureAttempt();
 }
 
 void AFTSecurityAIController::UpdateTargetFocus()
