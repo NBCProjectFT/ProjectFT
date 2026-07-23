@@ -450,8 +450,7 @@ TSubclassOf<UFTEscapedRaidWidget> UFTAssetManager::GetEscapedRaidWidgetClass()
 
 TSubclassOf<UFTFailWidget> UFTAssetManager::GetFailWidgetClass()
 {
-	const UFTGameDataAsset* LoadedGameData = LoadGameData();
-	return LoadedGameData ? GetSubclass(LoadedGameData->FailWidgetClass) : nullptr;
+	return nullptr;
 }
 
 TSubclassOf<UUserWidget> UFTAssetManager::GetDamageTextWidgetClass()

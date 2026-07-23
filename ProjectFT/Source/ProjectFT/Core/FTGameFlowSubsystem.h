@@ -87,6 +87,7 @@ private:
 	FName ResolveLevelNameForState(EFTFlowStateType State) const;
 	EFTFlowStateType ResolveFlowStateForCurrentWorld() const;
 	bool ShouldUseLoadingForState(EFTFlowStateType State, FName RequestedLevelName = NAME_None) const;
+	void ApplyBGMForLevel(FName LevelName) const;
 	void OpenLevelByName(FName LevelName) const;
 	void RestoreMenuInputBeforeTravel(FName LevelName) const;
 	void SetFlowState(EFTFlowStateType NewFlowState);

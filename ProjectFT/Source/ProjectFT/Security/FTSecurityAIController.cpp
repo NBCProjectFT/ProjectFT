@@ -1,6 +1,7 @@
 ﻿
 #include "FTSecurityAIController.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 #include "Components/StateTreeAIComponent.h"
@@ -72,7 +73,7 @@ AFTSecurityAIController::AFTSecurityAIController()
 	
 	SecurityPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("SecurityPerceptionComponent"));
 	SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
-	ConfigureSight(SecurityPerceptionComponent, SightConfig, 1500.0f, 80.0f, 3.0f);
+	ConfigureSight(SecurityPerceptionComponent, SightConfig, SecuritySightRadius, SecurityPeripheralVisionAngle, SecuritySightMaxAge);
 
 	SecurityCallComponent = CreateDefaultSubobject<UFTSecurityCallComponent>(TEXT("SecurityCallComponent"));
 	SecurityTargetComponent = CreateDefaultSubobject<UFTSecurityTargetComponent>(TEXT("SecurityTargetComponent"));
@@ -159,7 +160,7 @@ void AFTSecurityAIController::BeginPlay()
 		}
 	}
 
-	RefreshSightConfig(SecurityPerceptionComponent, SightConfig);
+	ApplySecuritySightConfig();
 	
 
 	// Event.Security.Called 메시지가 발행될 때마다 OnSecurityCalled()가 호출됨.
@@ -325,7 +326,8 @@ void AFTSecurityAIController::StartChase()
 		return;
 	}
 
-	const EPathFollowingRequestResult::Type MoveResult = MoveToActor(TargetActor, 150.0f);
+	constexpr float ChaseAcceptanceRadius = 75.0f;
+	const EPathFollowingRequestResult::Type MoveResult = MoveToActor(TargetActor, ChaseAcceptanceRadius);
 	if (bLogSecurityEventDebug)
 	{
 		UE_LOG(LogFTSecurity, Log, TEXT("Security AI: MoveToActor result %d"), static_cast<int32>(MoveResult));
@@ -478,6 +480,49 @@ void AFTSecurityAIController::StartCaptureAttempt()
 	bCanStartCaptureAttempt = false;
 }
 
+void AFTSecurityAIController::TryStartImmediateCaptureAttempt()
+{
+	APawn* ControlledPawn = GetPawn();
+	if (!ControlledPawn || !TargetActor || !bIsAttackLeader || !bCanStartCaptureAttempt)
+	{
+		return;
+	}
+
+	const IAbilitySystemInterface* AbilitySystemActor = Cast<IAbilitySystemInterface>(ControlledPawn);
+	const UAbilitySystemComponent* ASC = AbilitySystemActor ? AbilitySystemActor->GetAbilitySystemComponent() : nullptr;
+	if (!ASC || ASC->HasMatchingGameplayTag(TAG_FT_State_Grabbing))
+	{
+		return;
+	}
+
+	FGameplayEventData Payload;
+	Payload.EventTag = TAG_FT_Event_Grab;
+	Payload.Instigator = ControlledPawn;
+	Payload.Target = TargetActor;
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(ControlledPawn, TAG_FT_Event_Grab, Payload);
+}
+
+void AFTSecurityAIController::ApplySecuritySightConfig()
+{
+	if (!SecurityPerceptionComponent || !SightConfig)
+	{
+		return;
+	}
+
+	SightConfig->SightRadius = SecuritySightRadius;
+	SightConfig->LoseSightRadius = FMath::Max(SecurityLoseSightRadius, SecuritySightRadius);
+	SightConfig->PeripheralVisionAngleDegrees = SecurityPeripheralVisionAngle;
+	SightConfig->SetMaxAge(SecuritySightMaxAge);
+	SightConfig->DetectionByAffiliation.bDetectEnemies = true;
+	SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
+	SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
+
+	SecurityPerceptionComponent->ConfigureSense(*SightConfig);
+	SecurityPerceptionComponent->SetDominantSense(SightConfig->GetSenseImplementation());
+	SetPerceptionComponent(*SecurityPerceptionComponent);
+	RefreshSightConfig(SecurityPerceptionComponent, SightConfig);
+}
+
 void AFTSecurityAIController::UpdateTargetState()
 {
 	if (bTargetCaptured)
@@ -584,6 +629,7 @@ void AFTSecurityAIController::UpdateTargetState()
 
 	UpdateChaseGaugeTargetSeenState();
 	bCanStartCaptureAttempt = CanStartCaptureAttempt();
+	TryStartImmediateCaptureAttempt();
 }
 
 void AFTSecurityAIController::UpdateTargetFocus()
@@ -921,9 +967,6 @@ void AFTSecurityAIController::DrawSightDebug() const
 
 	if (bDrawAttackRangeDebug)
 	{
-		if (SightConfig)
-		{
-			DrawFlatSectorDebug(AttackRange, SightConfig->PeripheralVisionAngleDegrees, FColor::Red, 2.5f);
-		}
+		DrawFlatSectorDebug(AttackRange, SecurityPeripheralVisionAngle, FColor::Red, 2.5f);
 	}
 }

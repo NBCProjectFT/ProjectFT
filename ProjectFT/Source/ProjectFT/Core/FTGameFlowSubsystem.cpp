@@ -1,6 +1,7 @@
 #include "FTGameFlowSubsystem.h"
 
 #include "FTGameState.h"
+#include "FTBGMSubsystem.h"
 #include "FTLogChannels.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Kismet/GameplayStatics.h"
@@ -311,6 +312,8 @@ void UFTGameFlowSubsystem::PreloadCurrentStateAssetsAsync(FSimpleDelegate OnLoad
 
 void UFTGameFlowSubsystem::SyncFlowStateWithCurrentLevel()
 {
+	ApplyBGMForLevel(ResolveCurrentWorldLevelName());
+
 	const EFTFlowStateType ResolvedFlowState = ResolveFlowStateForCurrentWorld();
 	if (ResolvedFlowState == CurrentFlowState)
 	{
@@ -588,6 +591,29 @@ bool UFTGameFlowSubsystem::ShouldUseLoadingForState(EFTFlowStateType State, FNam
 	return false;
 }
 
+void UFTGameFlowSubsystem::ApplyBGMForLevel(FName LevelName) const
+{
+	if (LevelName.IsNone())
+	{
+		return;
+	}
+
+	const FFTFlowLevelRouteStruct* Route = FindFlowLevelRouteByLevelName(LevelName);
+	if (!Route)
+	{
+		UE_LOG(LogFTAudio, Verbose, TEXT("No flow route found for BGM. Level=%s"), *LevelName.ToString());
+		return;
+	}
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UFTBGMSubsystem* BGMSubsystem = GameInstance->GetSubsystem<UFTBGMSubsystem>())
+		{
+			BGMSubsystem->ApplyLevelBGM(*Route);
+		}
+	}
+}
+
 void UFTGameFlowSubsystem::OpenLevelByName(FName LevelName) const
 {
 	UWorld* World = GetWorld();
@@ -610,6 +636,8 @@ void UFTGameFlowSubsystem::OpenLevelByName(FName LevelName) const
 			SaveSubsystem->SaveBeforeLevelTransition(LevelName, CurrentFlowState);
 		}
 	}
+
+	ApplyBGMForLevel(LevelName);
 
 	RestoreMenuInputBeforeTravel(LevelName);
 	UGameplayStatics::OpenLevel(World, LevelName, true);

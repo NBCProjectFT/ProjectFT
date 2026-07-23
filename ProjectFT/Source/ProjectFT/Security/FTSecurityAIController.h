@@ -48,7 +48,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
 	TObjectPtr<UAIPerceptionComponent> SecurityPerceptionComponent;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Internal")
 	TObjectPtr<UAISenseConfig_Sight> SightConfig;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Call")
@@ -106,6 +106,22 @@ public:
 	/** 짧은 가림이나 이동 회전으로 시야가 끊겨도 추격 상태를 유지하는 시간이다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
 	float TargetSightLostGracePeriod = 0.75f;
+
+	/** Security가 전방 시야로 대상을 감지할 수 있는 거리다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
+	float SecuritySightRadius = 1500.0f;
+
+	/** Security가 대상을 잃었다고 판단하기 전까지 유지하는 시야 거리다. SightRadius보다 작으면 SightRadius로 보정된다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
+	float SecurityLoseSightRadius = 1500.0f;
+
+	/** Security 전방 시야의 반각이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0", ClampMax = "180.0"))
+	float SecurityPeripheralVisionAngle = 80.0f;
+
+	/** 감지 자극을 유지하는 시간이다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
+	float SecuritySightMaxAge = 3.0f;
 
 	/** 전방 시야 밖이라도 가까운 대상은 감지할 수 있는 근접 원형 감지 반경이다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Perception", meta = (ClampMin = "0.0"))
@@ -277,6 +293,8 @@ private:
 	void OnChaseGaugeChanged(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
+	void TryStartImmediateCaptureAttempt();
+	void ApplySecuritySightConfig();
 	void UpdateTargetState();
 	void UpdateTargetFocus();
 	void UpdateAbilityState();

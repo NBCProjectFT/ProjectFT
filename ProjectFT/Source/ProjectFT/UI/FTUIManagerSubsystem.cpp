@@ -121,7 +121,7 @@ void UFTUIManagerSubsystem::ShowMainMenu()
 
 void UFTUIManagerSubsystem::HideMainMenu(bool bKeepMouseCursor)
 {
-	if (MainMenuWidget)
+	if (MainMenuWidget && MainMenuWidget->IsInViewport())
 	{
 		MainMenuWidget->RemoveFromParent();
 	}

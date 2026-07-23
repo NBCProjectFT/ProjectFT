@@ -2,14 +2,19 @@
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
+#include "Components/Slider.h"
+#include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "InputCoreTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "ProjectFT/Core/FTSaveSubsystem.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
+#include "Sound/SoundClass.h"
+#include "Sound/SoundMix.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFTMainMenu, Log, All);
 
@@ -51,6 +56,13 @@ void UFTMainMenuWidget::NativeConstruct()
 	BindButton(TEXT("WBP_QuitCancelButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleQuitCancelButtonClicked));
 	BindButton(TEXT("WBP_NewGameConfirmButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleNewGameConfirmButtonClicked));
 	BindButton(TEXT("WBP_NewGameCancelButton"), GET_FUNCTION_NAME_CHECKED(ThisClass, HandleNewGameCancelButtonClicked));
+
+	if (SLD_MasterVolume)
+	{
+		SLD_MasterVolume->OnValueChanged.RemoveAll(this);
+		SLD_MasterVolume->OnValueChanged.AddDynamic(this, &ThisClass::HandleMasterVolumeChanged);
+		UpdateMasterVolumeText(SLD_MasterVolume->GetValue());
+	}
 
 	ShowMainPanel();
 	RefreshSaveState();
@@ -129,11 +141,12 @@ void UFTMainMenuWidget::ResolvePanels()
 	CachedMainPanel = GetWidgetFromName(TEXT("MainPanel"));
 	CachedOptionsPanel = GetWidgetFromName(TEXT("OptionsPanel"));
 	CachedMainActionSwitcher = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("SW_MainMenuActionPanels")));
-	if (!CachedMainActionSwitcher)
-	{
-		CachedMainActionSwitcher = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("WidgetSwitcher_924")));
-	}
+	CachedLegacyMainActionSwitcher = Cast<UWidgetSwitcher>(GetWidgetFromName(TEXT("WidgetSwitcher_924")));
 	CachedMainActionPanel = GetWidgetFromName(TEXT("MainActionPanel"));
+	if (!CachedMainActionPanel)
+	{
+		CachedMainActionPanel = GetWidgetFromName(TEXT("Border_268"));
+	}
 	if (!CachedMainActionPanel)
 	{
 		CachedMainActionPanel = GetWidgetFromName(TEXT("Border_352"));
@@ -141,7 +154,15 @@ void UFTMainMenuWidget::ResolvePanels()
 	CachedQuitConfirmPanel = GetWidgetFromName(TEXT("QuitConfirmPanel"));
 	CachedQuitConfirmBorder = GetWidgetFromName(TEXT("QuitConfirmBorder"));
 	CachedNewGameConfirmBorder = GetWidgetFromName(TEXT("NewGameConfirmBorder"));
-	
+
+	UE_LOG(LogFTMainMenu, Log,
+		TEXT("Main menu panels resolved. MainSwitcher=%s ActionSwitcher=%s LegacyActionSwitcher=%s MainActionPanel=%s QuitConfirm=%s NewGameConfirm=%s"),
+		*GetNameSafe(CachedMainMenuSwitcher),
+		*GetNameSafe(CachedMainActionSwitcher),
+		*GetNameSafe(CachedLegacyMainActionSwitcher),
+		*GetNameSafe(CachedMainActionPanel),
+		*GetNameSafe(CachedQuitConfirmBorder),
+		*GetNameSafe(CachedNewGameConfirmBorder));
 }
 
 void UFTMainMenuWidget::ActivatePanel(UWidget* PanelToShow)
@@ -159,11 +180,17 @@ void UFTMainMenuWidget::ActivateMainActionPanel()
 
 void UFTMainMenuWidget::ActivateMainActionSwitcherPanel(UWidget* PanelToShow)
 {
-	if (CachedMainActionSwitcher && PanelToShow && CachedMainActionSwitcher->GetChildIndex(PanelToShow) != INDEX_NONE)
+	UWidgetSwitcher* MainActionSwitcher = GetMainActionSwitcher();
+	if (MainActionSwitcher && PanelToShow && MainActionSwitcher->GetChildIndex(PanelToShow) != INDEX_NONE)
 	{
 		PanelToShow->SetVisibility(ESlateVisibility::Visible);
-		CachedMainActionSwitcher->SetActiveWidget(PanelToShow);
+		MainActionSwitcher->SetActiveWidget(PanelToShow);
 	}
+}
+
+UWidgetSwitcher* UFTMainMenuWidget::GetMainActionSwitcher() const
+{
+	return CachedMainActionSwitcher ? CachedMainActionSwitcher.Get() : CachedLegacyMainActionSwitcher.Get();
 }
 
 void UFTMainMenuWidget::ShowMainPanel()
@@ -182,7 +209,7 @@ void UFTMainMenuWidget::ShowQuitConfirmPanel()
 {
 	HideNewGameConfirm();
 
-	if (CachedMainActionSwitcher && CachedQuitConfirmBorder)
+	if (GetMainActionSwitcher() && CachedQuitConfirmBorder)
 	{
 		ActivateMainActionSwitcherPanel(CachedQuitConfirmBorder);
 		return;
@@ -201,7 +228,7 @@ void UFTMainMenuWidget::ShowNewGameConfirmPanel()
 {
 	HideQuitConfirm();
 
-	if (CachedMainActionSwitcher && CachedNewGameConfirmBorder)
+	if (GetMainActionSwitcher() && CachedNewGameConfirmBorder)
 	{
 		ActivateMainActionSwitcherPanel(CachedNewGameConfirmBorder);
 		return;
@@ -215,9 +242,10 @@ void UFTMainMenuWidget::ShowNewGameConfirmPanel()
 
 void UFTMainMenuWidget::HideQuitConfirm()
 {
-	if (CachedMainActionSwitcher
+	UWidgetSwitcher* MainActionSwitcher = GetMainActionSwitcher();
+	if (MainActionSwitcher
 		&& CachedQuitConfirmBorder
-		&& CachedMainActionSwitcher->GetActiveWidget() == CachedQuitConfirmBorder)
+		&& MainActionSwitcher->GetActiveWidget() == CachedQuitConfirmBorder)
 	{
 		ActivateMainActionPanel();
 		return;
@@ -231,9 +259,10 @@ void UFTMainMenuWidget::HideQuitConfirm()
 
 void UFTMainMenuWidget::HideNewGameConfirm()
 {
-	if (CachedMainActionSwitcher
+	UWidgetSwitcher* MainActionSwitcher = GetMainActionSwitcher();
+	if (MainActionSwitcher
 		&& CachedNewGameConfirmBorder
-		&& CachedMainActionSwitcher->GetActiveWidget() == CachedNewGameConfirmBorder)
+		&& MainActionSwitcher->GetActiveWidget() == CachedNewGameConfirmBorder)
 	{
 		ActivateMainActionPanel();
 		return;
@@ -253,9 +282,9 @@ void UFTMainMenuWidget::HideAllConfirmPanels()
 
 bool UFTMainMenuWidget::IsQuitConfirmVisible() const
 {
-	if (CachedMainActionSwitcher && CachedQuitConfirmBorder)
+	if (UWidgetSwitcher* MainActionSwitcher = GetMainActionSwitcher(); MainActionSwitcher && CachedQuitConfirmBorder)
 	{
-		return CachedMainActionSwitcher->GetActiveWidget() == CachedQuitConfirmBorder;
+		return MainActionSwitcher->GetActiveWidget() == CachedQuitConfirmBorder;
 	}
 
 	return CachedQuitConfirmBorder
@@ -265,9 +294,9 @@ bool UFTMainMenuWidget::IsQuitConfirmVisible() const
 
 bool UFTMainMenuWidget::IsNewGameConfirmVisible() const
 {
-	if (CachedMainActionSwitcher && CachedNewGameConfirmBorder)
+	if (UWidgetSwitcher* MainActionSwitcher = GetMainActionSwitcher(); MainActionSwitcher && CachedNewGameConfirmBorder)
 	{
-		return CachedMainActionSwitcher->GetActiveWidget() == CachedNewGameConfirmBorder;
+		return MainActionSwitcher->GetActiveWidget() == CachedNewGameConfirmBorder;
 	}
 
 	return CachedNewGameConfirmBorder
@@ -404,4 +433,25 @@ void UFTMainMenuWidget::HandleNewGameConfirmButtonClicked()
 void UFTMainMenuWidget::HandleNewGameCancelButtonClicked()
 {
 	HideNewGameConfirm();
+}
+
+void UFTMainMenuWidget::HandleMasterVolumeChanged(float Value)
+{
+	const float Volume = FMath::Clamp(Value, 0.0f, 1.0f);
+	if (MasterSoundMix && MasterSoundClass)
+	{
+		UGameplayStatics::SetSoundMixClassOverride(this, MasterSoundMix, MasterSoundClass, Volume, 1.0f, 0.0f, true);
+		UGameplayStatics::PushSoundMixModifier(this, MasterSoundMix);
+	}
+
+	UpdateMasterVolumeText(Volume);
+}
+
+void UFTMainMenuWidget::UpdateMasterVolumeText(float Volume) const
+{
+	if (TXT_MasterVolumeValue)
+	{
+		const int32 Percent = FMath::RoundToInt(FMath::Clamp(Volume, 0.0f, 1.0f) * 100.0f);
+		TXT_MasterVolumeValue->SetText(FText::FromString(FString::Printf(TEXT("%d%%"), Percent)));
+	}
 }
