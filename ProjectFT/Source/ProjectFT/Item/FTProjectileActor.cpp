@@ -8,6 +8,7 @@
 #include "Engine/OverlapResult.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Sound/SoundBase.h"
 
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Data/FTProjectileActorDataAsset.h"
@@ -376,6 +377,9 @@ void AFTProjectileActor::HandleProjectileImpact(AActor* HitActor)
 		}
 	}
 
+	// 폭발한 경우엔 위에서 return하므로 여기 오지 않는다 — 착탄음과 폭발음이 겹치지 않는다.
+	PlayImpactSound();
+
 	if (bDestroyOnImpact)
 	{
 		Destroy();
@@ -418,6 +422,39 @@ void AFTProjectileActor::HandleProjectileImpact(AActor* HitActor)
 	}
 }
 
+void AFTProjectileActor::PlayImpactSound()
+{
+	if (!ProjectileActorData)
+	{
+		return;
+	}
+
+	const FFTProjectileActorStruct& ProjectileData = ProjectileActorData->ProjectileActorData;
+	if (!ProjectileData.ImpactSound)
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Overlap 모드에서 한 프레임에 여러 대상과 겹치면 같은 소리가 뭉쳐 터지므로 간격으로 거른다.
+	const float Now = World->GetTimeSeconds();
+	if (ProjectileData.ImpactSoundMinInterval > 0.0f
+		&& (Now - LastImpactSoundTime) < ProjectileData.ImpactSoundMinInterval)
+	{
+		return;
+	}
+	LastImpactSoundTime = Now;
+
+	// 충돌 지점(투사체 현재 위치)에서 재생하고 잊는다 — 짧은 소리라 액터에 붙일 필요가 없고,
+	// 착탄 직후 이 액터가 파괴되거나 물리 메시로 전환돼도 소리가 끊기지 않는다.
+	UGameplayStatics::PlaySoundAtLocation(this, ProjectileData.ImpactSound, GetActorLocation());
+}
+
 void AFTProjectileActor::Explode(AActor* DirectHitActor)
 {
 	if (!ProjectileActorData || bHasExploded)
@@ -428,6 +465,12 @@ void AFTProjectileActor::Explode(AActor* DirectHitActor)
 	bHasExploded = true;
 
 	ReceiveExplode(GetActorLocation());
+
+	// 폭발음은 bHasExploded 가드 덕에 저절로 1회다. 액터가 곧 파괴될 수 있으므로 붙이지 않고 위치에서 재생한다.
+	if (USoundBase* SoundToPlay = ProjectileActorData->ProjectileActorData.ExplosionSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, SoundToPlay, GetActorLocation());
+	}
 
 	UWorld* World = GetWorld();
 	if (!World)

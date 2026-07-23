@@ -48,6 +48,13 @@ protected:
 	UPROPERTY(Transient)
 	bool bHasExploded = false;
 
+	// 마지막으로 착탄음을 낸 월드 시각. ImpactSoundMinInterval 판정용
+	// (월드 시각은 0부터 시작하므로, 큰 음수로 두면 첫 충돌은 간격 검사를 항상 통과한다).
+	float LastImpactSoundTime = -1000.0f;
+
+	// 데이터의 착탄음을 현재 위치에서 재생한다. 최소 간격 안이면 건너뛴다.
+	void PlayImpactSound();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Impact")
 	float MinDamageSpeed = 1000.0f;
 

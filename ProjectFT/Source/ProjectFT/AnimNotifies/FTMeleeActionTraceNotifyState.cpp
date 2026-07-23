@@ -1,6 +1,8 @@
 #include "FTMeleeActionTraceNotifyState.h"
 
+#include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/MeshComponent.h"
 #include "DrawDebugHelpers.h"
@@ -22,6 +24,7 @@ void UFTMeleeActionTraceNotifyState::NotifyBegin(
 {
 	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
 
+	PreviousTraceFrames.Remove(MeshComp);
 	SendTraceBeginEvent(MeshComp);
 
 	// Begin 프레임에서 바로 겹쳐 있는 적을 놓치지 않기 위해 한 번 검사
@@ -46,6 +49,7 @@ void UFTMeleeActionTraceNotifyState::NotifyEnd(
 {
 	Super::NotifyEnd(MeshComp, Animation, EventReference);
 
+	PreviousTraceFrames.Remove(MeshComp);
 	SendTraceEndEvent(MeshComp);
 }
 
@@ -310,63 +314,138 @@ void UFTMeleeActionTraceNotifyState::TraceAndSendHitEvent(USkeletalMeshComponent
 
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(FTMeleeNotifyTrace), false, OwnerActor);
 	QueryParams.AddIgnoredActor(OwnerActor);
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(OwnerActor);
 
-	TArray<FOverlapResult> OverlapResults;
+	const FPreviousTraceFrame* PreviousFrame = PreviousTraceFrames.Find(MeshComp);
+	const float MaxSocketMovement = PreviousFrame
+		? FMath::Max(
+			FVector::Distance(PreviousFrame->Start, Start),
+			FVector::Distance(PreviousFrame->End, End))
+		: 0.0f;
 
-	const bool bHit = World->OverlapMultiByChannel(
-		OverlapResults,
-		Center,
-		Rotation,
-		RuntimeTraceChannel,
-		FCollisionShape::MakeCapsule(RuntimeCapsuleRadius, HalfHeight),
-		QueryParams
-	);
+	// 캡슐 반지름보다 촘촘하게 중간 위치를 채워 빠른 휘두르기에서도 판정 사이가 비지 않게 한다.
+	const float SampleSpacing = FMath::Max(RuntimeCapsuleRadius * 0.75f, 1.0f);
+	const int32 SubstepCount = PreviousFrame
+		? FMath::Clamp(FMath::CeilToInt(MaxSocketMovement / SampleSpacing), 1, 32)
+		: 1;
 
-	if (bRuntimeDrawDebug)
+	// 보간 캡슐 여러 개가 같은 액터를 찾아도 한 Tick에는 Hit 이벤트를 한 번만 보낸다.
+	TSet<AActor*> ReportedActors;
+
+	for (int32 SubstepIndex = 1; SubstepIndex <= SubstepCount; ++SubstepIndex)
 	{
-		const float DebugLifeTime = 0.08f;
-		const float DebugThickness = 1.5f;
+		const float Alpha = static_cast<float>(SubstepIndex) / static_cast<float>(SubstepCount);
+		const FVector SampleStart = PreviousFrame
+			? FMath::Lerp(PreviousFrame->Start, Start, Alpha)
+			: Start;
+		const FVector SampleEnd = PreviousFrame
+			? FMath::Lerp(PreviousFrame->End, End, Alpha)
+			: End;
+		const FVector SampleAxis = SampleEnd - SampleStart;
+		const float SampleAxisLength = SampleAxis.Size();
 
-		DrawDebugCapsule(
-			World,
-			Center,
-			HalfHeight,
-			RuntimeCapsuleRadius,
-			Rotation,
-			FColor::Red,
-			false,
-			DebugLifeTime,
-			0,
-			DebugThickness
-		);
-	}
-
-	if (!bHit)
-	{
-		return;
-	}
-
-	for (const FOverlapResult& OverlapResult : OverlapResults)
-	{
-		AActor* HitActor = OverlapResult.GetActor();
-
-		if (!HitActor || HitActor == OwnerActor)
+		if (SampleAxisLength <= KINDA_SMALL_NUMBER)
 		{
 			continue;
 		}
 
-		FGameplayEventData EventData;
-		EventData.EventTag = TAG_FT_Event_Melee_Hit;
-		EventData.Instigator = OwnerActor;
-		EventData.Target = HitActor;
-		EventData.OptionalObject = TraceMesh;
-		EventData.TargetData =
-			UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(HitActor);
+		const FVector SampleCenter = (SampleStart + SampleEnd) * 0.5f;
+		const float SampleHalfHeight = FMath::Max(SampleAxisLength * 0.5f, RuntimeCapsuleRadius);
+		const FQuat SampleRotation = FRotationMatrix::MakeFromZ(SampleAxis / SampleAxisLength).ToQuat();
 
-		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
-			OwnerActor,
-			TAG_FT_Event_Melee_Hit,
-			EventData
-		);
+		TArray<FOverlapResult> OverlapResults;
+		const bool bHit = World->OverlapMultiByChannel(
+			OverlapResults,
+			SampleCenter,
+			SampleRotation,
+			RuntimeTraceChannel,
+			FCollisionShape::MakeCapsule(RuntimeCapsuleRadius, SampleHalfHeight),
+			QueryParams);
+
+		if (bRuntimeDrawDebug)
+		{
+			DrawDebugCapsule(
+				World,
+				SampleCenter,
+				SampleHalfHeight,
+				RuntimeCapsuleRadius,
+				SampleRotation,
+				FColor::Red,
+				false,
+				0.08f,
+				0,
+				1.5f);
+		}
+
+		if (!bHit)
+		{
+			continue;
+		}
+
+		for (const FOverlapResult& OverlapResult : OverlapResults)
+		{
+			AActor* HitActor = OverlapResult.GetActor();
+
+			if (!HitActor || HitActor == OwnerActor || ReportedActors.Contains(HitActor))
+			{
+				continue;
+			}
+
+			ReportedActors.Add(HitActor);
+
+			UPrimitiveComponent* HitComponent = OverlapResult.GetComponent();
+			const FVector TargetCenter = HitComponent
+				? HitComponent->Bounds.Origin
+				: HitActor->GetActorLocation();
+			const FVector WeaponProbe = FMath::ClosestPointOnSegment(
+				TargetCenter,
+				SampleStart,
+				SampleEnd);
+
+			FVector ImpactPoint = TargetCenter;
+			if (HitComponent && HitComponent->GetClosestPointOnCollision(WeaponProbe, ImpactPoint) < 0.0f)
+			{
+				ImpactPoint = HitComponent->Bounds.GetBox().GetClosestPointTo(WeaponProbe);
+			}
+
+			FVector ImpactNormal = (WeaponProbe - ImpactPoint).GetSafeNormal();
+			if (ImpactNormal.IsNearlyZero())
+			{
+				ImpactNormal = (WeaponProbe - TargetCenter).GetSafeNormal();
+			}
+
+			FHitResult HitResult(HitActor, HitComponent, ImpactPoint, ImpactNormal);
+			HitResult.bBlockingHit = true;
+			HitResult.TraceStart = SampleStart;
+			HitResult.TraceEnd = SampleEnd;
+			HitResult.Location = ImpactPoint;
+			HitResult.ImpactPoint = ImpactPoint;
+			HitResult.Normal = ImpactNormal;
+			HitResult.ImpactNormal = ImpactNormal;
+
+			FGameplayEventData EventData;
+			EventData.EventTag = TAG_FT_Event_Melee_Hit;
+			EventData.Instigator = OwnerActor;
+			EventData.Target = HitActor;
+			EventData.OptionalObject = TraceMesh;
+			EventData.TargetData =
+				UAbilitySystemBlueprintLibrary::AbilityTargetDataFromHitResult(HitResult);
+
+			if (SourceASC)
+			{
+				EventData.ContextHandle = SourceASC->MakeEffectContext();
+				EventData.ContextHandle.AddHitResult(HitResult, true);
+			}
+
+			UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
+				OwnerActor,
+				TAG_FT_Event_Melee_Hit,
+				EventData);
+		}
 	}
+
+	FPreviousTraceFrame& CurrentFrame = PreviousTraceFrames.FindOrAdd(MeshComp);
+	CurrentFrame.Start = Start;
+	CurrentFrame.End = End;
 }

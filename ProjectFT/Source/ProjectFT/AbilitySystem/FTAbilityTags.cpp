@@ -38,7 +38,12 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_FT_State_Debuff_Bubble, "State.Debuff.Bubble");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Hit, "GameplayCue.Taser.Hit");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Taser_Start, "GameplayCue.Taser.Start");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Stun, "GameplayCue.State.Stun");
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Slow, "GameplayCue.State.Slow");
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_State_Bubble, "GameplayCue.State.Bubble");
+
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Melee_Hit, "GameplayCue.Melee.Hit");
+
+UE_DEFINE_GAMEPLAY_TAG(TAG_FT_GameplayCue_Use_Heal, "GameplayCue.Use.Heal");
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_FT_Event_ThrowItem, "Event.ThrowItem");
 
