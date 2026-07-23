@@ -69,6 +69,15 @@ protected:
 	bool bDrawDebug = true;
 
 private:
+	struct FPreviousTraceFrame
+	{
+		FVector Start = FVector::ZeroVector;
+		FVector End = FVector::ZeroVector;
+	};
+
+	// AnimNotifyState는 공유되므로 재생 중인 메시마다 이전 프레임 위치를 따로 보관한다.
+	mutable TMap<TWeakObjectPtr<USkeletalMeshComponent>, FPreviousTraceFrame> PreviousTraceFrames;
+
 	// 현재 캐릭터가 들고 있는 아이템에서 MeleeActionData를 가져온다.
 	const FFTMeleeActionStruct* ResolveMeleeActionData(
 		const USkeletalMeshComponent* MeshComp
