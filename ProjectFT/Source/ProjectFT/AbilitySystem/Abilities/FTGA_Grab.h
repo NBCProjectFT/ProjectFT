@@ -10,7 +10,10 @@
 
 class UGameplayEffect;
 class UAbilitySystemComponent;
-class UAnimSequenceBase;
+class UAnimMontage;
+class UCharacterMovementComponent;
+class UPrimitiveComponent;
+class USphereComponent;
 class USceneComponent;
 class UFTCaptureEscapeComponent;
 class AAIController;
@@ -36,10 +39,13 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
+	void OpenGrabCaptureWindow();
+	void CloseGrabCaptureWindow();
+
 protected:
-	// 확정 캐치 사거리(cm). 발동 시 대상이 이 안에 있으면 무조건 잡는다.
+	// StateTree/AIController가 이미 잡기 시도 가능 거리를 판단한다. 이 값은 잘못된 외부 호출을 막는 안전 거리다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab", meta = (ClampMin = "0.0"))
-	float GrabRange = 200.0f;
+	float GrabRange = 300.0f;
 
 	// [붙잡는 자세] 대상을 붙일 경비 메시의 소켓(본 이름도 가능). 잡기 종류마다 다른 자세를 쓸 수 있게 어빌리티가 소유한다
 	// — 예) GA_Grab은 앞에 끌기 소켓, GA_GrabStrong은 어깨에 메기 소켓.
@@ -97,7 +103,7 @@ protected:
 	// 탈출 성공 시 자신에게 적용할 스턴 GE(SetByCaller Data.StunDuration). 기본 UFTGE_Stun.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
 	TSubclassOf<UGameplayEffect> StunEffectClass;
-
+	
 	// [붙잡힌 순간 1회] 초기 피해와 함께 적용할 '공격 표식' GE(에셋 태그 Effect.Hostile). 기본 UFTGE_Hostile.
 	// 대상은 이 표식을 보고 피격 연출(피격음)과 어그로 신호 Event.Character.Attacked를 낸다.
 	// 지속 피해 틱에는 일부러 붙이지 않는다 — 붙이면 틱마다 "공격당함"이 재발행돼 잡혀있는 내내 피격음이 울린다.
@@ -105,15 +111,35 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab")
 	TSubclassOf<UGameplayEffect> HostileMarkerEffectClass;
 
-	// 잡기가 확정된 순간 재생할 애니메이션. Ability 수명은 이 애니메이션 종료와 묶지 않는다.
+	// 잡기 시도 몽타주. NotifyState로 캡처 가능 구간을 연다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation")
-	TObjectPtr<UAnimSequenceBase> GrabAnimation = nullptr;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation")
-	FName GrabAnimationSlotName = TEXT("DefaultSlot");
+	TObjectPtr<UAnimMontage> GrabMontage = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Animation", meta = (ClampMin = "0.0"))
-	float GrabAnimationPlayRate = 1.0f;
+	float GrabMontagePlayRate = 1.0f;
+
+	// Socket_Capture 위치 기준 성공 판정 반경(cm). 이 구 안에 PendingTarget Pawn이 있을 때만 bTargetCaptured 상태로 넘어간다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Confirm", meta = (ClampMin = "0.0"))
+	float GrabConfirmRadius = 90.0f;
+
+	// Montage/AnimSequence에 Notify가 빠져 있을 때 Ability가 영원히 남지 않게 하는 안전 여유 시간(초).
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Confirm", meta = (ClampMin = "0.0"))
+	float GrabAttemptTimeoutPadding = 0.25f;
+
+	// Socket_Capture 판정 Sphere를 게임 화면에 표시한다. GA_Grab Blueprint에서 켜고 끌 수 있다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Debug")
+	bool bDrawGrabCaptureDebugSphere = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Debug", meta = (ClampMin = "0.0"))
+	float GrabCaptureDebugSphereLifeTime = 0.15f;
+
+	// Grab 중에는 수동 위치 보정 대신 CharacterMovement를 유지하되 평소보다 느리게 움직인다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Movement", meta = (ClampMin = "0.0"))
+	float GrabMovementSpeedScale = 0.8f;
+
+	// Grab 중 급격한 방향 전환을 막기 위해 CharacterMovement RotationRate를 낮춘다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|Grab|Movement", meta = (ClampMin = "0.0"))
+	float GrabRotationRateScale = 0.35f;
 
 private:
 	// 대상이 탈출 게이지를 다 채움 → 성공.
@@ -123,6 +149,15 @@ private:
 	// 이송 MoveTo 완료. 목적지 도달(Success)이면 실패로 판정.
 	UFUNCTION()
 	void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
+
+	UFUNCTION()
+	void OnGrabCaptureSphereBeginOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult);
 
 	// 목적지/컨트롤러가 없을 때의 안전 타이머 → 실패.
 	void OnFallbackTimeout();
@@ -145,21 +180,49 @@ private:
 	// 대상을 붙일 지점을 정한다. CaptureAttachSocketName이 경비 스켈레톤에 있으면 (메시, 소켓명),
 	// 없거나 비어 있으면 (CapturePoint, NAME_None)을 돌려준다 — 어느 쪽이든 부착 지점은 non-null이다.
 	USceneComponent* ResolveCaptureAttachPoint(AFTSecurityCharacter* Security, FName& OutAttachSocketName) const;
-	void PlayGrabAnimation() const;
+	float PlayGrabMontage() const;
+	void OnGrabAttemptTimedOut();
+	void BeginConfirmedCapture();
+	void CreateGrabCaptureSphere();
+	void DestroyGrabCaptureSphere();
+	void SetGrabCaptureSphereEnabled(bool bEnabled);
+	void TryConfirmCaptureFromActor(AActor* OtherActor);
+	void DrawGrabCaptureDebugSphere() const;
+	void FaceTargetForGrab(APawn* AvatarPawn, const AActor* TargetActor) const;
+	void ApplyGrabMovementTuning(APawn* AvatarPawn);
+	void RestoreGrabMovementTuning();
+	void StartCaptureTransfer();
+	void ResetGrabAttemptState();
 
 	AFTCaptureDestination* FindNearestCaptureDestination(const FVector& From) const;
 
+	TWeakObjectPtr<AActor> PendingTarget;
+	TWeakObjectPtr<UFTCaptureEscapeComponent> PendingEscapeComp;
+	TWeakObjectPtr<AFTSecurityCharacter> PendingSecurity;
+	TWeakObjectPtr<USceneComponent> PendingAttachPoint;
+	FName PendingAttachSocketName = NAME_None;
 	TWeakObjectPtr<AActor> CapturedTarget;
 	TWeakObjectPtr<UFTCaptureEscapeComponent> TargetEscapeComp;
 	TWeakObjectPtr<UAbilitySystemComponent> TargetASC;
 	TWeakObjectPtr<AAIController> CachedAIController;
+	UPROPERTY(Transient)
+	TObjectPtr<USphereComponent> GrabCaptureSphereComponent = nullptr;
 	FTimerHandle FallbackTimerHandle;
 	FTimerHandle CaptureDamageTimerHandle;
+	FTimerHandle GrabAttemptTimeoutTimerHandle;
 	// 지속 피해를 실제 경과시간으로 적용하기 위한 직전 틱의 월드 시간(타이머 간격이 밀려도 총량이 보존된다).
 	float LastCaptureDamageTickTime = 0.0f;
+	FAIRequestID CaptureTransferMoveRequestID = FAIRequestID::InvalidRequest;
+	TWeakObjectPtr<UCharacterMovementComponent> TunedMovementComponent;
+	float SavedMaxWalkSpeed = 0.0f;
+	FRotator SavedRotationRate = FRotator::ZeroRotator;
 	FDelegateHandle OwnerImmobilizedTagChangedHandle;
 	bool bResolved = false;
 	bool bBoundMoveCompleted = false;
+	bool bWaitingForCaptureTransferMove = false;
+	bool bGrabCaptureWindowOpen = false;
+	bool bGrabCaptureConfirmed = false;
 	bool bCapturedMessageBroadcast = false;
 	bool bEscapedMessageBroadcast = false;
+	bool bGrabMovementTuningApplied = false;
 };

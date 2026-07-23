@@ -35,6 +35,12 @@ protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "FT|Raid Result")
+	void OnEscapedRaidResult();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "FT|Raid Result")
+	void OnFailedRaidResult();
+
 	// WBP_EscapedRaid 안의 정산 텍스트 이름을 SettlementText로 맞추면 자동 바인딩된다.
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "FT|Raid Result")
 	TObjectPtr<UTextBlock> SettlementText = nullptr;

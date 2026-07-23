@@ -22,12 +22,16 @@ namespace
 
 EStateTreeRunStatus FFTStateTreeTask_SendGameplayEvent::EnterState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const
 {
-	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 
 	if (!InstanceData.EventOwner || !InstanceData.EventTag.IsValid())
 	{
 		return EStateTreeRunStatus::Failed;
 	}
+
+	InstanceData.RemainingPostRunningDelaySeconds = 0.0f;
+	InstanceData.bObservedRunningTag = false;
+	InstanceData.bPostRunningDelayStarted = false;
 
 	// EventOwner의 ASC로 GameplayEvent 발송(페이로드 Target = 잡을 대상). 어빌리티의 GameplayEvent 트리거가 발동한다.
 	FGameplayEventData Payload;
@@ -43,17 +47,41 @@ EStateTreeRunStatus FFTStateTreeTask_SendGameplayEvent::EnterState(FStateTreeExe
 	}
 
 	// 발동된 어빌리티가 진행 태그(예: State.Grabbing)를 부여했으면, 그 태그가 사라질 때까지 상태 유지.
-	return ActorHasGameplayTag(InstanceData.EventOwner, InstanceData.RunningWhileTag)
-		? EStateTreeRunStatus::Running
-		: EStateTreeRunStatus::Succeeded;
+	const bool bHasRunningTag = ActorHasGameplayTag(InstanceData.EventOwner, InstanceData.RunningWhileTag);
+	InstanceData.bObservedRunningTag = bHasRunningTag;
+	return bHasRunningTag ? EStateTreeRunStatus::Running : EStateTreeRunStatus::Succeeded;
 }
 
 EStateTreeRunStatus FFTStateTreeTask_SendGameplayEvent::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
-	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 
 	// 진행 태그가 사라지면(어빌리티 종료) 완료. (감시 태그가 없으면 EnterState에서 이미 Succeeded로 끝남.)
-	return ActorHasGameplayTag(InstanceData.EventOwner, InstanceData.RunningWhileTag)
-		? EStateTreeRunStatus::Running
-		: EStateTreeRunStatus::Succeeded;
+	if (ActorHasGameplayTag(InstanceData.EventOwner, InstanceData.RunningWhileTag))
+	{
+		InstanceData.bObservedRunningTag = true;
+		InstanceData.bPostRunningDelayStarted = false;
+		InstanceData.RemainingPostRunningDelaySeconds = 0.0f;
+		return EStateTreeRunStatus::Running;
+	}
+
+	const float EffectivePostRunningDelaySeconds = InstanceData.EventTag.MatchesTagExact(TAG_FT_Event_Grab)
+		? InstanceData.PostRunningDelaySeconds
+		: 0.0f;
+	if (InstanceData.bObservedRunningTag && EffectivePostRunningDelaySeconds > 0.0f)
+	{
+		if (!InstanceData.bPostRunningDelayStarted)
+		{
+			InstanceData.bPostRunningDelayStarted = true;
+			InstanceData.RemainingPostRunningDelaySeconds = EffectivePostRunningDelaySeconds;
+		}
+
+		InstanceData.RemainingPostRunningDelaySeconds -= DeltaTime;
+		if (InstanceData.RemainingPostRunningDelaySeconds > 0.0f)
+		{
+			return EStateTreeRunStatus::Running;
+		}
+	}
+
+	return EStateTreeRunStatus::Succeeded;
 }

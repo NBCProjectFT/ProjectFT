@@ -31,6 +31,20 @@ struct FFTSendGameplayEventTaskInstanceData
 	// 비우면 이벤트만 보내고 즉시 Succeeded. 기본은 잡기 진행 태그(State.Grabbing).
 	UPROPERTY(EditAnywhere, Category = "Parameter")
 	FGameplayTag RunningWhileTag = TAG_FT_State_Grabbing;
+
+	// RunningWhileTag가 한 번 붙었다가 사라진 뒤에도 이 시간만큼 Running을 유지한다.
+	// Grab 이후 StateTree가 즉시 다시 Grab 판단으로 돌아가는 것을 막기 위한 StateTree 쪽 유예 시간이다.
+	UPROPERTY(EditAnywhere, Category = "Parameter", meta = (ClampMin = "0.0"))
+	float PostRunningDelaySeconds = 3.0f;
+
+	UPROPERTY(Transient)
+	float RemainingPostRunningDelaySeconds = 0.0f;
+
+	UPROPERTY(Transient)
+	bool bObservedRunningTag = false;
+
+	UPROPERTY(Transient)
+	bool bPostRunningDelayStarted = false;
 };
 
 /**

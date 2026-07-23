@@ -6,10 +6,15 @@
 #include "AbilitySystemComponent.h"
 #include "AIController.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/SphereComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
@@ -22,6 +27,7 @@
 #include "ProjectFT/Core/FTLogChannels.h"
 #include "ProjectFT/Message/FTGameplayTags.h"
 #include "ProjectFT/Security/FTCaptureDestination.h"
+#include "ProjectFT/Security/FTSecurityAIController.h"
 #include "ProjectFT/Security/FTSecurityCharacter.h"
 #include "ProjectFT/Struct/FTMessagePayloadStruct.h"
 #include "ProjectFT/Struct/FTNPCReportPayloadStruct.h"
@@ -46,15 +52,7 @@ UFTGA_Grab::UFTGA_Grab()
 void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	// 인스턴스 재사용(InstancedPerActor) 대비 상태 리셋.
-	bResolved = false;
-	bBoundMoveCompleted = false;
-	bCapturedMessageBroadcast = false;
-	bEscapedMessageBroadcast = false;
-	CapturedTarget = nullptr;
-	TargetEscapeComp = nullptr;
-	TargetASC = nullptr;
-	CachedAIController = nullptr;
-	LastCaptureDamageTickTime = 0.0f;
+	ResetGrabAttemptState();
 
 	AActor* Avatar = GetAvatarActorFromActorInfo();
 	APawn* AvatarPawn = Cast<APawn>(Avatar);
@@ -72,18 +70,22 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	}
 
 	UFTCaptureEscapeComponent* EscapeComp = Target ? Target->FindComponentByClass<UFTCaptureEscapeComponent>() : nullptr;
+	const float DistanceToTarget = Target ? FVector::Dist(Avatar->GetActorLocation(), Target->GetActorLocation()) : TNumericLimits<float>::Max();
 
-	// 확정 캐치 사거리 + 대상/컴포넌트 유효성 확인. 못 잡으면 취소 종료.
+	// StateTree/AIController가 시도 거리를 판단하고, 어빌리티는 잘못된 외부 호출만 안전 거리로 거른다.
 	if (!Target || !EscapeComp || EscapeComp->IsCaptured()
-		|| FVector::Dist(Avatar->GetActorLocation(), Target->GetActorLocation()) > GrabRange)
+		|| DistanceToTarget > GrabRange)
 	{
 		UE_LOG(
 			LogFTSecurity,
-			Verbose,
-			TEXT("Grab rejected: Security=%s Target=%s Captured=%s"),
+			Log,
+			TEXT("Grab rejected: Security=%s Target=%s Captured=%s Distance=%.1f SafetyRange=%.1f EscapeComp=%s"),
 			*GetNameSafe(Avatar),
 			*GetNameSafe(Target),
-			EscapeComp && EscapeComp->IsCaptured() ? TEXT("true") : TEXT("false")
+			EscapeComp && EscapeComp->IsCaptured() ? TEXT("true") : TEXT("false"),
+			DistanceToTarget,
+			GrabRange,
+			EscapeComp ? TEXT("valid") : TEXT("null")
 		);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
@@ -100,26 +102,316 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	FName AttachSocketName = NAME_None;
 	USceneComponent* AttachPoint = ResolveCaptureAttachPoint(Security, AttachSocketName);
 
-	// 잡기 대칭 배타(B): 붙잡기 직전, 대상에게 걸린 자가 행동불능(비눗방울/스턴 등 State.Debuff.Immobilized를 부여한 GE)을 제거한다.
-	// → 잡히면 기존 자가CC가 즉시 풀리고(공존 없음), 이후 재적용은 State.Captured가 막는다(A: 트랩 GE의 적용 조건).
-	// 반드시 TryBeginCapture(이동 DisableMovement)보다 먼저 실행 — 자가CC 해제로 베이스가 MOVE_Walking으로 복원해도 캡처가 곧바로 다시 정지시킨다.
-	// 대상 ASC는 여기서 한 번만 찾아 캐시한다(자가CC 해제 · 지속 피해 틱의 사망 판정에 재사용).
+	if (!AttachPoint || !CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Log,
+			TEXT("Grab rejected: Commit failed or attach point missing. Security=%s Target=%s AttachPoint=%s"),
+			*GetNameSafe(Avatar),
+			*GetNameSafe(Target),
+			*GetNameSafe(AttachPoint));
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (AFTSecurityAIController* SecurityAIController = Cast<AFTSecurityAIController>(AvatarPawn->GetController()))
+	{
+		SecurityAIController->StartCaptureAttempt();
+	}
+
+	PendingTarget = Target;
+	PendingEscapeComp = EscapeComp;
+	PendingSecurity = Security;
+	PendingAttachPoint = AttachPoint;
+	PendingAttachSocketName = AttachSocketName;
+	CreateGrabCaptureSphere();
+	FaceTargetForGrab(AvatarPawn, Target);
+	ApplyGrabMovementTuning(AvatarPawn);
+
+	const float GrabMontageDuration = PlayGrabMontage();
+	if (GrabMontageDuration <= 0.0f)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			GrabAttemptTimeoutTimerHandle,
+			this,
+			&UFTGA_Grab::OnGrabAttemptTimedOut,
+			GrabMontageDuration + GrabAttemptTimeoutPadding,
+			false);
+	}
+	else
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+	}
+}
+
+void UFTGA_Grab::OpenGrabCaptureWindow()
+{
+	if (bResolved || bGrabCaptureConfirmed)
+	{
+		return;
+	}
+
+	bGrabCaptureWindowOpen = true;
+	SetGrabCaptureSphereEnabled(true);
+	DrawGrabCaptureDebugSphere();
+
+	if (!bGrabCaptureConfirmed)
+	{
+		if (IsValid(GrabCaptureSphereComponent))
+		{
+			TArray<AActor*> OverlappingActors;
+			GrabCaptureSphereComponent->GetOverlappingActors(OverlappingActors, APawn::StaticClass());
+			for (AActor* OverlappingActor : OverlappingActors)
+			{
+				TryConfirmCaptureFromActor(OverlappingActor);
+				if (bGrabCaptureConfirmed)
+				{
+					break;
+				}
+			}
+		}
+	}
+}
+
+void UFTGA_Grab::CloseGrabCaptureWindow()
+{
+	if (!bGrabCaptureWindowOpen || bResolved || bGrabCaptureConfirmed)
+	{
+		return;
+	}
+
+	bGrabCaptureWindowOpen = false;
+	SetGrabCaptureSphereEnabled(false);
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Grab missed: capture window closed. Security=%s Target=%s Radius=%.1f"),
+		*GetNameSafe(GetAvatarActorFromActorInfo()),
+		*GetNameSafe(PendingTarget.Get()),
+		GrabConfirmRadius);
+
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+}
+
+void UFTGA_Grab::OnGrabCaptureSphereBeginOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult)
+{
+	TryConfirmCaptureFromActor(OtherActor);
+}
+
+void UFTGA_Grab::OnGrabAttemptTimedOut()
+{
+	if (bResolved || bGrabCaptureConfirmed)
+	{
+		return;
+	}
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Grab missed: capture notify window did not confirm. Security=%s Target=%s"),
+		*GetNameSafe(GetAvatarActorFromActorInfo()),
+		*GetNameSafe(PendingTarget.Get()));
+
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+}
+
+void UFTGA_Grab::CreateGrabCaptureSphere()
+{
+	AFTSecurityCharacter* Security = PendingSecurity.Get();
+	USkeletalMeshComponent* SecurityMesh = Security ? Security->GetMesh() : nullptr;
+	if (!Security || !SecurityMesh || PendingAttachSocketName.IsNone() || !SecurityMesh->DoesSocketExist(PendingAttachSocketName))
+	{
+		return;
+	}
+
+	DestroyGrabCaptureSphere();
+
+	GrabCaptureSphereComponent = NewObject<USphereComponent>(Security, TEXT("GrabCaptureSphere"));
+	if (!GrabCaptureSphereComponent)
+	{
+		return;
+	}
+
+	GrabCaptureSphereComponent->SetSphereRadius(GrabConfirmRadius);
+	GrabCaptureSphereComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GrabCaptureSphereComponent->SetCollisionObjectType(ECC_WorldDynamic);
+	GrabCaptureSphereComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	GrabCaptureSphereComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	GrabCaptureSphereComponent->SetGenerateOverlapEvents(true);
+	GrabCaptureSphereComponent->SetHiddenInGame(!bDrawGrabCaptureDebugSphere);
+	GrabCaptureSphereComponent->SetVisibility(bDrawGrabCaptureDebugSphere);
+	GrabCaptureSphereComponent->ShapeColor = FColor::Green;
+	GrabCaptureSphereComponent->AttachToComponent(
+		SecurityMesh,
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		PendingAttachSocketName);
+	GrabCaptureSphereComponent->OnComponentBeginOverlap.AddDynamic(this, &UFTGA_Grab::OnGrabCaptureSphereBeginOverlap);
+	GrabCaptureSphereComponent->RegisterComponent();
+}
+
+void UFTGA_Grab::DestroyGrabCaptureSphere()
+{
+	USphereComponent* CaptureSphere = GrabCaptureSphereComponent;
+	if (!IsValid(CaptureSphere))
+	{
+		GrabCaptureSphereComponent = nullptr;
+		return;
+	}
+
+	CaptureSphere->OnComponentBeginOverlap.RemoveDynamic(this, &UFTGA_Grab::OnGrabCaptureSphereBeginOverlap);
+	CaptureSphere->DestroyComponent();
+	GrabCaptureSphereComponent = nullptr;
+}
+
+void UFTGA_Grab::SetGrabCaptureSphereEnabled(bool bEnabled)
+{
+	USphereComponent* CaptureSphere = GrabCaptureSphereComponent;
+	if (!IsValid(CaptureSphere))
+	{
+		GrabCaptureSphereComponent = nullptr;
+		return;
+	}
+
+	CaptureSphere->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+	CaptureSphere->SetHiddenInGame(!bDrawGrabCaptureDebugSphere);
+	CaptureSphere->SetVisibility(bDrawGrabCaptureDebugSphere);
+
+	if (bEnabled)
+	{
+		CaptureSphere->UpdateOverlaps();
+	}
+}
+
+void UFTGA_Grab::TryConfirmCaptureFromActor(AActor* OtherActor)
+{
+	if (!bGrabCaptureWindowOpen || bResolved || bGrabCaptureConfirmed)
+	{
+		return;
+	}
+
+	AActor* Target = PendingTarget.Get();
+	if (!OtherActor || OtherActor != Target)
+	{
+		return;
+	}
+
+	if (!PendingEscapeComp.IsValid())
+	{
+		return;
+	}
+
+	bGrabCaptureConfirmed = true;
+	bGrabCaptureWindowOpen = false;
+	SetGrabCaptureSphereEnabled(false);
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(GrabAttemptTimeoutTimerHandle);
+	}
+
+	UE_LOG(
+		LogFTSecurity,
+		Log,
+		TEXT("Grab confirmed by capture sphere overlap. Security=%s Target=%s Radius=%.1f"),
+		*GetNameSafe(GetAvatarActorFromActorInfo()),
+		*GetNameSafe(Target),
+		GrabConfirmRadius);
+
+	BeginConfirmedCapture();
+}
+
+void UFTGA_Grab::DrawGrabCaptureDebugSphere() const
+{
+	if (!bDrawGrabCaptureDebugSphere || !IsValid(GrabCaptureSphereComponent))
+	{
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		DrawDebugSphere(
+			World,
+			GrabCaptureSphereComponent->GetComponentLocation(),
+			GrabConfirmRadius,
+			24,
+			FColor::Green,
+			false,
+			GrabCaptureDebugSphereLifeTime,
+			0,
+			2.0f);
+	}
+}
+
+void UFTGA_Grab::FaceTargetForGrab(APawn* AvatarPawn, const AActor* TargetActor) const
+{
+	if (!AvatarPawn || !TargetActor)
+	{
+		return;
+	}
+
+	FVector DirectionToTarget = TargetActor->GetActorLocation() - AvatarPawn->GetActorLocation();
+	DirectionToTarget.Z = 0.0f;
+	if (!DirectionToTarget.Normalize())
+	{
+		return;
+	}
+
+	const FRotator TargetYawRotation(0.0f, DirectionToTarget.Rotation().Yaw, 0.0f);
+	AvatarPawn->SetActorRotation(TargetYawRotation);
+
+	if (AController* Controller = AvatarPawn->GetController())
+	{
+		Controller->SetControlRotation(TargetYawRotation);
+	}
+
+	if (AAIController* AIController = Cast<AAIController>(AvatarPawn->GetController()))
+	{
+		AIController->SetFocus(const_cast<AActor*>(TargetActor), EAIFocusPriority::Gameplay);
+	}
+}
+
+void UFTGA_Grab::BeginConfirmedCapture()
+{
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	AFTSecurityCharacter* Security = PendingSecurity.Get();
+	AActor* Target = PendingTarget.Get();
+	UFTCaptureEscapeComponent* EscapeComp = PendingEscapeComp.Get();
+	USceneComponent* AttachPoint = PendingAttachPoint.Get();
+	if (!Avatar || !Security || !Target || !EscapeComp || !AttachPoint || EscapeComp->IsCaptured())
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
+	// 잡기 대칭 배타(B): 확정된 잡기 직전 대상에게 걸린 자가 행동불능을 제거한다.
 	TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
 	if (UAbilitySystemComponent* TargetAbilitySystem = TargetASC.Get())
 	{
 		TargetAbilitySystem->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TAG_FT_State_Debuff_Immobilized));
 	}
 
-	if (!CommitAbility(Handle, ActorInfo, ActivationInfo)
-		|| !EscapeComp->TryBeginCapture(Avatar, AttachPoint, AttachSocketName, EscapeThreshold, EscapeDecayPerSecond))
+	if (!EscapeComp->TryBeginCapture(Avatar, AttachPoint, PendingAttachSocketName, EscapeThreshold, EscapeDecayPerSecond))
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
 
 	CapturedTarget = Target;
 	TargetEscapeComp = EscapeComp;
-	PlayGrabAnimation();
 
 	// 탈출 성공 통지 바인딩 후 붙잡기 시작.
 	EscapeComp->OnEscaped.AddDynamic(this, &UFTGA_Grab::OnTargetEscaped);
@@ -145,6 +437,69 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	}
 	UE_LOG(LogFTSecurity, Log, TEXT("Security '%s' captured target '%s'"), *GetNameSafe(Avatar), *GetNameSafe(Target));
 
+	StartCaptureTransfer();
+}
+
+void UFTGA_Grab::ApplyGrabMovementTuning(APawn* AvatarPawn)
+{
+	if (bGrabMovementTuningApplied || !AvatarPawn)
+	{
+		return;
+	}
+
+	ACharacter* Character = Cast<ACharacter>(AvatarPawn);
+	UCharacterMovementComponent* Movement = Character ? Character->GetCharacterMovement() : nullptr;
+	if (!Movement)
+	{
+		return;
+	}
+
+	TunedMovementComponent = Movement;
+	SavedMaxWalkSpeed = Movement->MaxWalkSpeed;
+	SavedRotationRate = Movement->RotationRate;
+
+	const float SafeSpeedScale = FMath::Max(0.0f, GrabMovementSpeedScale);
+	const float SafeRotationScale = FMath::Max(0.0f, GrabRotationRateScale);
+	Movement->MaxWalkSpeed = SavedMaxWalkSpeed * SafeSpeedScale;
+	Movement->RotationRate = SavedRotationRate * SafeRotationScale;
+
+	bGrabMovementTuningApplied = true;
+}
+
+void UFTGA_Grab::RestoreGrabMovementTuning()
+{
+	if (!bGrabMovementTuningApplied)
+	{
+		return;
+	}
+
+	if (UCharacterMovementComponent* Movement = TunedMovementComponent.Get())
+	{
+		Movement->MaxWalkSpeed = SavedMaxWalkSpeed;
+		Movement->RotationRate = SavedRotationRate;
+	}
+
+	TunedMovementComponent = nullptr;
+	SavedMaxWalkSpeed = 0.0f;
+	SavedRotationRate = FRotator::ZeroRotator;
+	bGrabMovementTuningApplied = false;
+}
+
+void UFTGA_Grab::StartCaptureTransfer()
+{
+	if (bResolved || !CapturedTarget.IsValid())
+	{
+		return;
+	}
+
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	APawn* AvatarPawn = Cast<APawn>(Avatar);
+	if (!Avatar || !AvatarPawn)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
 	// 이송: 가장 가까운 목적지로 MoveTo, 도달 시 실패. 없으면/컨트롤러 없으면 안전 타이머로 실패.
 	AFTCaptureDestination* Destination = FindNearestCaptureDestination(Avatar->GetActorLocation());
 	AAIController* AICon = Cast<AAIController>(AvatarPawn->GetController());
@@ -154,7 +509,53 @@ void UFTGA_Grab::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	{
 		bBoundMoveCompleted = true;
 		AICon->ReceiveMoveCompleted.AddDynamic(this, &UFTGA_Grab::OnMoveCompleted);
-		AICon->MoveToActor(Destination, Destination->AcceptanceRadius);
+		const EPathFollowingRequestResult::Type MoveResult = AICon->MoveToActor(Destination, Destination->AcceptanceRadius);
+		if (MoveResult == EPathFollowingRequestResult::RequestSuccessful)
+		{
+			CaptureTransferMoveRequestID = AICon->GetPathFollowingComponent()
+				? AICon->GetPathFollowingComponent()->GetCurrentRequestId()
+				: FAIRequestID::InvalidRequest;
+			bWaitingForCaptureTransferMove = true;
+
+			UE_LOG(
+				LogFTSecurity,
+				Log,
+				TEXT("Grab transfer started. Security=%s Target=%s Destination=%s RequestID=%u Distance=%.1f AcceptanceRadius=%.1f"),
+				*GetNameSafe(Avatar),
+				*GetNameSafe(CapturedTarget.Get()),
+				*GetNameSafe(Destination),
+				CaptureTransferMoveRequestID.GetID(),
+				FVector::Dist(Avatar->GetActorLocation(), Destination->GetActorLocation()),
+				Destination->AcceptanceRadius);
+		}
+		else if (MoveResult == EPathFollowingRequestResult::AlreadyAtGoal)
+		{
+			UE_LOG(
+				LogFTSecurity,
+				Log,
+				TEXT("Grab transfer completed immediately: already at destination. Security=%s Target=%s Destination=%s Distance=%.1f AcceptanceRadius=%.1f"),
+				*GetNameSafe(Avatar),
+				*GetNameSafe(CapturedTarget.Get()),
+				*GetNameSafe(Destination),
+				FVector::Dist(Avatar->GetActorLocation(), Destination->GetActorLocation()),
+				Destination->AcceptanceRadius);
+			FinishGrab(/*bEscaped=*/false);
+		}
+		else
+		{
+			UE_LOG(
+				LogFTNPC,
+				Warning,
+				TEXT("UFTGA_Grab: 이송 MoveToActor 실패 — %.1f초 폴백 타이머로 실패 처리. Security=%s Target=%s Destination=%s"),
+				FallbackCaptureSeconds,
+				*GetNameSafe(Avatar),
+				*GetNameSafe(CapturedTarget.Get()),
+				*GetNameSafe(Destination));
+			if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimer(FallbackTimerHandle, this, &UFTGA_Grab::OnFallbackTimeout, FallbackCaptureSeconds, false);
+			}
+		}
 	}
 	else
 	{
@@ -173,6 +574,21 @@ void UFTGA_Grab::OnTargetEscaped()
 
 void UFTGA_Grab::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
 {
+	if (!bWaitingForCaptureTransferMove || RequestID != CaptureTransferMoveRequestID)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Verbose,
+			TEXT("Grab transfer ignored unrelated MoveCompleted. Expected=%u Received=%u Result=%d"),
+			CaptureTransferMoveRequestID.GetID(),
+			RequestID.GetID(),
+			static_cast<int32>(Result));
+		return;
+	}
+
+	bWaitingForCaptureTransferMove = false;
+	CaptureTransferMoveRequestID = FAIRequestID::InvalidRequest;
+
 	// 목적지 도달(성공적 완료)만 실패 판정. 중단/무효는 무시(다른 이동 요청과 섞이는 것 방지).
 	if (Result == EPathFollowingResult::Success)
 	{
@@ -312,25 +728,19 @@ USceneComponent* UFTGA_Grab::ResolveCaptureAttachPoint(AFTSecurityCharacter* Sec
 	return Security->GetCapturePointComponent();
 }
 
-void UFTGA_Grab::PlayGrabAnimation() const
+float UFTGA_Grab::PlayGrabMontage() const
 {
-	if (!GrabAnimation)
-	{
-		return;
-	}
-
 	UAnimInstance* AnimInstance = CurrentActorInfo ? CurrentActorInfo->GetAnimInstance() : nullptr;
-	if (!AnimInstance)
+	if (!AnimInstance || !GrabMontage)
 	{
-		return;
+		return 0.0f;
 	}
 
-	AnimInstance->PlaySlotAnimationAsDynamicMontage(
-		GrabAnimation,
-		GrabAnimationSlotName,
-		0.1f,
-		0.1f,
-		GrabAnimationPlayRate);
+	const float SafePlayRate = FMath::Max(GrabMontagePlayRate, KINDA_SMALL_NUMBER);
+	const float PlayedDuration = AnimInstance->Montage_Play(GrabMontage, SafePlayRate);
+	return PlayedDuration > 0.0f
+		? PlayedDuration
+		: GrabMontage->GetPlayLength() / SafePlayRate;
 }
 
 void UFTGA_Grab::FinishGrab(bool bEscaped)
@@ -387,6 +797,7 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 
 	if (UWorld* World = GetWorld())
 	{
+		World->GetTimerManager().ClearTimer(GrabAttemptTimeoutTimerHandle);
 		World->GetTimerManager().ClearTimer(FallbackTimerHandle);
 		World->GetTimerManager().ClearTimer(CaptureDamageTimerHandle);
 	}
@@ -413,12 +824,61 @@ void UFTGA_Grab::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGame
 		Comp->EndCapture();
 	}
 
+	RestoreGrabMovementTuning();
+	DestroyGrabCaptureSphere();
+
 	CapturedTarget = nullptr;
 	TargetEscapeComp = nullptr;
 	TargetASC = nullptr;
 	CachedAIController = nullptr;
+	PendingTarget = nullptr;
+	PendingEscapeComp = nullptr;
+	PendingSecurity = nullptr;
+	PendingAttachPoint = nullptr;
+	PendingAttachSocketName = NAME_None;
+	CaptureTransferMoveRequestID = FAIRequestID::InvalidRequest;
+	bWaitingForCaptureTransferMove = false;
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void UFTGA_Grab::ResetGrabAttemptState()
+{
+	RestoreGrabMovementTuning();
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(GrabAttemptTimeoutTimerHandle);
+		World->GetTimerManager().ClearTimer(FallbackTimerHandle);
+		World->GetTimerManager().ClearTimer(CaptureDamageTimerHandle);
+	}
+
+	bResolved = false;
+	bBoundMoveCompleted = false;
+	bWaitingForCaptureTransferMove = false;
+	bGrabCaptureWindowOpen = false;
+	bGrabCaptureConfirmed = false;
+	bCapturedMessageBroadcast = false;
+	bEscapedMessageBroadcast = false;
+
+	PendingTarget = nullptr;
+	PendingEscapeComp = nullptr;
+	PendingSecurity = nullptr;
+	PendingAttachPoint = nullptr;
+	PendingAttachSocketName = NAME_None;
+
+	CapturedTarget = nullptr;
+	TargetEscapeComp = nullptr;
+	TargetASC = nullptr;
+	CachedAIController = nullptr;
+	DestroyGrabCaptureSphere();
+	LastCaptureDamageTickTime = 0.0f;
+	CaptureTransferMoveRequestID = FAIRequestID::InvalidRequest;
+	TunedMovementComponent = nullptr;
+	SavedMaxWalkSpeed = 0.0f;
+	SavedRotationRate = FRotator::ZeroRotator;
+	bGrabMovementTuningApplied = false;
+	OwnerImmobilizedTagChangedHandle.Reset();
 }
 
 void UFTGA_Grab::BroadcastCaptureMessage(FGameplayTag Channel) const

@@ -35,6 +35,15 @@ void UFTEscapedRaidWidget::SetRaidResult(EFTRaidResultType NewResultType)
 {
 	ResultType = NewResultType;
 	ApplyResultText();
+
+	if (ResultType == EFTRaidResultType::Escaped)
+	{
+		OnEscapedRaidResult();
+	}
+	else
+	{
+		OnFailedRaidResult();
+	}
 }
 
 void UFTEscapedRaidWidget::RequestReturnToBase()

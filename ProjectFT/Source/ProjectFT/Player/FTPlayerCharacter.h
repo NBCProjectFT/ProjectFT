@@ -98,7 +98,7 @@ public:
 	EFTWeaponStanceType GetHeldWeaponStance() const;
 
 	// 채널형 상호작용(LootShelf 게이지 채우기 등)을 진행 중이면 true. AnimBP 모션 전환 분기용.
-	// (한 번 누르면 유지되는 토글 — 이동/재입력/범위 이탈로 끊길 때 false. 진행도/대상은 InteractionComponent에서 폴링.)
+	// (한 번 누르면 유지되는 토글 — 이동/재입력/아이템 사용/행동불능/범위 이탈로 끊길 때 false. 진행도/대상은 InteractionComponent에서 폴링.)
 	UFUNCTION(BlueprintPure, Category = "FT|Interaction")
 	bool IsChannelingInteraction() const;
 
@@ -254,6 +254,10 @@ private:
 
 	// 플레이어 사망 후처리(베이스 HandleDeath가 태그/능력취소/이동정지를 끝낸 뒤 호출). 입력 차단까지 담당한다.
 	virtual void OnDeath() override;
+
+	// 행동불능 시작/해제 시 확장 훅. 플레이어는 여기서 진행 중이던 채널형 상호작용을 끊는다
+	// (베이스의 어빌리티 취소·이동 봉쇄로는 채널에 닿지 않기 때문 — 구현부 주석 참조).
+	virtual void OnImmobilizedStateChanged(bool bImmobilized) override;
 
 	UFTInventoryComponent* GetInventoryComponent() const;
 

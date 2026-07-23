@@ -87,9 +87,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Escape")
 	TSoftClassPtr<UFTEscapedRaidWidget> EscapedRaidWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Fail")
-	TSoftClassPtr<UFTFailWidget> FailWidgetClass;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FT|UI|Damage")
 	TSoftClassPtr<UUserWidget> DamageTextWidgetClass;
 

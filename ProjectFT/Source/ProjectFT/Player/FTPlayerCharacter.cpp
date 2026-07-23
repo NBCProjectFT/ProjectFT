@@ -325,7 +325,8 @@ void AFTPlayerCharacter::HandleInteractPressed()
 void AFTPlayerCharacter::HandleInteractReleased()
 {
 	// 채널형 상호작용은 토글이라 키를 떼는 것으로는 끊기지 않는다(꾹 누르기 불필요).
-	// 중단은 이동(HandleMoveInput) · 재입력(TryInteract) · 범위 이탈(UFTInteractionComponent::TickComponent)이 담당한다.
+	// 중단은 이동(HandleMoveInput) · 재입력(TryInteract) · 범위 이탈(UFTInteractionComponent::TickComponent) ·
+	// 아이템 사용(UseInventoryItem) · 행동불능(OnImmobilizedStateChanged) · 붙잡힘(UFTCaptureEscapeComponent)이 담당한다.
 }
 
 void AFTPlayerCharacter::HandleSkillCheckPressed()
@@ -842,6 +843,25 @@ void AFTPlayerCharacter::OnDeath()
 	// 게임오버/리스폰/레벨 전환은 GameFlow 연동으로 — 이번 스코프 밖.
 }
 
+void AFTPlayerCharacter::OnImmobilizedStateChanged(bool bImmobilized)
+{
+	Super::OnImmobilizedStateChanged(bImmobilized);
+
+	// 행동불능(스턴/비눗방울/빙결 등)이 되면 진행 중이던 채널형 상호작용을 끊는다.
+	// 베이스가 이미 아이템 어빌리티 취소 + 이동 봉쇄를 했지만 둘 다 채널에는 닿지 않는다 — 채널은 어빌리티가 아니라
+	// '대상 액터'의 컴포넌트 틱으로 도는 데다, 이동 입력이 막히면 채널을 끊던 HandleMoveInput 경로마저 사라져서
+	// 오히려 봉쇄가 채널을 영구히 붙잡아 둔다(비눗방울에 갇힌 채 진열대 게이지가 계속 차오르던 문제).
+	//
+	// 붙잡힘(UFTCaptureEscapeComponent::TryBeginCapture)은 Immobilized 태그를 붙이기 '전에' 이미 StopInteract를
+	// 부르므로 여기선 멱등 no-op이 된다 — 그쪽의 bUseControllerRotationYaw 스냅샷 순서를 건드리지 않는다.
+	//
+	// 해제 시엔 할 일이 없다. 진행도는 StopChannel이 보존하므로 플레이어가 다시 눌러 이어서 작업한다.
+	if (bImmobilized && InteractionComponent)
+	{
+		InteractionComponent->StopInteract();
+	}
+}
+
 UFTInventoryComponent* AFTPlayerCharacter::GetInventoryComponent() const
 {
 	return FindComponentByClass<UFTInventoryComponent>();
@@ -1015,6 +1035,17 @@ void AFTPlayerCharacter::UseInventoryItem(const FFTInventoryItem& InventoryItem)
 		&& AbilitySystemComponent->HasMatchingGameplayTag(UFTGA_ItemAbility::ResolveCooldownTag(UseData)))
 	{
 		return;
+	}
+
+	// 여기까지 왔다면 사용이 확정됐다(아이템·어빌리티·쿨다운 검사를 모두 통과). 채널형 상호작용은 이동과 같은 규칙으로
+	// 아이템 사용에도 끊는다 — 진행도는 StopChannel이 보존하므로 다시 눌러 이어서 작업할 수 있다.
+	// 발동 직전에 두는 이유가 둘 있다. (1) 아이템이 없거나 쿨다운이라 아무 일도 안 일어나는 입력은 채널을 건드리면 안 된다.
+	// (2) 이벤트 전에 끊어야 HandleActiveChannelChanged가 bUseControllerRotationYaw를 되돌린 뒤 조준형(투척)이 활성된다
+	// (반대 순서면 몸 회전이 잠긴 채로 조준이 시작된다).
+	// 좌클릭 사용과 퀵슬롯 즉발 사용(회복약)이 모두 이 함수를 지나므로 여기 한 곳이면 둘 다 덮인다.
+	if (InteractionComponent)
+	{
+		InteractionComponent->StopInteract();
 	}
 
 	// 효과/시전/쿨다운/수치는 아이템 데이터(UseData)에 있고, 어빌리티가 페이로드에서 읽어 처리한다.

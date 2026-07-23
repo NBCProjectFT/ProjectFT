@@ -5,6 +5,10 @@
 #include "FTMainMenuWidget.generated.h"
 
 class UButton;
+class USlider;
+class USoundClass;
+class USoundMix;
+class UTextBlock;
 class UUserWidget;
 class UWidget;
 class UWidgetSwitcher;
@@ -95,6 +99,9 @@ protected:
 	UFUNCTION()
 	void HandleNewGameCancelButtonClicked();
 
+	UFUNCTION()
+	void HandleMasterVolumeChanged(float Value);
+
 private:
 	bool BindButton(FName WrapperWidgetName, FName HandlerName, bool bRequired = false);
 	UButton* ResolveWrappedButton(FName WrapperWidgetName) const;
@@ -104,6 +111,7 @@ private:
 	void ActivatePanel(UWidget* PanelToShow);
 	void ActivateMainActionPanel();
 	void ActivateMainActionSwitcherPanel(UWidget* PanelToShow);
+	UWidgetSwitcher* GetMainActionSwitcher() const;
 	void HideQuitConfirm();
 	void HideNewGameConfirm();
 	void HideAllConfirmPanels();
@@ -112,6 +120,19 @@ private:
 	bool HasSaveData() const;
 	void RequestStartGame();
 	void QuitGame();
+	void UpdateMasterVolumeText(float Volume) const;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional), Category = "FT|MainMenu|Audio")
+	TObjectPtr<USlider> SLD_MasterVolume = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true", BindWidgetOptional), Category = "FT|MainMenu|Audio")
+	TObjectPtr<UTextBlock> TXT_MasterVolumeValue = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "FT|MainMenu|Audio")
+	TObjectPtr<USoundMix> MasterSoundMix = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "FT|MainMenu|Audio")
+	TObjectPtr<USoundClass> MasterSoundClass = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWidgetSwitcher> CachedMainMenuSwitcher = nullptr;
@@ -124,6 +145,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWidgetSwitcher> CachedMainActionSwitcher = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UWidgetSwitcher> CachedLegacyMainActionSwitcher = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWidget> CachedMainActionPanel = nullptr;
