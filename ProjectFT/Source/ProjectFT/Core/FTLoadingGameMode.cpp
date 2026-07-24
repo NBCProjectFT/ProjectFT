@@ -61,6 +61,18 @@ void AFTLoadingGameMode::CreateLoadingWidget()
 	LoadingWidget->SetPercent(0.0f);
 	LoadingWidget->SetObjectName(TEXT("Game Data"), 0, 1);
 
+	ApplyLoadingInputMode();
+
+	UE_LOG(LogFTUI, Log, TEXT("Loading widget created: %s"), *GetNameSafe(LoadingWidget));
+}
+
+void AFTLoadingGameMode::ApplyLoadingInputMode()
+{
+	if (!LoadingWidget)
+	{
+		return;
+	}
+
 	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
 	{
 		FInputModeUIOnly InputMode;
@@ -68,9 +80,18 @@ void AFTLoadingGameMode::CreateLoadingWidget()
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		PlayerController->SetInputMode(InputMode);
 		PlayerController->bShowMouseCursor = true;
+		UE_LOG(LogFTUI, Log, TEXT("Loading input mode applied. PlayerController=%s"), *GetNameSafe(PlayerController));
 	}
+}
 
-	UE_LOG(LogFTUI, Log, TEXT("Loading widget created: %s"), *GetNameSafe(LoadingWidget));
+void AFTLoadingGameMode::RestoreGameInputMode()
+{
+	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
+	{
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->bShowMouseCursor = false;
+		UE_LOG(LogFTUI, Log, TEXT("Loading input mode restored before level travel. PlayerController=%s"), *GetNameSafe(PlayerController));
+	}
 }
 
 void AFTLoadingGameMode::HandleLoadProgress(const FString& AssetName, int32 CompletedCount, int32 TotalCount)
@@ -92,6 +113,7 @@ void AFTLoadingGameMode::HandlePreloadCompleted()
 	if (LoadingWidget)
 	{
 		LoadingWidget->ReadyToStart();
+		ApplyLoadingInputMode();
 		if (LoadingWidget->BindOnButtonClicked([this]()
 		{
 			NotifyLoadingConfirmed();
@@ -106,6 +128,8 @@ void AFTLoadingGameMode::HandlePreloadCompleted()
 
 void AFTLoadingGameMode::NotifyLoadingConfirmed()
 {
+	RestoreGameInputMode();
+
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UFTGameFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UFTGameFlowSubsystem>())

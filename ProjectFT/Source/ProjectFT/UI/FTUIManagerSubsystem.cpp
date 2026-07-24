@@ -709,6 +709,12 @@ void UFTUIManagerSubsystem::ShowRaidSelect(AFTHubRaidEntrance* RaidEntrance, UFT
 	}
 	if (IsHubModalOpen())
 	{
+		UE_LOG(LogFTUI, Warning,
+			TEXT("Raid select widget was not opened because another hub modal is open. Craft=%s Storage=%s RaidSelect=%s HubMain=%s"),
+			(HubCraftWidget && HubCraftWidget->IsInViewport()) ? TEXT("true") : TEXT("false"),
+			(HubStorageWidget && HubStorageWidget->IsInViewport()) ? TEXT("true") : TEXT("false"),
+			(RaidSelectWidget && RaidSelectWidget->IsInViewport()) ? TEXT("true") : TEXT("false"),
+			(HubMainWidget && HubMainWidget->IsInViewport()) ? TEXT("true") : TEXT("false"));
 		return;
 	}
 
@@ -837,6 +843,7 @@ void UFTUIManagerSubsystem::ShowHubMain(
 	}
 
 	HubMainWidget->InitializeHubMain(HubTerminal, ShopSubsystem, PlayerInventory, HubStorage);
+	ActiveHubMainTerminal = HubTerminal;
 
 	if (!HubMainWidget->UsesBlueprintTerminalPresentation())
 	{
@@ -888,11 +895,25 @@ void UFTUIManagerSubsystem::ShowHubMain(
 
 void UFTUIManagerSubsystem::HideHubMain()
 {
+	if (AFTHubTerminal* HubTerminal = ActiveHubMainTerminal.Get())
+	{
+		ActiveHubMainTerminal = nullptr;
+		HubTerminal->CloseHubWidget();
+		return;
+	}
+
+	HideHubMainWidgetOnly();
+}
+
+void UFTUIManagerSubsystem::HideHubMainWidgetOnly()
+{
 	if (HubMainWidget && HubMainWidget->IsInViewport())
 	{
 		HubMainWidget->NotifyHubUIClosed();
 		HubMainWidget->RemoveFromParent();
 	}
+
+	ActiveHubMainTerminal = nullptr;
 
 	if (APlayerController* PlayerController = GetPrimaryPlayerController())
 	{

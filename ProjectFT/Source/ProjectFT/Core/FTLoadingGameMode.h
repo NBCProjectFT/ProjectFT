@@ -19,6 +19,8 @@ public:
 
 private:
 	void CreateLoadingWidget();
+	void ApplyLoadingInputMode();
+	void RestoreGameInputMode();
 	void HandleLoadProgress(const FString& AssetName, int32 CompletedCount, int32 TotalCount);
 	void HandlePreloadCompleted();
 	void NotifyLoadingConfirmed();
