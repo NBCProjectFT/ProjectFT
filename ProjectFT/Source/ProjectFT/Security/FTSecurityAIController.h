@@ -234,6 +234,22 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	float LastCaptureAttemptTime = -BIG_NUMBER;
 
+	/** Grab 몽타주가 재생되는 동안 TargetActor를 향한 이동을 유지할지 여부다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture", meta = (AllowPrivateAccess = "true"))
+	bool bMaintainMoveDuringGrabAttempt = true;
+
+	/** Grab 중 TargetActor에게 이동할 때의 도착 허용 거리다. Socket_Capture 판정 반경보다 약간 작게 두면 좋다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float GrabAttemptMoveAcceptanceRadius = 70.0f;
+
+	/** Grab 중 MoveToActor 재요청 최소 간격이다. 너무 짧으면 PathFollowing 갱신이 잦아질 수 있다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float GrabAttemptMoveRefreshInterval = 0.15f;
+
+	/** 마지막 Grab 중 접근 MoveToActor를 요청한 월드 시간이다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
+	float LastGrabAttemptMoveRequestTime = -BIG_NUMBER;
+
 	/** 보안요원의 ASC가 실제 Stun 태그를 보유하고 있는지 나타낸다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FT|Security|Capture")
 	bool bIsStunned = false;
@@ -294,6 +310,7 @@ private:
 	void OnChaseEnded(FGameplayTag Channel, const FFTSecurityChaseGaugePayloadStruct& Payload);
 	void OnSecurityDeployed(FGameplayTag Channel, const FFTSecurityResponsePayloadStruct& Payload);
 	void TryStartImmediateCaptureAttempt();
+	void UpdateGrabAttemptMovement();
 	void ApplySecuritySightConfig();
 	void UpdateTargetState();
 	void UpdateTargetFocus();
