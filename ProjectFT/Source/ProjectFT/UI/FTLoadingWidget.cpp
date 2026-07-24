@@ -9,6 +9,8 @@
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Components/Widget.h"
+#include "Input/Reply.h"
+#include "InputCoreTypes.h"
 
 void UFTLoadingWidget::NativeOnInitialized()
 {
@@ -41,6 +43,17 @@ void UFTLoadingWidget::NativeOnInitialized()
 void UFTLoadingWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+}
+
+FReply UFTLoadingWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	if (bReadyToStart && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		HandleButtonClicked();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
 
 void UFTLoadingWidget::SetPercent(float Percent) const

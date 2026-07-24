@@ -7,7 +7,9 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Components/MeshComponent.h"
+#if ENABLE_DRAW_DEBUG
 #include "KismetTraceUtils.h"
+#endif
 #include "ProjectFT/AbilitySystem/FTAbilityTags.h"
 #include "ProjectFT/Components/FTCrosshairComponent.h"
 #include "ProjectFT/Core/FTLogChannels.h"
@@ -199,6 +201,7 @@ void UFTGA_HitScanAction::PerformHitScan()
 		Params
 	);
 
+#if ENABLE_DRAW_DEBUG
 	if (HitScanData->bDrawDebug)
 	{
 		// UE의 Blueprint LineTraceByChannel 디버그와 같은 유틸을 사용한다.
@@ -215,6 +218,7 @@ void UFTGA_HitScanAction::PerformHitScan()
 			FLinearColor::Green,
 			5.0f);
 	}
+#endif
 
 	if (!bWeaponHit || !WeaponHit.GetActor())
 	{

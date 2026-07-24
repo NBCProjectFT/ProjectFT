@@ -53,6 +53,7 @@ class PROJECTFT_API UFTLoadingWidget : public UUserWidget
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 public:
 	void SetPercent(float Percent) const;

@@ -156,6 +156,7 @@ private:
 	void RefreshMainHUDVisibility() const;
 	void HandleObjectiveProgressChanged(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
 	void HandleObjectiveCompleted(FGameplayTag Channel, const FFTMessagePayloadStruct& Payload);
+	void HideHubMainWidgetOnly();
 
 private:
 	UPROPERTY(Transient)
@@ -178,6 +179,9 @@ private:
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubMainWidget> HubMainWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AFTHubTerminal> ActiveHubMainTerminal = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFTHubStorageViewModel> HubStorageViewModel = nullptr;
