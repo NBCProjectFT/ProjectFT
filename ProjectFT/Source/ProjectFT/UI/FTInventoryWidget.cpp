@@ -36,6 +36,13 @@ void UFTInventoryWidget::NativeConstruct()
 
 void UFTInventoryWidget::NativeDestruct()
 {
+	if (ViewModel)
+	{
+		ViewModel->OnViewModelChanged.RemoveDynamic(this, &ThisClass::HandleViewModelChanged);
+	}
+
+	bHasConstructed = false;
+
 	if (CloseSound)
 	{
 		UGameplayStatics::PlaySound2D(this, CloseSound);

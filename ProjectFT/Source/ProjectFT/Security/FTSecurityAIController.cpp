@@ -115,6 +115,7 @@ void AFTSecurityAIController::Tick(float DeltaTime)
 
 	UpdateAbilityState();
 	UpdateTargetState();
+	UpdateGrabAttemptMovement();
 	UpdateReturnTargetMemory();
 	UpdateTargetFocus();
 	UpdateSecurityCallGauge(DeltaTime);
@@ -630,6 +631,55 @@ void AFTSecurityAIController::UpdateTargetState()
 	UpdateChaseGaugeTargetSeenState();
 	bCanStartCaptureAttempt = CanStartCaptureAttempt();
 	//TryStartImmediateCaptureAttempt();
+}
+
+void AFTSecurityAIController::UpdateGrabAttemptMovement()
+{
+	if (!bMaintainMoveDuringGrabAttempt
+		|| !bIsGrabbing
+		|| bTargetCaptured
+		|| bIsStunned
+		|| !TargetActor
+		|| !GetPawn())
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const float CurrentTime = World->GetTimeSeconds();
+	if (CurrentTime - LastGrabAttemptMoveRequestTime < GrabAttemptMoveRefreshInterval)
+	{
+		return;
+	}
+
+	LastGrabAttemptMoveRequestTime = CurrentTime;
+	SetFocus(TargetActor, EAIFocusPriority::Gameplay);
+
+	const EPathFollowingRequestResult::Type MoveResult = MoveToActor(
+		TargetActor,
+		GrabAttemptMoveAcceptanceRadius,
+		true,
+		true,
+		true,
+		nullptr,
+		true);
+
+	if (bLogSecurityEventDebug)
+	{
+		UE_LOG(
+			LogFTSecurity,
+			Verbose,
+			TEXT("Security AI: Maintain grab attempt movement. Target=%s Distance=%.1f Acceptance=%.1f Result=%d"),
+			*GetNameSafe(TargetActor),
+			TargetDistance,
+			GrabAttemptMoveAcceptanceRadius,
+			static_cast<int32>(MoveResult));
+	}
 }
 
 void AFTSecurityAIController::UpdateTargetFocus()

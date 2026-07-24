@@ -7,6 +7,7 @@
 #include "FTPauseMenuWidget.generated.h"
 
 class UButton;
+class UFTPauseMenuViewModel;
 class UPanelWidget;
 class USlider;
 class USoundClass;
@@ -100,12 +101,14 @@ private:
 	void ShowConfirm(EFTPauseMenuConfirmType ConfirmType, const FText& Message);
 	void HideConfirm();
 	void SetModalLayerVisible(bool bVisible);
-	bool IsCurrentFlowStateBase() const;
 	void UpdateReturnToBaseButtonVisibility();
-	void BroadcastFlowRequest(const FGameplayTag& RequestTag);
+	UFTPauseMenuViewModel* GetPauseMenuViewModel();
 
 	UFUNCTION()
 	void HandleMasterVolumeChanged(float Value);
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFTPauseMenuViewModel> PauseMenuViewModel = nullptr;
 
 	EFTPauseMenuConfirmType PendingConfirmType = EFTPauseMenuConfirmType::None;
 };
